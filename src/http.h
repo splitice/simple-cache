@@ -2,14 +2,22 @@
 /*
 Parse Request line
 Format: $METHOD $PATH HTTP/$VERSION
-Used By: GET, PUT
+Used By: ALL
+
+INVALID: register for write, proceed to STATE_RESPONSEWRITEONLY
+OTHER: proceed to STATE_REQUESTSTARTURL
+*/
+#define STATE_REQUESTSTARTMETHOD 0x1
+
+/*
+Extract the URL
+Used By: GET, PUT, DELETE
 
 GET: proceed to STATE_REQUESTENDSEARCH
 PUT: proceed to STATE_REQUESTHEADERS
 DELETE: proceed to STATE_REQUESTENDSEARCH
-INVALID: register for write, proceed to STATE_RESPONSEWRITEONLY
 */
-#define STATE_REQUESTSTART 0x1
+#define STATE_REQUESTSTARTURL 0x2
 
 /*
 Extract needed information from headers
@@ -18,7 +26,7 @@ Used By: GET,PUT
 
 PUT: proceed to STATE_REQUESTEND
 */
-#define STATE_REQUESTHEADERS 0x2
+#define STATE_REQUESTHEADERS 0x3
 
 /*
 Handle the end of a request.
@@ -27,7 +35,7 @@ Used By: GET,PUT
 
 PUT: proceed to STATE_REQUESTBODY
 */
-#define STATE_REQUESTEND 0x3
+#define STATE_REQUESTEND 0x4
 
 /*
 Search for the end of the request, skipping over any other headers
@@ -37,7 +45,7 @@ Used By: DELETE
 GET: register for write, proceed to STATE_RESPONSEWRITEONLY
 DELETE: register for write, proceed to STATE_RESPONSEWRITEONLY
 */
-#define STATE_REQUESTENDSEARCH 0x4
+#define STATE_REQUESTENDSEARCH 0x5
 
 /*
 Handle the request body content (uploaded data)
@@ -46,7 +54,7 @@ Used By: PUT
 
 PUT: register for write, proceed to STATE_RESPONSEWRITEONLY
 */
-#define STATE_REQUESTBODY 0x5
+#define STATE_REQUESTBODY 0x6
 
 /* ===[ WRITE ]=== */
 /*

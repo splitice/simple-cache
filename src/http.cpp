@@ -4,6 +4,14 @@
 #include "config.h"
 #include "debug.h"
 #include "connection.h"
+#include "db.h"
+
+
+#define DBL_LB_UINT32 *(const uint32_t*)(char[4]){'\r','\n','\r','\n'}//Windows
+#define DBL_LB_UINT16 *(const uint16_t*)(char[2]){'\n','\n'}//Unix
+
+
+char misc_buffer[4096];
 
 /*
 Handle read data for the connection
@@ -17,7 +25,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 	char* end;
 
 	switch (connection->state){
-	case STATE_REQUESTSTART:
+	case STATE_REQUESTSTARTMETHOD:
 		DEBUG("[#%d] Handling STATE_REQUESTSTART\n", fd);
 		start = buffer = connection->input_buffer + connection->input_read_position;
 		end = connection->input_buffer + connection->input_buffer_write_position;
@@ -27,13 +35,13 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				DEBUG("[#%d] Found first space seperator, len: %d\n", fd, method_len);
 				if (method_len == 3 && strncmp(start, "GET", 3) == 0){
 					connection->type = REQMETHOD_GET;
-					connection->state = STATE_REQUESTENDSEARCH;
+					connection->state = STATE_REQUESTSTARTURL;
 					connection->input_read_position += 4;
 					return true;
 				}
 				else if (method_len == 3 && strncmp(start, "PUT", 3) == 0){
 					connection->type = REQMETHOD_PUT;
-					connection->state = STATE_REQUESTHEADERS;
+					connection->state = STATE_REQUESTSTARTURL;
 					connection->input_read_position += 4;
 					return true;
 				}
@@ -48,6 +56,54 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 			buffer++;
 		}
 		break;
+
+	case STATE_REQUESTSTARTURL:
+		DEBUG("[#%d] Handling STATE_REQUESTSTARTURL\n", fd);
+		start = buffer = (char*)(connection->input_buffer + connection->input_read_position);
+		end = (char*)(connection->input_buffer + connection->input_buffer_write_position);
+
+		while (buffer < end){
+			if (*buffer == ' '){
+				int length = buffer - start - 1;
+				*buffer = 0;//Null terminate the key
+				DEBUG("[#%d] Request key: \"%s\"\n", fd, start);
+				cache_entry* entry;
+				if (connection->type == REQMETHOD_GET){
+					entry = get_entry_read(start, length);
+					connection->state = STATE_REQUESTENDSEARCH;
+				}
+				else{
+					entry = get_entry_write(start, length);
+					connection->state = STATE_REQUESTHEADERS;
+				}
+
+				connection->target.entry = entry;
+				if (entry != NULL){
+					if (IS_SINGLE_FILE(entry)){
+						connection->target.fd = open_cache_entry(entry);
+						connection->target.end_position = entry->data_length;
+					}
+					else{
+						connection->target.fd = db.fd_blockfile;
+						connection->target.position = entry->block * BLOCK_LENGTH;
+						connection->target.end_position = connection->target.position + entry->data_length;
+					}
+					entry->refs++;
+
+					connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200];
+					connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200];
+				}
+				else{
+					connection->output_buffer = http_templates[HTTPTEMPLATE_FULL404];
+					connection->output_length = http_templates_length[HTTPTEMPLATE_FULL404];
+				}
+				connection->input_read_position += length;
+				return 1;
+			}
+			buffer++;
+		}
+		break;
+
 	case STATE_REQUESTHEADERS:
 		DEBUG("[#%d] Handling STATE_REQUESTHEADERS\n", fd);
 		start = buffer = connection->input_buffer + connection->input_read_position;
@@ -121,6 +177,18 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 	case STATE_REQUESTENDSEARCH:
 		break;
 	case STATE_REQUESTBODY:
+		cache_target* target = &connection->target;
+		int to_write = connection->input_buffer_write_position - connection->input_read_position;
+		int read_bytes = write(target->fd, connection->input_buffer + connection->input_read_position, to_write);
+		connection->input_read_position += read_bytes;
+
+		if (connection->input_read_position == target.entry->data_length){
+			connection->output_buffer = http_templates[HTTPTEMPLATE_FULL200OK];
+			connection->output_length = http_templates_length[HTTPTEMPLATE_FULL200OK];
+			connection->state = STATE_RESPONSEWRITEONLY;
+			connection_register_write(epfd, fd);
+			connection->target.entry->refs--;
+		}
 		break;
 	}
 }
@@ -160,16 +228,47 @@ Handle the writing of data to the connection
 return true to signal intent to send more data
 */
 bool http_write_handle_state(int epfd, cache_connection* connection){
+	int fd = connection->client_sock;
+
 	switch (connection->state){
 	case STATE_RESPONSESTART:
+		//Before using this state, ensure the template is already set
+		//Psudeo state, just proceed onwards - data has been written
+		connection->state = STATE_RESPONSEHEADER_CONTENTLENGTH;
 		break;
 	case STATE_RESPONSEHEADER_CONTENTLENGTH:
+		DEBUG("[#%d] Handling STATE_RESPONSEHEADER_CONTENTLENGTH\n", fd);
+		int chars = snprintf(misc_buffer, 4096, "Content-Length: %d\r\n", connection->target.entry->data_length);
+
+		char* content_length = malloc(chars * sizeof(char));
+		memcpy(content_length, misc_buffer, chars);
+
+		connection->output_buffer = content_length;
+		connection->output_length = chars;
+		connection->output_buffer_free = chars;
 		break;
 	case STATE_RESPONSEEND:
+		DEBUG("[#%d] Handling STATE_RESPONSEEND\n", fd);
+		connection->output_buffer = http_templates[HTTPTEMPLATE_DBLNEWLINE];
+		connection->output_length = http_templates_length[HTTPTEMPLATE_DBLNEWLINE];
+		connection->state = STATE_RESPONSEBODY;
+		connection_register_write(epfd, fd);
 		break;
 	case STATE_RESPONSEBODY:
+		cache_target* target = &connection->target;
+		size_t to_read = target->end_position - target->position;
+		int bytes_sent = sendfile(fd, target->fd, &target->position, to_read);
+		target->position += bytes_sent;
+		if (target->position == target->end_position){
+			connection->target.entry->refs--;
+			connection->state = STATE_REQUESTSTARTMETHOD;
+			connection_register_read(epfd, fd);
+		}
 		break;
 	case STATE_RESPONSEWRITEONLY:
+		//Static response, after witing, read next request
+		connection->state = STATE_REQUESTSTARTMETHOD;
+		connection_register_read(epfd, fd);
 		break;
 	}
 }
@@ -180,7 +279,32 @@ Handle the connection (Write Event)
 return true to close the connection
 */
 bool http_write_handle(int epfd, cache_connection* connection){
+	if (connection->output_buffer != NULL){
+		//Send data
+		int num = write(connection->client_sock, connection->output_buffer, connection->output_length);
+		connection->output_length -= num;
 
+		//Check if done
+		if (connection->output_length == 0){
+			//If done, null output buffer
+			connection->output_buffer = NULL;
+
+			//if need free, free and null
+			if (connection->output_buffer_free){
+				free(connection->output_buffer_free);
+				connection->output_buffer_free = NULL;
+			}
+		}
+	}
+
+	if (connection->output_buffer == NULL){
+		bool run;
+		do {
+			run = http_write_handle_state(epfd, connection);
+		}
+	}
+
+	return false;
 }
 
 
