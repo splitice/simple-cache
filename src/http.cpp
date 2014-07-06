@@ -1,14 +1,27 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <sys/epoll.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <sys/un.h>
+#include <sys/fcntl.h>
+#include <sys/stat.h>
+#include <sys/file.h>
+#include <sys/wait.h>
 #include <assert.h>
+#include <sys/sendfile.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
 #include "scache.h"
 #include "http.h"
 #include "config.h"
 #include "debug.h"
 #include "connection.h"
 #include "db.h"
-
-
-#define DBL_LB_UINT32 *(const uint32_t*)(char[4]){'\r','\n','\r','\n'}//Windows
-#define DBL_LB_UINT16 *(const uint16_t*)(char[2]){'\n','\n'}//Unix
 
 
 char misc_buffer[4096];
@@ -69,11 +82,11 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				DEBUG("[#%d] Request key: \"%s\"\n", fd, start);
 				cache_entry* entry;
 				if (connection->type == REQMETHOD_GET){
-					entry = get_entry_read(start, length);
+					entry = db_entry_get_read(start, length);
 					connection->state = STATE_REQUESTENDSEARCH;
 				}
 				else{
-					entry = get_entry_write(start, length);
+					entry = db_entry_get_write(start, length);
 					connection->state = STATE_REQUESTHEADERS;
 				}
 
@@ -136,12 +149,13 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 					if (content_length == 0){
 						WARN("Invalid Content-Length value provided");
 					}
-					db_write_init(connection->target.entry, content_length);
+					db_entry_write_init(connection->target.entry, content_length);
 				}
 				newlines++;
 				if (newlines == 2){
 					connection->input_read_position = buffer - connection->input_buffer + 1;
-					connection->state = STATE_REQUESTEND;
+					connection->state = STATE_RESPONSESTART;
+					connection_register_write(epfd, fd);
 					return true;
 				}
 				start = buffer + 1;
@@ -153,9 +167,9 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		}
 
 		//Couldnt find the end in this 4kb chunk
-		if (!continue_loop){
-			connection->input_read_position = buffer - connection->input_buffer - 3;
-		}
+		connection->input_read_position = buffer - connection->input_buffer - 3;
+		
+		//TODO: handle request too long
 		/*else{
 			if ((buffer - connection->input_buffer) == connection->input_buffer_write_position){
 				connection->input_read_position = 0;
@@ -172,9 +186,27 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 			}
 		}*/
 		break;
-	case STATE_REQUESTEND:
-		break;
 	case STATE_REQUESTENDSEARCH:
+		int newlines = 0;
+		while (buffer < end){
+			if (*buffer == '\n'){
+				newlines++;
+				if (newlines == 2){
+					connection->input_read_position = buffer - connection->input_buffer + 1;
+					connection->state = STATE_RESPONSESTART;
+					connection_register_write(epfd, fd);
+					return true;
+				}
+			}
+			else if (*buffer != '\r'){
+				newlines = 0;
+			}
+			buffer++;
+		}
+
+		//Couldnt find the end in this 4kb chunk
+		connection->input_read_position = buffer - connection->input_buffer - 3;
+
 		break;
 	case STATE_REQUESTBODY:
 		cache_target* target = &connection->target;
@@ -182,7 +214,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		int read_bytes = write(target->fd, connection->input_buffer + connection->input_read_position, to_write);
 		connection->input_read_position += read_bytes;
 
-		if (connection->input_read_position == target.entry->data_length){
+		if (connection->input_read_position == target->entry->data_length){
 			connection->output_buffer = http_templates[HTTPTEMPLATE_FULL200OK];
 			connection->output_length = http_templates_length[HTTPTEMPLATE_FULL200OK];
 			connection->state = STATE_RESPONSEWRITEONLY;
@@ -217,7 +249,7 @@ bool http_read_handle(int epfd, cache_connection* connection){
 	bool run;
 	do {
 		run = http_read_handle_state(epfd, connection);
-	}
+	} while (run);
 
 	return false;
 }
@@ -282,6 +314,10 @@ bool http_write_handle(int epfd, cache_connection* connection){
 	if (connection->output_buffer != NULL){
 		//Send data
 		int num = write(connection->client_sock, connection->output_buffer, connection->output_length);
+		if (num < 0){
+			//TODO: handle error
+			return true;
+		}
 		connection->output_length -= num;
 
 		//Check if done
@@ -301,7 +337,7 @@ bool http_write_handle(int epfd, cache_connection* connection){
 		bool run;
 		do {
 			run = http_write_handle_state(epfd, connection);
-		}
+		} while (run);
 	}
 
 	return false;

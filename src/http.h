@@ -1,3 +1,5 @@
+#include "scache.h"
+
 /* ===[ READ ]=== */
 /*
 Parse Request line
@@ -24,21 +26,13 @@ Extract needed information from headers
 Format: $HEADER: $VALUE
 Used By: GET,PUT
 
-PUT: proceed to STATE_REQUESTEND
+PUT: register for write, proceed to STATE_RESPONSESTART
 */
 #define STATE_REQUESTHEADERS 0x3
 
 /*
-Handle the end of a request.
-Format: None
-Used By: GET,PUT
-
-PUT: proceed to STATE_REQUESTBODY
-*/
-#define STATE_REQUESTEND 0x4
-
-/*
-Search for the end of the request, skipping over any other headers
+Search for the end of the request, skipping over any other headers.
+Lazy, high performance request skip state
 Format: Search for \r\n\r\n or \n\n
 Used By: DELETE
 
@@ -119,10 +113,10 @@ char http_templates[NUMBER_OF_HTTPTEMPLATE][100] = {
 
 int http_templates_length[NUMBER_OF_HTTPTEMPLATE];
 
-
+/* Parsable headers */
 #define HEADER_CONTENTLENGTH 1
 
 /* Methods */
-bool http_handle_read(cache_connection* connection);
-bool http_handle_write(cache_connection* connection);
+bool http_handle_read(int epfd, cache_connection* connection);
+bool http_handle_write(int epfd, cache_connection* connection);
 void http_templates_init();
