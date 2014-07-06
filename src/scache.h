@@ -2,13 +2,22 @@
 #include <stdint.h>
 
 typedef struct {
-	uint16_t refs;
+	//key
 	uint32_t hash;
 	char* key;
 	uint16_t key_length;
+
+	//data
 	uint32_t data_length;
 	uint16_t block;
+
+	//status
+	uint16_t refs;
 	bool writing : 1;
+
+	//lru
+	cache_entry* lru_next;
+	cache_entry* lru_prev;
 } cache_entry;
 
 typedef struct {

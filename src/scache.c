@@ -20,50 +20,15 @@
 #include "debug.h"
 #include "scache.h"
 #include "hash.h"
+#include "http.h"
 #include "db.h"
 
 #define IS_SINGLE_FILE(x) x->data_length>BLOCK_LENGTH
 #define CONNECTION_HASH_KEY(x) x%CONNECTION_HASH_ENTRIES
 
-#define STATE_READING_REQUEST_METHOD 0
-#define STATE_READING_REQUEST_KEY 1
-#define STATE_READING_REQUEST_HEADERS 2
-#define STATE_PROCESS_RESPONSE 3
-#define STATE_PROCESS_RESPONSE_BAD 7
-#define STATE_PROCESS_CONTENT 4
-#define STATE_PROCESS_ENTRY_CONTENTLENGTH 5
-#define STATE_PROCESS_ENTRY_DBLNEWLINE 6
-
-#define REQTYPE_READ 1
-#define REQTYPE_WRITE 2
-
-#define HEADER_CONTENTLENGTH 1
 
 #define DBL_LB_UINT32 *(const uint32_t*)(char[4]){'\r','\n','\r','\n'}//Windows
 #define DBL_LB_UINT16 *(const uint16_t*)(char[2]){'\n','\n'}//Unix
-
-#define NUMBER_OF_HTTPRESPONSE 5
-#define HTTPRESPONSE_HEADERS200 0
-#define HTTPRESPONSE_FULL404 1
-#define HTTPRESPONSE_FULL200OK 2
-#define HTTPRESPONSE_DBLNEWLINE 3
-#define HTTPRESPONSE_FULLINVALIDMETHOD 4
-
-char http_responses[NUMBER_OF_HTTPRESPONSE][100] = {
-	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\n",
-	"HTTP/1.1 404 File Not Found\r\nnConnection: Keep-Alive\r\nContent-Length: 4\r\n404-\r\n\r\n",
-	"HTTP/1.1 200 OK\r\nnConnection: Keep-Alive\r\nContent-Length: 2\r\nOK\r\n\r\n",
-	"\r\n\r\n",
-	"HTTP/1.1 400 Bad Request\r\nnConnection: Close\r\nContent-Length: 14\r\nInvalid Method\r\n\r\n",
-};
-
-int http_responses_length[NUMBER_OF_HTTPRESPONSE];
-
-void init_http_responses(){
-	for (int i = 0; i < NUMBER_OF_HTTPRESPONSE; i++){
-		http_responses_length[i] = strlen(http_responses[i]);
-	}
-}
 
 //Cache Memory
 cache_entry cache_hash_set[HASH_ENTRIES] = { 0 };
@@ -76,6 +41,7 @@ char filename_buffer[MAX_PATH];
 int listenfd;
 int stop_soon = 0;
 struct epoll_event ev;
+char misc_buffer[4096];
 
 void get_key_path(cache_entry* e, char* out){
 	char folder1 = 'A' + (e->hash % 26);
@@ -352,37 +318,7 @@ static int handle_fd(int fd, int epfd, cache_connection* connection){
 		continue_loop = 0;
 		switch (connection->state){
 		case STATE_READING_REQUEST_METHOD:;
-			DEBUG("[#%d] Handling STATE_READING_REQUEST_METHOD\n", fd);
-			start = buffer = connection->input_buffer + connection->input_read_position;
-			end = connection->input_buffer + connection->input_buffer_write_position;
-			while (buffer < end){
-				if (*buffer == ' '){
-					int method_len = buffer - start;
-					DEBUG("[#%d] Found first space seperator, len: %d\n", fd, method_len);
-					if (method_len == 3 && strncmp(start, "GET", 3) == 0){
-						connection->type = REQTYPE_READ;
-						connection->state = STATE_READING_REQUEST_KEY;
-						connection->input_read_position += 4;
-						continue_loop = 1;
-						break;
-					}
-					else if (method_len == 3 && strncmp(start, "PUT", 3) == 0){
-						connection->type = REQTYPE_WRITE;
-						connection->state = STATE_READING_REQUEST_KEY;
-						connection->input_read_position += 4;
-						continue_loop = 1;
-						break;
-					}
-					else{
-						connection->state = STATE_PROCESS_RESPONSE_BAD;
-						connection->output_buffer = http_responses[HTTPRESPONSE_FULLINVALIDMETHOD];
-						connection->output_length = http_responses_length[HTTPRESPONSE_FULLINVALIDMETHOD];
-						continue_loop = 0;
-						register_handle_write(fd, epfd);
-					}
-				}
-				buffer++;
-			}
+			
 			break;
 
 		case STATE_READING_REQUEST_KEY:;
@@ -433,73 +369,7 @@ static int handle_fd(int fd, int epfd, cache_connection* connection){
 
 
 		case STATE_READING_REQUEST_HEADERS:;
-			DEBUG("[#%d] Handling STATE_READING_REQUEST_HEADERS\n", fd);
-			start = buffer = connection->input_buffer + connection->input_read_position;
-			end = (char*)(connection->input_buffer + connection->input_buffer_write_position);
-			int newlines = 0;
-			int header_type = 0;
-			while (buffer < end){
-				if (*buffer == ':'){
-					if (connection->type == REQTYPE_WRITE){
-						int header_length = buffer - start;
-
-						DEBUG("[#%d] Found header of length %d\n", fd, header_length);
-						if (header_length == 14 && strncmp(start, "Content-Length", 14) == 0){
-							DEBUG("[#%d] Found Content-Length header\n", fd);
-							header_type = HEADER_CONTENTLENGTH;
-						}
-
-						//Skip spaces
-						do {
-							buffer++;
-						} while (buffer < end && *buffer == ' ');
-
-						start = buffer;
-						continue;//Skip normal increment
-					}
-				}
-				else if (*buffer == '\n'){
-					if (header_type == HEADER_CONTENTLENGTH){
-						int content_length = strtol(start,NULL,10);
-						if (content_length == 0){
-							WARN("Invalid Content-Length value provided");
-						}
-						entry_write_init(connection->target.entry, content_length);
-					}
-					newlines++;
-					if (newlines == 2){
-						connection->input_read_position = buffer - connection->input_buffer + 1;
-						continue_loop = 1;
-						connection->state = STATE_PROCESS_RESPONSE;
-						break;
-					}
-					start = buffer + 1;
-				}
-				else if (*buffer != '\r'){
-					newlines = 0;
-				}
-				buffer++;
-			}
-
-			//Couldnt find the end in this 4kb chunk
-			if (!continue_loop){
-				connection->input_read_position = buffer - connection->input_buffer - 3;
-			}
-			else{
-				if ((buffer - connection->input_buffer) == connection->input_buffer_write_position){
-					connection->input_read_position = 0;
-					connection->input_buffer_write_position = 0;
-				}
-				if (connection->type == REQTYPE_READ)
-				{
-					//Dont actually continue loop,
-					//instead register for write
-					DEBUG("[#%d] End of headers, now we can write\n", fd);
-					continue_loop = 0;
-
-					register_handle_write(fd, epfd);
-				}
-			}
+			
 			break;
 
 		case STATE_PROCESS_RESPONSE_BAD:
@@ -569,28 +439,31 @@ static int handle_fd(int fd, int epfd, cache_connection* connection){
 				}
 			}
 			break;
+
+		case STATE_PROCESS_ENTRY_CONTENTLENGTH:
+			DEBUG("[#%d] Handling STATE_PROCESS_ENTRY_CONTENTLENGTH\n", fd);
+			int chars = snprintf(misc_buffer, 4096, "Content-Length: %d\r\n", connection->target.entry->data_length);
+
+			char* content_length = malloc(chars * sizeof(char));
+			memcpy(content_length, misc_buffer, chars);
+
+			connection->output_buffer = content_length;
+			connection->output_length = chars;
+			connection->output_buffer_free = chars;
+
+			break;
+		case STATE_PROCESS_ENTRY_DBLNEWLINE:
+			DEBUG("[#%d] Handling STATE_PROCESS_ENTRY_DBLNEWLINE\n", fd);
+			connection->output_buffer = http_responses[HTTPRESPONSE_DBLNEWLINE];
+			connection->output_length = http_responses_length[HTTPRESPONSE_DBLNEWLINE];
+			connection->state = STATE_PROCESS_CONTENT;
+			register_handle_write(fd, epfd);
+
+			break;
 		}
 	} while (continue_loop);
 
 	return 0;
-}
-
-static int handle_fd_read(int fd, int epfd, cache_connection* connection){
-	int num;
-
-	//Read from socket
-	int to_read = BLOCK_LENGTH - connection->input_buffer_write_position;
-	assert(to_read > 0);
-	num = read(fd, connection->input_buffer + connection->input_buffer_write_position, to_read);
-	
-	if (num <= 0){
-		DEBUG("A socket error occured while reading: %d", num);
-		return 1;
-	}
-
-	connection->input_buffer_write_position += num;
-
-	return handle_fd(fd, epfd, connection);
 }
 
 static void epoll_event_loop(void){
@@ -680,9 +553,10 @@ static void epoll_event_loop(void){
 	close(epfd);
 }
 
+/* Time to go down the rabbit hole */
 int main()
 {
-	init_http_responses();
+	http_templates_init();
 	db_open("/dbtest");
 	open_listener();
 	epoll_event_loop();
