@@ -10,14 +10,73 @@
 #include "hash.h"
 
 /* Globals */
+db.cache_hash_set = { 0 };
+db.free_blocks = NULL;
+
 //Buffers
 char filename_buffer[MAX_PATH];
 
-//Cache Memory
-cache_entry cache_hash_set[HASH_ENTRIES] = { 0 };
-block_free_node* free_blocks = NULL;
-
 /* Methods */
+
+void db_lru_hit(cache_entry* entry){
+	if (entry->lru_prev != NULL){
+		entry->lru_prev->lru_next = entry->lru_next;
+	}
+	else{
+		//Is tail already, no need for further work
+		return;
+	}
+	if (entry->lru_next != NULL){
+		entry->lru_next->lru_prev = entry->lru_prev;
+		entry->lru_next = NULL;
+	}
+	else{
+		//Is head
+		db.lru_head = NULL;
+	}
+
+	//Re-insert @ tail
+	entry->lru_next = db.lru_tail;
+	db.lru_tail = entry;
+}
+
+void db_lru_cleanup(int number_to_remove){
+	while (number_to_remove != 0){
+		assert(db.lru_head != NULL);
+
+		cache_entry* l = db.lru_head;
+		db.lru_head = db.lru_head->next;
+
+		db_entry_delete(l);
+
+		number_to_remove--;
+	}
+}
+
+void db_block_free(int block){
+	block_free_node* old = db.free_blocks;
+	db.free_blocks = malloc(sizeof(block_free_node));
+	db.free_blocks->block_number = block;
+	db.free_blocks->next = old;
+}
+
+int db_block_allocate_new(){
+
+}
+
+int db_block_get_write(){
+	if (db.free_blocks != NULL){
+		int ret;
+		block_free_node* block = db.free_blocks;
+		db.free_blocks = db.free_blocks->next;
+		ret = block->block_number;
+		free(block);
+		return ret;
+	}
+	else{
+		return db_block_allocate_new();
+	}
+}
 
 void db_init_folders(){
 	mkdir(db.path_single, 0777);
@@ -65,6 +124,39 @@ int db_entry_open(cache_entry* e){
 		WARN("Unable to open cache file: %s", filename_buffer);
 	}
 	return fd;
+}
+
+void db_entry_delete(cache_entry* e){
+	if (IS_SINGLE_FILE(e)){
+		get_key_path(e, filename_buffer);
+		unlink(filename_buffer);
+	}
+	else{
+		db_block_free(e->block);
+	}
+
+	//Clear key
+	free(e->key);
+	e->key = NULL;//Important: mark entry as empty
+
+	//Debug only?
+	e->key_length = 0;
+
+	//Re-link next if needed
+	if (e->lru_next != NULL){
+		e->lru_next->lru_prev = e->lru_prev;
+		if (e->lru_prev == NULL){
+			db.lru_tail = e->lru_next;
+		}
+	}
+
+	//Re-link previous if needed
+	if (e->lru_prev != NULL){
+		e->lru_prev->lru_next = e->lru_next;
+		if (e->lru_prev == NULL){
+			db.lru_head = e->lru_prev;
+		}
+	}
 }
 
 uint32_t hash_string(char* str, int length){
@@ -132,6 +224,8 @@ void db_entry_write_init(cache_entry* entry, uint32_t data_length){
 		if (IS_SINGLE_FILE(entry)){
 			//We are going to store in a file, and the entry is currently a file
 			get_key_path(entry, filename_buffer);
+
+			//Shorten or lengthen file to appropriate size
 			truncate(filename_buffer, data_length);
 		}
 		else{
@@ -143,6 +237,8 @@ void db_entry_write_init(cache_entry* entry, uint32_t data_length){
 		if (IS_SINGLE_FILE(entry)){
 			//We are going to store in a block, and the entry is currently a file
 			get_key_path(entry, filename_buffer);
+
+			//Delete single file, its not needed any more
 			unlink(filename_buffer);
 		}
 		//Else: We are going to use a block, and the entry is currently a block

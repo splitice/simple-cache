@@ -368,7 +368,6 @@ bool http_write_handle_state(int epfd, cache_connection* connection){
 		connection->output_buffer = http_templates[HTTPTEMPLATE_DBLNEWLINE];
 		connection->output_length = http_templates_length[HTTPTEMPLATE_DBLNEWLINE];
 		connection->state = STATE_RESPONSEBODY;
-		connection_register_write(epfd, fd);
 		break;
 	case STATE_RESPONSEBODY:;
 		DEBUG("[#%d] Handling STATE_RESPONSEBODY\n", fd);

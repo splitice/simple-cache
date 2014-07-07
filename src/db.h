@@ -5,13 +5,33 @@
 #include "scache.h"
 #include "config.h"
 
+/* Structure representing a free block (linked list node) */
+typedef struct block_free_node {
+	int block_number;
+	struct block_free_node* next;
+} block_free_node;
+
+/* Details regarding a database */
 typedef struct db_details {
+	//Paths
 	char path_root[MAX_PATH];
 	char path_single[MAX_PATH];
 	char path_blockfile[MAX_PATH];
 
 	//Blockfile
 	int fd_blockfile;
+
+	//Entries
+	//TODO: table structure
+	cache_entry cache_hash_set[HASH_ENTRIES];
+
+	//LRU
+	cache_entry* lru_head;
+	cache_entry* lru_tail;
+
+	//block file
+	block_free_node* free_blocks;
+	int blocks_allocated;
 } db_details;
 
 struct db_details db;
@@ -20,6 +40,7 @@ int db_entry_open(cache_entry* e);
 cache_entry* db_entry_get_read(char* key, size_t length);
 cache_entry* db_entry_get_write(char* key, size_t length);
 void db_entry_write_init(cache_entry* entry, uint32_t data_length);
+void db_entry_delete(cache_entry* e);
 
 #define IS_SINGLE_FILE(x) x->data_length>BLOCK_LENGTH
 
