@@ -106,7 +106,7 @@ ALL: reset target, register for read, proceed to STATE_REQUESTSTART
 #define HTTPTEMPLATE_DBLNEWLINE 3
 #define HTTPTEMPLATE_FULLINVALIDMETHOD 4
 
-char http_templates[NUMBER_OF_HTTPTEMPLATE][100];
+extern const char http_templates[NUMBER_OF_HTTPTEMPLATE][100];
 
 int http_templates_length[NUMBER_OF_HTTPTEMPLATE];
 

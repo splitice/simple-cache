@@ -26,7 +26,7 @@
 
 char misc_buffer[4096];
 
-http_templates = {
+const char http_templates[NUMBER_OF_HTTPTEMPLATE][100] = {
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\n",
 	"HTTP/1.1 404 File Not Found\r\nnConnection: Keep-Alive\r\nContent-Length: 4\r\n404-\r\n\r\n",
 	"HTTP/1.1 200 OK\r\nnConnection: Keep-Alive\r\nContent-Length: 2\r\nOK\r\n\r\n",
