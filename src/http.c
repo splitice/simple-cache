@@ -112,6 +112,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 					connection->output_length = http_templates_length[HTTPTEMPLATE_FULL404];
 				}
 				connection->input_read_position += length;
+
 				return 1;
 			}
 			buffer++;
@@ -187,6 +188,10 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		}*/
 		break;
 	case STATE_REQUESTENDSEARCH:;
+		DEBUG("[#%d] Handling STATE_REQUESTENDSEARCH\n", fd);
+		newlines = 0;
+		buffer = connection->input_buffer + connection->input_read_position;
+		end = (char*)(connection->input_buffer + connection->input_buffer_write_position);
 		while (buffer < end){
 			if (*buffer == '\n'){
 				newlines++;
@@ -208,6 +213,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 
 		break;
 	case STATE_REQUESTBODY:;
+		DEBUG("[#%d] Handling STATE_REQUESTBODY\n", fd);
 		cache_target* target = &connection->target;
 		int to_write = connection->input_buffer_write_position - connection->input_read_position;
 		int read_bytes = write(target->fd, connection->input_buffer + connection->input_read_position, to_write);
