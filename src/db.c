@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include "db.h"
 #include "debug.h"
 #include "hash.h"

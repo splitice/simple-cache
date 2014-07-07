@@ -36,6 +36,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 	char* buffer;
 	char* start;
 	char* end;
+	int newlines = 0;
 
 	switch (connection->state){
 	case STATE_REQUESTSTARTMETHOD:;
@@ -121,7 +122,6 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		DEBUG("[#%d] Handling STATE_REQUESTHEADERS\n", fd);
 		start = buffer = connection->input_buffer + connection->input_read_position;
 		end = (char*)(connection->input_buffer + connection->input_buffer_write_position);
-		int newlines = 0;
 		int header_type = 0;
 		while (buffer < end){
 			if (*buffer == ':'){
@@ -187,7 +187,6 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		}*/
 		break;
 	case STATE_REQUESTENDSEARCH:;
-		int newlines = 0;
 		while (buffer < end){
 			if (*buffer == '\n'){
 				newlines++;
@@ -277,7 +276,7 @@ bool http_write_handle_state(int epfd, cache_connection* connection){
 
 		connection->output_buffer = content_length;
 		connection->output_length = chars;
-		connection->output_buffer_free = chars;
+		connection->output_buffer_free = content_length;
 		break;
 	case STATE_RESPONSEEND:;
 		DEBUG("[#%d] Handling STATE_RESPONSEEND\n", fd);

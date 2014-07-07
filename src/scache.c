@@ -20,6 +20,7 @@
 #include "debug.h"
 #include "scache.h"
 #include "hash.h"
+#include "connection.h"
 #include "http.h"
 #include "db.h"
 
