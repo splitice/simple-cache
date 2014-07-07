@@ -118,4 +118,5 @@ void db_entry_write_init(cache_entry* entry, uint32_t data_length){
 		}
 		//Else: We are going to use a block, and the entry is currently a block
 	}
+	entry->data_length = data_length;
 }

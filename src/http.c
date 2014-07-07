@@ -91,6 +91,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 					connection->state = STATE_REQUESTHEADERS;
 				}
 
+				connection->target.position = 0;
 				connection->target.entry = entry;
 				if (entry != NULL){
 					if (IS_SINGLE_FILE(entry)){
@@ -150,13 +151,15 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 					if (content_length == 0){
 						WARN("Invalid Content-Length value provided");
 					}
+					else{
+						DEBUG("Content-Length of %d found", content_length);
+					}
 					db_entry_write_init(connection->target.entry, content_length);
 				}
 				newlines++;
 				if (newlines == 2){
 					connection->input_read_position = buffer - connection->input_buffer + 1;
-					connection->state = STATE_RESPONSESTART;
-					connection_register_write(epfd, fd);
+					connection->state = STATE_REQUESTBODY;
 					return true;
 				}
 				start = buffer + 1;
@@ -221,11 +224,28 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 	case STATE_REQUESTBODY:;
 		DEBUG("[#%d] Handling STATE_REQUESTBODY\n", fd);
 		cache_target* target = &connection->target;
-		int to_write = connection->input_buffer_write_position - connection->input_read_position;
-		int read_bytes = write(target->fd, connection->input_buffer + connection->input_read_position, to_write);
-		connection->input_read_position += read_bytes;
+		int max_write = connection->input_buffer_write_position - connection->input_read_position;
+		int to_write = target->entry->data_length - target->position;
 
-		if (connection->input_read_position == target->entry->data_length){
+		//Limit to the ammount read from socket
+		DEBUG("[#%d] Wanting to write %d bytes (max: %d) to fd %d\n", fd, to_write, max_write, target->fd);
+		if (to_write > max_write){
+			to_write = max_write;
+		}
+
+		assert(to_write >= 0);
+		if (to_write != 0){
+			// Write data
+			int read_bytes = write(target->fd, connection->input_buffer + connection->input_read_position, to_write);
+
+			//Handle the bytes written
+			DEBUG("[#%d] %d bytes to fd %d\n", fd, read_bytes, target->fd);
+			connection->input_read_position += read_bytes;
+			target->position += read_bytes;
+		}
+
+		//Check if done
+		if ((target->entry->data_length - target->position) == 0){
 			connection->output_buffer = http_templates[HTTPTEMPLATE_FULL200OK];
 			connection->output_length = http_templates_length[HTTPTEMPLATE_FULL200OK];
 			connection->state = STATE_RESPONSEWRITEONLY;

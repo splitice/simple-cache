@@ -25,8 +25,8 @@ typedef struct cache_entry {
 
 typedef struct {
 	cache_entry* entry;
-	size_t position;
-	size_t end_position;
+	int position;
+	int end_position;
 	int fd;
 } cache_target;
 

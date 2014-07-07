@@ -29,7 +29,7 @@ Extract needed information from headers
 Format: $HEADER: $VALUE
 Used By: GET,PUT
 
-PUT: register for write, proceed to STATE_RESPONSESTART
+PUT: proceed to STATE_REQUESTBODY
 */
 #define STATE_REQUESTHEADERS 0x3
 
@@ -109,9 +109,9 @@ ALL: reset target, register for read, proceed to STATE_REQUESTSTART
 static const char http_templates[NUMBER_OF_HTTPTEMPLATE][100] = {
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\n",
 	"HTTP/1.1 404 File Not Found\r\nConnection: Keep-Alive\r\nContent-Length: 15\r\n\r\nKey not Found\r\n",
-	"HTTP/1.1 200 OK\r\nnConnection: Keep-Alive\r\nContent-Length: 2\r\nOK\r\n\r\n",
+	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\nContent-Length: 2\r\nOK\r\n\r\n",
 	"\r\n\r\n",
-	"HTTP/1.1 400 Bad Request\r\nnConnection: Close\r\nContent-Length: 14\r\nInvalid Method\r\n\r\n",
+	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 14\r\nInvalid Method\r\n\r\n",
 };
 
 int http_templates_length[NUMBER_OF_HTTPTEMPLATE];
