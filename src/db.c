@@ -20,15 +20,20 @@ block_free_node* free_blocks = NULL;
 /* Methods */
 
 void db_init_folders(){
-	char folder_path[MAX_PATH];
+	mkdir(db.path_single, 0777);
+
 	for (int i1 = 0; i1 < 26; i1++){
 		for (int i2 = 0; i2 < 26; i2++){
 			char folder1 = 'A' + i1;
 			char folder2 = 'A' + i2;
 
-			snprintf(folder_path, MAX_PATH, "%s/files/%c%c", db.path_single, folder1, folder2);
+			snprintf(filename_buffer, MAX_PATH, "%s%c%c", db.path_single, folder1, folder2);
 
-			mkdir(folder_path, 0777);
+			if (access(filename_buffer, F_OK) == -1){
+				DEBUG("[#] Creating directory %s\n", filename_buffer);
+
+				mkdir(filename_buffer, 0777);
+			}
 		}
 	}
 }
@@ -40,10 +45,16 @@ void get_key_path(cache_entry* e, char* out){
 }
 
 bool db_open(const char* path){
+	//Create paths as char*'s
 	snprintf(db.path_root, MAX_PATH, "%s/", path);
 	snprintf(db.path_single, MAX_PATH, "%s/files/", path);
+
+	//Initialize folder structure if it doesnt exist
 	db_init_folders();
+
+	//Block file
 	snprintf(db.path_blockfile, MAX_PATH, "%s/block.db", path);
+	db.fd_blockfile = open(db.path_blockfile, O_CREAT | O_RDWR);
 }
 
 
