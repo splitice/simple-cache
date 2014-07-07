@@ -177,7 +177,7 @@ static void connection_remove(int fd, cache_connection_node* ctable){
 }
 
 
-static void epoll_event_loop(void){
+void epoll_event_loop(){
 	int epfd = epoll_create(MAXCLIENTS);
 
 	struct epoll_event events[5];
