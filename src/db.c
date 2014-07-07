@@ -67,7 +67,25 @@ cache_entry* db_entry_get_read(char* key, size_t length){
 
 	int hash_key = hash % HASH_ENTRIES;
 	cache_entry* entry = &cache_hash_set[hash_key];
+
 	if (entry->key == NULL || entry->key_length != length || strncmp(key, entry->key, length)){
+		DEBUG("[#] Unable to look up key: ");
+
+		if (entry->key == NULL){
+			DEBUG("DB Key is null\n");
+		}
+		else{
+			if (entry->key_length != length){
+				DEBUG("DB Key length does not match\n");
+			}
+			else{
+				if (strncmp(key, entry->key, length)){
+					DEBUG("String Keys dont match\n");
+				}
+			}
+		}
+
+
 		return NULL;
 	}
 
@@ -91,7 +109,7 @@ cache_entry* db_entry_get_write(char* key, size_t length){
 	}
 
 	entry->key = (char*)malloc(sizeof(char)* length);
-	memcpy(key, entry->key, sizeof(char)* length);
+	memcpy(entry->key, key, sizeof(char)* length);
 	entry->key_length = length;
 	entry->hash = hash;
 

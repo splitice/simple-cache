@@ -26,6 +26,26 @@
 
 char misc_buffer[4096];
 
+bool strntol(char *buf, int n, int* output)
+{
+	int result = 0;
+
+	while (n--)
+	{
+		result *= 10;
+		int n = (*buf++) - '0';
+
+		if (n > 9 || n < 0){
+			DEBUG("Expected number got char %c\n", (unsigned char)(*(buf- 1)));
+			return false;
+		}
+		result += n;
+	}
+
+	*output = result;
+	return true;
+}
+
 /*
 Handle read data for the connection
 
@@ -41,8 +61,22 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 	switch (connection->state){
 	case STATE_REQUESTSTARTMETHOD:;
 		DEBUG("[#%d] Handling STATE_REQUESTSTART\n", fd);
-		start = buffer = connection->input_buffer + connection->input_read_position;
+		start = connection->input_buffer + connection->input_read_position;
 		end = connection->input_buffer + connection->input_buffer_write_position;
+
+		//Skip newlines
+		while (start < end){
+			if (*start == '\r' || *start == '\n'){
+				start++;
+				connection->input_read_position++;
+			}
+			else{
+				break;
+			}
+		}
+		buffer = start;
+
+		//Process request line
 		while (buffer < end){
 			if (*buffer == ' '){
 				int method_len = buffer - start;
@@ -63,7 +97,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 					connection->state = STATE_RESPONSEWRITEONLY;
 					connection->output_buffer = http_templates[HTTPTEMPLATE_FULLINVALIDMETHOD];
 					connection->output_length = http_templates_length[HTTPTEMPLATE_FULLINVALIDMETHOD];
-					connection_register_read(epfd, fd);
+					connection_register_write(epfd, fd);
 					return false;
 				}
 			}
@@ -124,6 +158,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		DEBUG("[#%d] Handling STATE_REQUESTHEADERS\n", fd);
 		start = buffer = connection->input_buffer + connection->input_read_position;
 		end = (char*)(connection->input_buffer + connection->input_buffer_write_position);
+		char* last_char;
 		int header_type = 0;
 		while (buffer < end){
 			if (*buffer == ':'){
@@ -147,14 +182,15 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 			}
 			else if (*buffer == '\n'){
 				if (header_type == HEADER_CONTENTLENGTH){
-					int content_length = strtol(start, NULL, 10);
-					if (content_length == 0){
+					int content_length;
+					if (!strntol(start, last_char - start, &content_length)){
 						WARN("Invalid Content-Length value provided");
 					}
 					else{
-						DEBUG("Content-Length of %d found", content_length);
+						DEBUG("[#%d] Content-Length of %d found\n", fd, content_length);
+						db_entry_write_init(connection->target.entry, content_length);
 					}
-					db_entry_write_init(connection->target.entry, content_length);
+					header_type = 0;
 				}
 				newlines++;
 				if (newlines == 2){
@@ -167,6 +203,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 			else if (*buffer != '\r'){
 				newlines = 0;
 			}
+			last_char = buffer;
 			buffer++;
 		}
 
@@ -195,6 +232,8 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		newlines = 0;
 		buffer = connection->input_buffer + connection->input_read_position;
 		end = (char*)(connection->input_buffer + connection->input_buffer_write_position);
+
+		//Search for two newlines (unix or windows)
 		while (buffer < end){
 			if (*buffer == '\n'){
 				newlines++;
@@ -225,7 +264,9 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		DEBUG("[#%d] Handling STATE_REQUESTBODY\n", fd);
 		cache_target* target = &connection->target;
 		int max_write = connection->input_buffer_write_position - connection->input_read_position;
+		assert(max_write >= 0);
 		int to_write = target->entry->data_length - target->position;
+		assert(to_write >= 0);
 
 		//Limit to the ammount read from socket
 		DEBUG("[#%d] Wanting to write %d bytes (max: %d) to fd %d\n", fd, to_write, max_write, target->fd);
@@ -233,7 +274,6 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 			to_write = max_write;
 		}
 
-		assert(to_write >= 0);
 		if (to_write != 0){
 			// Write data
 			int read_bytes = write(target->fd, connection->input_buffer + connection->input_read_position, to_write);
@@ -245,12 +285,20 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		}
 
 		//Check if done
+		assert((target->entry->data_length - target->position) >= 0);
 		if ((target->entry->data_length - target->position) == 0){
 			connection->output_buffer = http_templates[HTTPTEMPLATE_FULL200OK];
 			connection->output_length = http_templates_length[HTTPTEMPLATE_FULL200OK];
 			connection->state = STATE_RESPONSEWRITEONLY;
 			connection_register_write(epfd, fd);
+
+			//Decrease refs, done with writing
+			connection->target.entry->writing = false;
 			connection->target.entry->refs--;
+			
+			//No longer using an entry
+			connection->target.entry = NULL;
+			connection->target.position = 0;
 		}
 		break;
 	}
@@ -301,17 +349,19 @@ bool http_write_handle_state(int epfd, cache_connection* connection){
 		//Before using this state, ensure the template is already set
 		//Psudeo state, just proceed onwards - data has been written
 		connection->state = STATE_RESPONSEHEADER_CONTENTLENGTH;
+		return true;
 		break;
 	case STATE_RESPONSEHEADER_CONTENTLENGTH:;
 		DEBUG("[#%d] Handling STATE_RESPONSEHEADER_CONTENTLENGTH\n", fd);
 		int chars = snprintf(misc_buffer, 4096, "Content-Length: %d\r\n", connection->target.entry->data_length);
 
-		char* content_length = malloc(chars * sizeof(char));
+		char* content_length = malloc(chars);
 		memcpy(content_length, misc_buffer, chars);
 
 		connection->output_buffer = content_length;
 		connection->output_length = chars;
 		connection->output_buffer_free = content_length;
+		connection->state = STATE_RESPONSEEND;
 		break;
 	case STATE_RESPONSEEND:;
 		DEBUG("[#%d] Handling STATE_RESPONSEEND\n", fd);
@@ -323,10 +373,23 @@ bool http_write_handle_state(int epfd, cache_connection* connection){
 	case STATE_RESPONSEBODY:;
 		DEBUG("[#%d] Handling STATE_RESPONSEBODY\n", fd);
 		cache_target* target = &connection->target;
-		size_t to_read = target->end_position - target->position;
-		int bytes_sent = sendfile(fd, target->fd, &target->position, to_read);
-		target->position += bytes_sent;
-		if (target->position == target->end_position){
+		size_t to_read = connection->target.entry->data_length - target->position;
+		DEBUG("[#%d] To send %d bytes to the socket (len: %d, pos: %d)", fd, to_read, connection->target.entry->data_length, target->position);
+		assert(to_read >= 0);
+		if (to_read != 0){
+			off_t pos = target->position;
+			int bytes_sent = sendfile(fd, target->fd, &pos, to_read);
+			if (bytes_sent < 0){
+				PFATAL("Error sending bytes with sendfile");
+			}
+			DEBUG("[#%d] Sendfile sent %d bytes from position %d", fd, bytes_sent, target->position);
+			target->position += bytes_sent;
+			DEBUG("[#%d] Position is now %d", fd, target->position);
+		}
+
+
+		assert(target->position <= connection->target.entry->data_length);
+		if (target->position == connection->target.entry->data_length){
 			connection->target.entry->refs--;
 			connection->state = STATE_REQUESTSTARTMETHOD;
 			connection_register_read(epfd, fd);
@@ -339,6 +402,8 @@ bool http_write_handle_state(int epfd, cache_connection* connection){
 		connection_register_read(epfd, fd);
 		break;
 	}
+
+	return false;
 }
 
 /*
