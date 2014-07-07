@@ -38,7 +38,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 	char* end;
 
 	switch (connection->state){
-	case STATE_REQUESTSTARTMETHOD:
+	case STATE_REQUESTSTARTMETHOD:;
 		DEBUG("[#%d] Handling STATE_REQUESTSTART\n", fd);
 		start = buffer = connection->input_buffer + connection->input_read_position;
 		end = connection->input_buffer + connection->input_buffer_write_position;
@@ -70,7 +70,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		}
 		break;
 
-	case STATE_REQUESTSTARTURL:
+	case STATE_REQUESTSTARTURL:;
 		DEBUG("[#%d] Handling STATE_REQUESTSTARTURL\n", fd);
 		start = buffer = (char*)(connection->input_buffer + connection->input_read_position);
 		end = (char*)(connection->input_buffer + connection->input_buffer_write_position);
@@ -117,7 +117,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		}
 		break;
 
-	case STATE_REQUESTHEADERS:
+	case STATE_REQUESTHEADERS:;
 		DEBUG("[#%d] Handling STATE_REQUESTHEADERS\n", fd);
 		start = buffer = connection->input_buffer + connection->input_read_position;
 		end = (char*)(connection->input_buffer + connection->input_buffer_write_position);
@@ -186,7 +186,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 			}
 		}*/
 		break;
-	case STATE_REQUESTENDSEARCH:
+	case STATE_REQUESTENDSEARCH:;
 		int newlines = 0;
 		while (buffer < end){
 			if (*buffer == '\n'){
@@ -208,7 +208,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		connection->input_read_position = buffer - connection->input_buffer - 3;
 
 		break;
-	case STATE_REQUESTBODY:
+	case STATE_REQUESTBODY:;
 		cache_target* target = &connection->target;
 		int to_write = connection->input_buffer_write_position - connection->input_read_position;
 		int read_bytes = write(target->fd, connection->input_buffer + connection->input_read_position, to_write);
@@ -263,12 +263,12 @@ bool http_write_handle_state(int epfd, cache_connection* connection){
 	int fd = connection->client_sock;
 
 	switch (connection->state){
-	case STATE_RESPONSESTART:
+	case STATE_RESPONSESTART:;
 		//Before using this state, ensure the template is already set
 		//Psudeo state, just proceed onwards - data has been written
 		connection->state = STATE_RESPONSEHEADER_CONTENTLENGTH;
 		break;
-	case STATE_RESPONSEHEADER_CONTENTLENGTH:
+	case STATE_RESPONSEHEADER_CONTENTLENGTH:;
 		DEBUG("[#%d] Handling STATE_RESPONSEHEADER_CONTENTLENGTH\n", fd);
 		int chars = snprintf(misc_buffer, 4096, "Content-Length: %d\r\n", connection->target.entry->data_length);
 
@@ -279,14 +279,14 @@ bool http_write_handle_state(int epfd, cache_connection* connection){
 		connection->output_length = chars;
 		connection->output_buffer_free = chars;
 		break;
-	case STATE_RESPONSEEND:
+	case STATE_RESPONSEEND:;
 		DEBUG("[#%d] Handling STATE_RESPONSEEND\n", fd);
 		connection->output_buffer = http_templates[HTTPTEMPLATE_DBLNEWLINE];
 		connection->output_length = http_templates_length[HTTPTEMPLATE_DBLNEWLINE];
 		connection->state = STATE_RESPONSEBODY;
 		connection_register_write(epfd, fd);
 		break;
-	case STATE_RESPONSEBODY:
+	case STATE_RESPONSEBODY:;
 		cache_target* target = &connection->target;
 		size_t to_read = target->end_position - target->position;
 		int bytes_sent = sendfile(fd, target->fd, &target->position, to_read);
@@ -297,7 +297,7 @@ bool http_write_handle_state(int epfd, cache_connection* connection){
 			connection_register_read(epfd, fd);
 		}
 		break;
-	case STATE_RESPONSEWRITEONLY:
+	case STATE_RESPONSEWRITEONLY:;
 		//Static response, after witing, read next request
 		connection->state = STATE_REQUESTSTARTMETHOD;
 		connection_register_read(epfd, fd);

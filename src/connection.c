@@ -28,93 +28,6 @@ struct epoll_event ev;
 //Misc
 int stop_soon = 0;
 
-static void epoll_event_loop(void){
-	int epfd = epoll_create(MAXCLIENTS);
-
-	struct epoll_event events[5];
-	//add api fd
-	ev.events = EPOLLIN | EPOLLERR | EPOLLHUP;
-	ev.data.fd = listenfd;
-	int res = epoll_ctl(epfd, EPOLL_CTL_ADD, listenfd, &ev);
-	if (res != 0){
-		PFATAL("epoll_ctl() failed.");
-	}
-
-	struct cache_connection_node ctable[CONNECTION_HASH_ENTRIES] = { 0 };
-	for (int i = 0; i < CONNECTION_HASH_ENTRIES; i++){
-		ctable[i].connection.client_sock = -1;
-	}
-
-	while (!stop_soon) {
-		int nfds = epoll_wait(epfd, events, 5, -1);
-		int n = 0;
-		while (n < nfds) {
-			int fd = events[n].data.fd;
-			if (fd == listenfd){
-				if (events[n].events & EPOLLIN){
-					DEBUG("[#] Accepting connection\n");
-					int client_sock = accept(listenfd, NULL, NULL);
-
-					if (client_sock < 0) {
-						WARN("Unable to handle API connection: accept() fails. Error: %s", strerror(errno));
-					}
-					else {
-						DEBUG("[#] Accepted connection %d\n", client_sock);
-
-						if (fcntl(client_sock, F_SETFL, O_NONBLOCK))
-							PFATAL("fcntl() to set O_NONBLOCK on API connection fails.");
-
-						ev.events = EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLRDHUP;
-						ev.data.fd = client_sock;
-						res = epoll_ctl(epfd, EPOLL_CTL_ADD, client_sock, &ev);
-						if (res != 0){
-							PFATAL("epoll_ctl() failed.");
-						}
-
-						connection_add(client_sock, ctable);
-					}
-				}
-				else if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP){
-					FATAL("API socket is down.");
-				}
-			}
-			else{
-				DEBUG("[#%d] Got socket event %d\n", fd, events[n].events);
-				cache_connection* connection = connection_get(fd, ctable);
-				if (connection != NULL){
-					int close_connection = 0;
-
-					if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP || events[n].events & EPOLLRDHUP){
-						close_connection = 1;
-					}
-					else if (events[n].events & EPOLLIN){
-						if (http_handle_read(epfd, connection)){
-							close_connection = 1;
-						}
-					}
-					else if (events[n].events & EPOLLOUT){
-						if (http_handle_read(epfd, connection)){
-							close_connection = 1;
-						}
-					}
-
-					if (close_connection){
-						connection_remove(fd, ctable);
-						close(fd);
-					}
-				}
-				else{
-					WARN("Unknown connection %d", fd);
-					close(fd);
-				}
-			}
-			n++;
-		}
-	}
-
-	close(epfd);
-}
-
 /* Methods */
 void connection_register_write(int epfd, int fd){
 	ev.events = EPOLLOUT | EPOLLERR | EPOLLHUP | EPOLLRDHUP;
@@ -261,4 +174,92 @@ static void connection_remove(int fd, cache_connection_node* ctable){
 			node->connection.client_sock = -1;
 		}
 	}
+}
+
+
+static void epoll_event_loop(void){
+	int epfd = epoll_create(MAXCLIENTS);
+
+	struct epoll_event events[5];
+	//add api fd
+	ev.events = EPOLLIN | EPOLLERR | EPOLLHUP;
+	ev.data.fd = listenfd;
+	int res = epoll_ctl(epfd, EPOLL_CTL_ADD, listenfd, &ev);
+	if (res != 0){
+		PFATAL("epoll_ctl() failed.");
+	}
+
+	struct cache_connection_node ctable[CONNECTION_HASH_ENTRIES] = { 0 };
+	for (int i = 0; i < CONNECTION_HASH_ENTRIES; i++){
+		ctable[i].connection.client_sock = -1;
+	}
+
+	while (!stop_soon) {
+		int nfds = epoll_wait(epfd, events, 5, -1);
+		int n = 0;
+		while (n < nfds) {
+			int fd = events[n].data.fd;
+			if (fd == listenfd){
+				if (events[n].events & EPOLLIN){
+					DEBUG("[#] Accepting connection\n");
+					int client_sock = accept(listenfd, NULL, NULL);
+
+					if (client_sock < 0) {
+						WARN("Unable to handle API connection: accept() fails. Error: %s", strerror(errno));
+					}
+					else {
+						DEBUG("[#] Accepted connection %d\n", client_sock);
+
+						if (fcntl(client_sock, F_SETFL, O_NONBLOCK))
+							PFATAL("fcntl() to set O_NONBLOCK on API connection fails.");
+
+						ev.events = EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLRDHUP;
+						ev.data.fd = client_sock;
+						res = epoll_ctl(epfd, EPOLL_CTL_ADD, client_sock, &ev);
+						if (res != 0){
+							PFATAL("epoll_ctl() failed.");
+						}
+
+						connection_add(client_sock, ctable);
+					}
+				}
+				else if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP){
+					FATAL("API socket is down.");
+				}
+			}
+			else{
+				DEBUG("[#%d] Got socket event %d\n", fd, events[n].events);
+				cache_connection* connection = connection_get(fd, ctable);
+				if (connection != NULL){
+					int close_connection = 0;
+
+					if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP || events[n].events & EPOLLRDHUP){
+						close_connection = 1;
+					}
+					else if (events[n].events & EPOLLIN){
+						if (http_handle_read(epfd, connection)){
+							close_connection = 1;
+						}
+					}
+					else if (events[n].events & EPOLLOUT){
+						if (http_handle_read(epfd, connection)){
+							close_connection = 1;
+						}
+					}
+
+					if (close_connection){
+						connection_remove(fd, ctable);
+						close(fd);
+					}
+				}
+				else{
+					WARN("Unknown connection %d", fd);
+					close(fd);
+				}
+			}
+			n++;
+		}
+	}
+
+	close(epfd);
 }

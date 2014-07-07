@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct {
+typedef struct cache_entry {
 	//key
 	uint32_t hash;
 	char* key;
@@ -19,8 +19,8 @@ typedef struct {
 	bool writing : 1;
 
 	//lru
-	cache_entry* lru_next;
-	cache_entry* lru_prev;
+	struct cache_entry* lru_next;
+	struct cache_entry* lru_prev;
 } cache_entry;
 
 typedef struct {
