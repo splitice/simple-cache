@@ -93,7 +93,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				connection->target.entry = entry;
 				if (entry != NULL){
 					if (IS_SINGLE_FILE(entry)){
-						connection->target.fd = open_cache_entry(entry);
+						connection->target.fd = db_entry_open(entry);
 						connection->target.end_position = entry->data_length;
 					}
 					else{

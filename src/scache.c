@@ -28,6 +28,6 @@ int main()
 {
 	http_templates_init();
 	db_open("/dbtest");
-	open_listener();
+	connection_open_listener();
 	epoll_event_loop();
 }

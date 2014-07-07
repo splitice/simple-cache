@@ -73,7 +73,7 @@ int setNonblocking(int fd)
 #endif
 }
 
-void open_listener(){
+void connection_open_listener(){
 	int res;
 
 	struct sockaddr_in servaddr;

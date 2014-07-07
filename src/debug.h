@@ -1,14 +1,9 @@
 #if !defined(DEBUG_H_INCLUDED_AC1FB0B9_4189_4937_985B_0C6F757F7364)
 #define DEBUG_H_INCLUDED_AC1FB0B9_4189_4937_985B_0C6F757F7364
-/*
-   p0f - debug / error handling macros
-   -----------------------------------
 
-   Copyright (C) 2012 by Michal Zalewski <lcamtuf@coredump.cx>
+#include "config.h"
 
-   Distributed under the terms and conditions of GNU LGPL.
-
- */
+/* Based off p0f error handling macros */
 
 #ifndef _HAVE_DEBUG_H
 #define _HAVE_DEBUG_H
