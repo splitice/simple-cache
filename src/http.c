@@ -113,7 +113,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				}
 				connection->input_read_position += length;
 
-				return 1;
+				return true;
 			}
 			buffer++;
 		}
@@ -197,7 +197,13 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				newlines++;
 				if (newlines == 2){
 					connection->input_read_position = buffer - connection->input_buffer + 1;
-					connection->state = STATE_RESPONSESTART;
+
+					if (connection->target.entry != NULL){
+						connection->state = STATE_RESPONSESTART;
+					}
+					else{
+						connection->state = STATE_RESPONSEWRITEONLY;
+					}
 					connection_register_write(epfd, fd);
 					return true;
 				}
@@ -228,6 +234,8 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		}
 		break;
 	}
+
+	return false;
 }
 
 /*

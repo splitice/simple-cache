@@ -37,9 +37,9 @@ PUT: register for write, proceed to STATE_RESPONSESTART
 Search for the end of the request, skipping over any other headers.
 Lazy, high performance request skip state
 Format: Search for \r\n\r\n or \n\n
-Used By: DELETE
+Used By: GET,DELETE
 
-GET: register for write, proceed to STATE_RESPONSEWRITEONLY
+GET: register for write, proceed to STATE_RESPONSESTART if key exists, STATE_RESPONSEWRITEONLY otherwise
 DELETE: register for write, proceed to STATE_RESPONSEWRITEONLY
 */
 #define STATE_REQUESTENDSEARCH 0x5
@@ -108,7 +108,7 @@ ALL: reset target, register for read, proceed to STATE_REQUESTSTART
 
 static const char http_templates[NUMBER_OF_HTTPTEMPLATE][100] = {
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\n",
-	"HTTP/1.1 404 File Not Found\r\nnConnection: Keep-Alive\r\nContent-Length: 4\r\n404-\r\n\r\n",
+	"HTTP/1.1 404 File Not Found\r\nConnection: Keep-Alive\r\nContent-Length: 15\r\n\r\nKey not Found\r\n",
 	"HTTP/1.1 200 OK\r\nnConnection: Keep-Alive\r\nContent-Length: 2\r\nOK\r\n\r\n",
 	"\r\n\r\n",
 	"HTTP/1.1 400 Bad Request\r\nnConnection: Close\r\nContent-Length: 14\r\nInvalid Method\r\n\r\n",
