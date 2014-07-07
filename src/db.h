@@ -1,3 +1,6 @@
+#if !defined(DB_H_INCLUDED_1FA53FD2_BB5F_432E_9E57_761594DEBEC7)
+#define DB_H_INCLUDED_1FA53FD2_BB5F_432E_9E57_761594DEBEC7
+
 #include <stdbool.h>
 #include "scache.h"
 #include "config.h"
@@ -19,3 +22,5 @@ cache_entry* db_entry_get_write(char* key, size_t length);
 void db_entry_write_init(cache_entry* entry, uint32_t data_length);
 
 #define IS_SINGLE_FILE(x) x->data_length>BLOCK_LENGTH
+
+#endif // !defined(DB_H_INCLUDED_1FA53FD2_BB5F_432E_9E57_761594DEBEC7)

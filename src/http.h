@@ -1,3 +1,6 @@
+#if !defined(HTTP_H_INCLUDED_F90F71F0_0C8E_44EB_9C1D_60CBA7163EC8)
+#define HTTP_H_INCLUDED_F90F71F0_0C8E_44EB_9C1D_60CBA7163EC8
+
 #include "scache.h"
 
 /* ===[ READ ]=== */
@@ -120,3 +123,4 @@ int http_templates_length[NUMBER_OF_HTTPTEMPLATE];
 bool http_handle_read(int epfd, cache_connection* connection);
 bool http_handle_write(int epfd, cache_connection* connection);
 void http_templates_init();
+#endif // !defined(HTTP_H_INCLUDED_F90F71F0_0C8E_44EB_9C1D_60CBA7163EC8)

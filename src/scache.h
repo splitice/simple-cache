@@ -1,3 +1,6 @@
+#if !defined(SCACHE_H_INCLUDED_9AA4BC83_3F1B_42F0_9291_23880637CC16)
+#define SCACHE_H_INCLUDED_9AA4BC83_3F1B_42F0_9291_23880637CC16
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -54,3 +57,5 @@ typedef struct block_free_node {
 	int block_number;
 	struct block_free_node* next;
 } block_free_node;
+
+#endif // !defined(SCACHE_H_INCLUDED_9AA4BC83_3F1B_42F0_9291_23880637CC16)
