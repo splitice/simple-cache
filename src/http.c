@@ -277,6 +277,7 @@ bool http_write_handle_state(int epfd, cache_connection* connection){
 
 	switch (connection->state){
 	case STATE_RESPONSESTART:;
+		DEBUG("[#%d] Handling STATE_RESPONSESTART\n", fd);
 		//Before using this state, ensure the template is already set
 		//Psudeo state, just proceed onwards - data has been written
 		connection->state = STATE_RESPONSEHEADER_CONTENTLENGTH;
@@ -300,6 +301,7 @@ bool http_write_handle_state(int epfd, cache_connection* connection){
 		connection_register_write(epfd, fd);
 		break;
 	case STATE_RESPONSEBODY:;
+		DEBUG("[#%d] Handling STATE_RESPONSEBODY\n", fd);
 		cache_target* target = &connection->target;
 		size_t to_read = target->end_position - target->position;
 		int bytes_sent = sendfile(fd, target->fd, &target->position, to_read);
@@ -311,6 +313,7 @@ bool http_write_handle_state(int epfd, cache_connection* connection){
 		}
 		break;
 	case STATE_RESPONSEWRITEONLY:;
+		DEBUG("[#%d] Handling STATE_RESPONSEWRITEONLY\n", fd);
 		//Static response, after witing, read next request
 		connection->state = STATE_REQUESTSTARTMETHOD;
 		connection_register_read(epfd, fd);
