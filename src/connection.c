@@ -237,12 +237,12 @@ void epoll_event_loop(){
 						close_connection = 1;
 					}
 					else if (events[n].events & EPOLLIN){
-						if (http_handle_read(epfd, connection)){
+						if (http_read_handle(epfd, connection)){
 							close_connection = 1;
 						}
 					}
 					else if (events[n].events & EPOLLOUT){
-						if (http_handle_read(epfd, connection)){
+						if (http_write_handle(epfd, connection)){
 							close_connection = 1;
 						}
 					}

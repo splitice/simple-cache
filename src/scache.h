@@ -43,7 +43,7 @@ typedef struct {
 	char input_buffer[4096];
 	
 	//Writing to socket buffers
-	char* output_buffer;
+	const char* output_buffer;
 	int output_length;
 	char* output_buffer_free;
 } cache_connection;
