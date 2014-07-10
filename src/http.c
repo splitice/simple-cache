@@ -116,6 +116,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				*buffer = 0;//Null terminate the key
 				DEBUG("[#%d] Request key: \"%s\"\n", fd, start);
 				cache_entry* entry;
+				mode_t modes = 0;
 				if (connection->type == REQMETHOD_GET){
 					entry = db_entry_get_read(start, length);
 					connection->state = STATE_REQUESTENDSEARCH;
@@ -123,13 +124,14 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				else{
 					entry = db_entry_get_write(start, length);
 					connection->state = STATE_REQUESTHEADERS;
+					modes = O_CREAT;
 				}
 
 				connection->target.position = 0;
 				connection->target.entry = entry;
 				if (entry != NULL){
 					if (IS_SINGLE_FILE(entry)){
-						connection->target.fd = db_entry_open(entry);
+						connection->target.fd = db_entry_open(entry, modes);
 						connection->target.end_position = entry->data_length;
 					}
 					else{
@@ -187,8 +189,9 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 						WARN("Invalid Content-Length value provided");
 					}
 					else{
+						//We are writing, initalize fd now
 						DEBUG("[#%d] Content-Length of %d found\n", fd, content_length);
-						db_entry_write_init(connection->target.entry, content_length);
+						entry_write_init(&connection->target, content_length);
 					}
 					header_type = 0;
 				}

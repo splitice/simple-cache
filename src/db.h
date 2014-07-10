@@ -32,14 +32,18 @@ typedef struct db_details {
 	//block file
 	block_free_node* free_blocks;
 	int blocks_allocated;
+
+	//Stats
+	unsigned int db_size_bytes;
+	unsigned int db_keys;
 } db_details;
 
 struct db_details db;
 bool db_open(const char* path);
-int db_entry_open(cache_entry* e);
+int db_entry_open(cache_entry* e, mode_t modes);
 cache_entry* db_entry_get_read(char* key, size_t length);
 cache_entry* db_entry_get_write(char* key, size_t length);
-void db_entry_write_init(cache_entry* entry, uint32_t data_length);
+void db_entry_write_init(cache_target* target, uint32_t data_length);
 void db_entry_delete(cache_entry* e);
 
 #define IS_SINGLE_FILE(x) x->data_length>BLOCK_LENGTH

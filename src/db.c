@@ -53,6 +53,10 @@ void db_lru_cleanup(int number_to_remove){
 	}
 }
 
+void db_lru_gc(){
+
+}
+
 void db_block_free(int block){
 	block_free_node* old = db.free_blocks;
 	db.free_blocks = malloc(sizeof(block_free_node));
@@ -61,7 +65,10 @@ void db_block_free(int block){
 }
 
 int db_block_allocate_new(){
-
+	int block_num = db.blocks_allocated;
+	db.blocks_allocated++;
+	ftruncate(db.fd_blockfile, db.blocks_allocated*BLOCK_LENGTH);
+	return block_num;
 }
 
 int db_block_get_write(){
@@ -117,9 +124,9 @@ bool db_open(const char* path){
 }
 
 
-int db_entry_open(cache_entry* e){
+int db_entry_open(cache_entry* e, mode_t modes){
 	get_key_path(e, filename_buffer);
-	int fd = open(filename_buffer, O_RDWR);
+	int fd = open(filename_buffer, O_RDWR | modes);
 	if (fd <= 0){
 		WARN("Unable to open cache file: %s", filename_buffer);
 	}
@@ -157,6 +164,8 @@ void db_entry_delete(cache_entry* e){
 			db.lru_head = e->lru_prev;
 		}
 	}
+
+	db.db_size_bytes -= e->data_length;
 }
 
 uint32_t hash_string(char* str, int length){
@@ -192,6 +201,9 @@ cache_entry* db_entry_get_read(char* key, size_t length){
 		return NULL;
 	}
 
+	//LRU hit
+	db_lru_hit(entry);
+
 	return entry;
 }
 
@@ -210,6 +222,9 @@ cache_entry* db_entry_get_write(char* key, size_t length){
 
 		free(entry->key);
 	}
+	else{
+		entry->block = -2;
+	}
 
 	entry->key = (char*)malloc(sizeof(char)* length);
 	memcpy(entry->key, key, sizeof(char)* length);
@@ -219,21 +234,37 @@ cache_entry* db_entry_get_write(char* key, size_t length){
 	return entry;
 }
 
-void db_entry_write_init(cache_entry* entry, uint32_t data_length){
-	if (data_length > BLOCK_LENGTH){
-		if (IS_SINGLE_FILE(entry)){
-			//We are going to store in a file, and the entry is currently a file
-			get_key_path(entry, filename_buffer);
-
+void db_entry_write_init(cache_target* target, uint32_t data_length){
+	cache_entry* entry = target->entry;
+	if (entry->block == -2){
+		//if this is a new entry, with nothing previously allocated.
+		if (data_length > BLOCK_LENGTH){
 			//Shorten or lengthen file to appropriate size
-			truncate(filename_buffer, data_length);
+			ftruncate(target->fd, data_length);
+		}
+		else{
+			entry->block = db_block_get_write();
+		}
+	}
+	else if (data_length > BLOCK_LENGTH){
+		//If this is to be an entry stored in a file
+		if (IS_SINGLE_FILE(entry)){
+			//Shorten or lengthen file to appropriate size
+			ftruncate(target->fd, data_length);
 		}
 		else{
 			//We are going to use a file, and the entry is currently a block
+			db_block_free(entry->block);
 
+			//No longer using a block
+			entry->block = -1;
+
+			//Lengthen file to required size
+			ftruncate(target->fd, data_length);
 		}
 	}
 	else{
+		//If this is to be an entry stored in a block
 		if (IS_SINGLE_FILE(entry)){
 			//We are going to store in a block, and the entry is currently a file
 			get_key_path(entry, filename_buffer);
@@ -243,5 +274,6 @@ void db_entry_write_init(cache_entry* entry, uint32_t data_length){
 		}
 		//Else: We are going to use a block, and the entry is currently a block
 	}
+	db.db_size_bytes += data_length - entry->data_length;
 	entry->data_length = data_length;
 }
