@@ -45,5 +45,14 @@
     exit(1); \
   } while (0)
 
+#define PWARN(x...) do { \
+      ERRORF("[!] SYSTEM WARNING : " x); \
+      ERRORF("\n        Location : %s(), %s:%u\n", \
+             __FUNCTION__, __FILE__, __LINE__); \
+      perror("      OS message "); \
+      ERRORF("\n"); \
+    } while (0)
+
+
 #endif /* ! _HAVE_DEBUG_H */
 #endif // !defined(DEBUG_H_INCLUDED_AC1FB0B9_4189_4937_985B_0C6F757F7364)

@@ -70,7 +70,9 @@ void db_block_free(int block){
 int db_block_allocate_new(){
 	int block_num = db.blocks_allocated;
 	db.blocks_allocated++;
-	ftruncate(db.fd_blockfile, db.blocks_allocated*BLOCK_LENGTH);
+	if(ftruncate(db.fd_blockfile, db.blocks_allocated*BLOCK_LENGTH) < 0){
+	    PWARN("File truncation failed");
+	}
 	return block_num;
 }
 
@@ -110,7 +112,7 @@ void db_init_folders(){
 void get_key_path(cache_entry* e, char* out){
 	char folder1 = 'A' + (e->hash % 26);
 	char folder2 = 'A' + ((e->hash >> 8) % 26);
-	snprintf(out, MAX_PATH, "%s%c%c/%s/%x", db.path_single, folder1, folder2, e->hash);
+	snprintf(out, MAX_PATH, "%s%c%c/%x", db.path_single, folder1, folder2, e->hash);
 }
 
 bool db_open(const char* path){
@@ -243,7 +245,9 @@ void db_entry_write_init(cache_target* target, uint32_t data_length){
 		//if this is a new entry, with nothing previously allocated.
 		if (data_length > BLOCK_LENGTH){
 			//Shorten or lengthen file to appropriate size
-			ftruncate(target->fd, data_length);
+			if(ftruncate(target->fd, data_length)<0){
+			    PWARN("File truncation failed");
+			}
 		}
 		else{
 			entry->block = db_block_get_write();
@@ -253,7 +257,9 @@ void db_entry_write_init(cache_target* target, uint32_t data_length){
 		//If this is to be an entry stored in a file
 		if (IS_SINGLE_FILE(entry)){
 			//Shorten or lengthen file to appropriate size
-			ftruncate(target->fd, data_length);
+			if(ftruncate(target->fd, data_length)<0){
+			    PWARN("File truncation failed");
+			}
 		}
 		else{
 			//We are going to use a file, and the entry is currently a block
@@ -263,7 +269,9 @@ void db_entry_write_init(cache_target* target, uint32_t data_length){
 			entry->block = -1;
 
 			//Lengthen file to required size
-			ftruncate(target->fd, data_length);
+			if(ftruncate(target->fd, data_length)<0){
+			    PWARN("File truncation failed");
+			}
 		}
 	}
 	else{
