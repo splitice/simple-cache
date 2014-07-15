@@ -5,13 +5,16 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <assert.h>
 #include "db.h"
 #include "debug.h"
 #include "hash.h"
 
 /* Globals */
-db.cache_hash_set = { 0 };
-db.free_blocks = NULL;
+struct db_details db {
+    .cache_hash_set = { 0 },
+    .free_blocks = NULL
+};
 
 //Buffers
 char filename_buffer[MAX_PATH];
@@ -45,7 +48,7 @@ void db_lru_cleanup(int number_to_remove){
 		assert(db.lru_head != NULL);
 
 		cache_entry* l = db.lru_head;
-		db.lru_head = db.lru_head->next;
+		db.lru_head = db.lru_head->lru_next;
 
 		db_entry_delete(l);
 
@@ -59,7 +62,7 @@ void db_lru_gc(){
 
 void db_block_free(int block){
 	block_free_node* old = db.free_blocks;
-	db.free_blocks = malloc(sizeof(block_free_node));
+	db.free_blocks = (block_free_node*)malloc(sizeof(block_free_node));
 	db.free_blocks->block_number = block;
 	db.free_blocks->next = old;
 }
@@ -178,7 +181,7 @@ cache_entry* db_entry_get_read(char* key, size_t length){
 	uint32_t hash = hash_string(key, length);
 
 	int hash_key = hash % HASH_ENTRIES;
-	cache_entry* entry = &cache_hash_set[hash_key];
+	cache_entry* entry = &db.cache_hash_set[hash_key];
 
 	if (entry->key == NULL || entry->key_length != length || strncmp(key, entry->key, length)){
 		DEBUG("[#] Unable to look up key: ");
@@ -211,7 +214,7 @@ cache_entry* db_entry_get_write(char* key, size_t length){
 	uint32_t hash = hash_string(key, length);
 
 	int hash_key = hash % HASH_ENTRIES;
-	cache_entry* entry = &cache_hash_set[hash_key];
+	cache_entry* entry = &db.cache_hash_set[hash_key];
 
 	//This is a re-used entry
 	if (entry->key != NULL){

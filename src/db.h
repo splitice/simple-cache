@@ -38,7 +38,7 @@ typedef struct db_details {
 	unsigned int db_keys;
 } db_details;
 
-struct db_details db;
+extern struct db_details db;
 bool db_open(const char* path);
 int db_entry_open(cache_entry* e, mode_t modes);
 cache_entry* db_entry_get_read(char* key, size_t length);
