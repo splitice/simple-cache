@@ -9,6 +9,7 @@
 #include "db.h"
 #include "debug.h"
 #include "hash.h"
+#include "settings.h"
 
 /* Globals */
 struct db_details db {
@@ -43,21 +44,24 @@ void db_lru_hit(cache_entry* entry){
 	db.lru_tail = entry;
 }
 
-void db_lru_cleanup(int number_to_remove){
-	while (number_to_remove != 0){
+void db_lru_cleanup(int bytes_to_remove){
+	while (bytes_to_remove > 0){
 		assert(db.lru_head != NULL);
 
 		cache_entry* l = db.lru_head;
 		db.lru_head = db.lru_head->lru_next;
 
-		db_entry_delete(l);
+		bytes_to_remove -= l->data_length;
 
-		number_to_remove--;
+		db_entry_delete(l);
 	}
 }
 
 void db_lru_gc(){
-
+    if(settings.max_size < db.db_size_bytes){
+        int bytes_to_remove = settings.max_size * settings.db_lru_clear;
+        db_lru_cleanup(bytes_to_remove);
+    }
 }
 
 void db_block_free(int block){
