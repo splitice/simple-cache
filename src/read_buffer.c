@@ -1,17 +1,68 @@
+#include <assert.h>
+#include <string.h>
 #include "read_buffer.h"
 
-void rbuf_copyn(struct read_buffer* buffer, char* dest, int n) {
+int rbuf_copyn(struct read_buffer* buffer, char* dest, int n) {
+	assert(n <= BUFFER_SIZE);
+	int to_end = rbuf_read_to_end(buffer);
 
+	if (n == 0){
+		//No bytes to be read
+		return 0;
+	}
+
+	//Read the maximum we can / want
+	int to_read = n;
+	if (n > to_end){
+		to_read = to_end;
+	}
+
+	//Copy this ammount
+	memcpy(dest, RBUF_READPTR(buffer), to_read);
+	n -= to_end;
+	dest += to_read;
+
+	//Do we need more?
+	if (n == 0){
+		return to_read;
+	}
+
+	//Second memcpy, read the roll over
+	to_end = rbuf_read_remaining(buffer) - to_end;
+	if (to_end != 0){
+		//Dont read more than needed
+		if (to_end > n){
+			to_end = n;
+		}
+
+		memcpy(dest, RBUF_STARTPTR(buffer), to_end);
+	}
+
+	//We have copied the sum of the two
+	return to_read + to_end;
 }
 int rbuf_read_remaining(struct read_buffer* buffer) {
+	int count = buffer->write_position - buffer->read_position;
 
+	//has rolled around
+	if (count < 0){
+		return rbuf_read_to_end (buffer) - count;
+	}
+
+	//write position > read_position
+	return count;
 }
 int rbuf_read_to_end(struct read_buffer* buffer) {
-
+	return BUFFER_SIZE - buffer->read_position;
 }
 int rbuf_write_remaining(struct read_buffer* buffer) {
-
+	return BUFFER_SIZE - rbuf_read_remaining(buffer);
 }
 int rbuf_write_to_end(struct read_buffer* buffer) {
+	//to either the end of the buffer, or to the read position whichever is first
+	if (buffer->read_position <= buffer->write_position){
+		return BUFFER_SIZE - buffer->write_position;
+	}
 
+	return buffer->read_position - buffer->write_position;
 }

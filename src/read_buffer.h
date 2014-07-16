@@ -7,9 +7,10 @@ struct read_buffer {
 };
 
 /*
-Copy n bytes from the buffer
+Copy n bytes from the buffer,
+returns the number of bytes copied.
 */
-void rbuf_copyn(struct read_buffer* buffer, char* dest, int n);
+int rbuf_copyn(struct read_buffer* buffer, char* dest, int n);
 
 /*
 Get the number of bytes remaining to read
@@ -32,3 +33,13 @@ int rbuf_write_remaining(struct read_buffer* buffer);
 Get the number of contiguous bytes that can be written
 */
 int rbuf_write_to_end(struct read_buffer* buffer);
+
+/*
+Get a pointer to the buffer at the current read position
+*/
+#define RBUF_READPTR(x) x->buffer + x->read_position
+
+/*
+Get a pointer to the buffer at the start (idx:0)
+*/
+#define RBUF_STARTPTR(x) x->buffer
