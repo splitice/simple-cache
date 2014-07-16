@@ -114,7 +114,7 @@ static const char http_templates[NUMBER_OF_HTTPTEMPLATE][100] = {
 	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 14\r\nInvalid Method\r\n\r\n",
 };
 
-int http_templates_length[NUMBER_OF_HTTPTEMPLATE];
+int extern http_templates_length[NUMBER_OF_HTTPTEMPLATE];
 
 /* Parsable headers */
 #define HEADER_CONTENTLENGTH 1

@@ -23,7 +23,7 @@
 #include "connection.h"
 #include "db.h"
 
-
+int http_templates_length[NUMBER_OF_HTTPTEMPLATE];
 char misc_buffer[4096];
 
 bool strntol(char *buf, int n, int* output)
