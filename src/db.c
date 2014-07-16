@@ -13,8 +13,17 @@
 
 /* Globals */
 struct db_details db {
-    .cache_hash_set = { 0 },
-    .free_blocks = NULL
+	.path_root = { 0 },
+	.path_single = { 0 },
+	.path_blockfile = { 0 },
+	.fd_blockfile = -1,
+	.cache_hash_set = { 0 },
+	.lru_head = NULL,
+	.lru_tail = NULL,
+	.free_blocks = NULL,
+	.blocks_allocated = 0,
+	.db_size_bytes = 0,
+	.db_keys = 0
 };
 
 //Buffers
@@ -129,13 +138,13 @@ bool db_open(const char* path){
 
 	//Block file
 	snprintf(db.path_blockfile, MAX_PATH, "%s/block.db", path);
-	db.fd_blockfile = open(db.path_blockfile, O_CREAT | O_RDWR);
+	db.fd_blockfile = open(db.path_blockfile, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 }
 
 
-int db_entry_open(cache_entry* e, mode_t modes){
+int db_entry_open(cache_entry* e, int modes){
 	get_key_path(e, filename_buffer);
-	int fd = open(filename_buffer, O_RDWR | modes);
+	int fd = open(filename_buffer, O_RDWR | modes, S_IRUSR | S_IWUSR);
 	if (fd <= 0){
 		WARN("Unable to open cache file: %s", filename_buffer);
 	}

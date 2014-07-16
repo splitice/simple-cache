@@ -1,0 +1,25 @@
+Desciption: PUT content, then retrieve with GET
+
+>>>>
+PUT /k HTTP/1.1
+Connection: Keep-Alive
+Content-Length: 2
+
+12
+-----
+HTTP/1.1 200 OK
+Connection: Keep-Alive
+Content-Length: 2
+
+OK
+>>>>
+GET /k HTTP/1.1
+Connection: Keep-Alive
+
+-----
+HTTP/1.1 200 OK
+Connection: Keep-Alive
+Content-Length: 2
+
+12
+>>>>

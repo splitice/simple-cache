@@ -157,3 +157,11 @@ $RECYCLE.BIN/
 
 *.iml
 .idea/
+
+*.vgdbsettings
+*.vcxproj
+*.vcxproj.*
+VisualGDBCache
+
+gcc_Debug.h
+gcc_Release.h
