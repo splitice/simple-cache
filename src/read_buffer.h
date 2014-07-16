@@ -6,6 +6,8 @@ struct read_buffer {
     int write_position;
 };
 
+void rbuf_init(struct read_buffer* buf);
+
 /*
 Copy n bytes from the buffer,
 returns the number of bytes copied.
@@ -43,3 +45,5 @@ Get a pointer to the buffer at the current read position
 Get a pointer to the buffer at the start (idx:0)
 */
 #define RBUF_STARTPTR(x) x->buffer
+
+#define RBUF_WRITEPTR(x) x->buffer + x->write_position;

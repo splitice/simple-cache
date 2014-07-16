@@ -5,6 +5,11 @@ VisualStudioVersion = 12.0.21005.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "simple-cache", "src\simple-cache.vcxproj", "{31857874-9D54-4A48-A425-EECD4ACB80EB}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tests", "tests\tests.vcxproj", "{D8679758-13C6-4110-ACF8-344ABEF4093E}"
+	ProjectSection(ProjectDependencies) = postProject
+		{31857874-9D54-4A48-A425-EECD4ACB80EB} = {31857874-9D54-4A48-A425-EECD4ACB80EB}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -15,6 +20,10 @@ Global
 		{31857874-9D54-4A48-A425-EECD4ACB80EB}.Debug|Win32.Build.0 = Debug|Win32
 		{31857874-9D54-4A48-A425-EECD4ACB80EB}.Release|Win32.ActiveCfg = Release|Win32
 		{31857874-9D54-4A48-A425-EECD4ACB80EB}.Release|Win32.Build.0 = Release|Win32
+		{D8679758-13C6-4110-ACF8-344ABEF4093E}.Debug|Win32.ActiveCfg = Debug|Win32
+		{D8679758-13C6-4110-ACF8-344ABEF4093E}.Debug|Win32.Build.0 = Debug|Win32
+		{D8679758-13C6-4110-ACF8-344ABEF4093E}.Release|Win32.ActiveCfg = Release|Win32
+		{D8679758-13C6-4110-ACF8-344ABEF4093E}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

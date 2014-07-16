@@ -66,3 +66,8 @@ int rbuf_write_to_end(struct read_buffer* buffer) {
 
 	return buffer->read_position - buffer->write_position;
 }
+
+void rbuf_init(struct read_buffer* buf){
+	buf->read_position = 0;
+	buf->write_position = 0;
+}
