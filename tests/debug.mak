@@ -5,7 +5,7 @@
 BINARYDIR := Debug
 
 #Toolchain
-CC := gcc
+CC := g++
 CXX := g++
 LD := $(CXX)
 AR := ar
@@ -16,7 +16,7 @@ PREPROCESSOR_MACROS := DEBUG
 INCLUDE_DIRS := /home/splitice/simple-cache/src
 LIBRARY_DIRS := 
 LIBRARY_NAMES := 
-ADDITIONAL_LINKER_INPUTS := /home/splitice/simple-cache/src/!(scache).o
+ADDITIONAL_LINKER_INPUTS := /home/splitice/simple-cache/src/read_buffer.o
 MACOS_FRAMEWORKS := 
 LINUX_PACKAGES := 
 

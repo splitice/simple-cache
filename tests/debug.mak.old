@@ -16,7 +16,7 @@ PREPROCESSOR_MACROS := DEBUG
 INCLUDE_DIRS := /home/splitice/simple-cache/src
 LIBRARY_DIRS := 
 LIBRARY_NAMES := 
-ADDITIONAL_LINKER_INPUTS := 
+ADDITIONAL_LINKER_INPUTS := /home/splitice/simple-cache/src/!(scache).o
 MACOS_FRAMEWORKS := 
 LINUX_PACKAGES := 
 
@@ -31,3 +31,5 @@ END_GROUP := -Wl,--end-group
 
 #Additional options detected from testing the toolchain
 IS_LINUX_PROJECT := 1
+SHELL = bash
+

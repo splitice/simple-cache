@@ -2,7 +2,9 @@
 #include "minunit.h"
 #include "read_buffer.h"
 
-static char * test_rb_initial() {
+int tests_run = 0;
+
+static const char * test_rb_initial() {
 	struct read_buffer rb;
 	rbuf_init(&rb);
 
@@ -19,14 +21,14 @@ static char * test_rb_initial() {
 	return 0;
 }
 
-static char * all_tests() {
+static const char * all_tests() {
 	mu_run_test(test_rb_initial);
 	return 0;
 }
 
 int main(int argc, char *argv[])
 {
-	char *result = all_tests();
+	const char *result = all_tests();
 	if (result != 0) {
 		printf("%s\n", result);
 	}
