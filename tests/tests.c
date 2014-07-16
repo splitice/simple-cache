@@ -35,9 +35,41 @@ static const char * test_rb_initial_full() {
 	return 0;
 }
 
+static const char * test_rb_standard() {
+	struct read_buffer rb;
+	rbuf_init(&rb);
+	rb.read_position = 100;
+	rb.write_position = 200;
+
+	//Calculations
+	mu_assert("test_rb_standard rbuf_read_to_end check", rbuf_read_to_end(&rb) == (200 - 100));
+	mu_assert("test_rb_standard rbuf_read_remaining check", rbuf_read_remaining(&rb) == (200 - 100));
+	mu_assert("test_rb_standard rbuf_write_to_end check", rbuf_write_to_end(&rb) == (BUFFER_SIZE - 200));
+	mu_assert("test_rb_standard rbuf_write_remaining check", rbuf_write_remaining(&rb) == (BUFFER_SIZE - 100));
+
+	return 0;
+}
+
+static const char * test_rb_rollover() {
+	struct read_buffer rb;
+	rbuf_init(&rb);
+	rb.read_position = 200;
+	rb.write_position = 100;
+
+	//Calculations
+	mu_assert("test_rb_standard rbuf_read_to_end check", rbuf_read_to_end(&rb) == (BUFFER_SIZE - 200));
+	mu_assert("test_rb_standard rbuf_read_remaining check", rbuf_read_remaining(&rb) == (BUFFER_SIZE - 100));
+	mu_assert("test_rb_standard rbuf_write_to_end check", rbuf_write_to_end(&rb) == 100);
+	mu_assert("test_rb_standard rbuf_write_remaining check", rbuf_write_remaining(&rb) == 100);
+
+	return 0;
+}
+
 static const char * all_tests() {
 	mu_run_test(test_rb_initial);
 	mu_run_test(test_rb_initial_full);
+	mu_run_test(test_rb_standard);
+	mu_run_test(test_rb_rollover);
 	return 0;
 }
 
