@@ -46,14 +46,17 @@ int rbuf_read_remaining(struct read_buffer* buffer) {
 
 	//has rolled around
 	if (count < 0){
-		return rbuf_read_to_end (buffer) - count;
+		return BUFFER_SIZE - buffer->read_position - count;
 	}
 
 	//write position > read_position
 	return count;
 }
 int rbuf_read_to_end(struct read_buffer* buffer) {
-	return BUFFER_SIZE - buffer->read_position;
+	if (buffer->read_position > buffer->write_position){
+		return BUFFER_SIZE - buffer->read_position;
+	}
+	return buffer->write_position - buffer->read_position;
 }
 int rbuf_write_remaining(struct read_buffer* buffer) {
 	return BUFFER_SIZE - rbuf_read_remaining(buffer);
