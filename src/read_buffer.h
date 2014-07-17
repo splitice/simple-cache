@@ -6,6 +6,9 @@ struct read_buffer {
     int write_position;
 };
 
+/*
+Initialize the read and write position of a read_buffer
+*/
 void rbuf_init(struct read_buffer* buf);
 
 /*
@@ -46,4 +49,17 @@ Get a pointer to the buffer at the start (idx:0)
 */
 #define RBUF_STARTPTR(x) x->buffer
 
-#define RBUF_WRITEPTR(x) x->buffer + x->write_position;
+/*
+Get a pointer to the buffer at the current write offset
+*/
+#define RBUF_WRITEPTR(x) x->buffer + x->write_position
+
+/*
+Move the read offset
+*/
+#define RBUF_READMOVE(x, by) x->read_position += by
+
+/*
+Move the write offset
+*/
+#define RBUF_WRITEMOVE(x, by) x->write_position += by
