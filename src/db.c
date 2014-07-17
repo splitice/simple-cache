@@ -215,12 +215,16 @@ cache_entry* db_entry_get_read(char* key, size_t length){
 			}
 		}
 
-
+		free(key);
 		return NULL;
 	}
 
+	//Free key text, not needed.
+	free(key);
+
 	//LRU hit
 	db_lru_hit(entry);
+
 
 	return entry;
 }
@@ -244,8 +248,7 @@ cache_entry* db_entry_get_write(char* key, size_t length){
 		entry->block = -2;
 	}
 
-	entry->key = (char*)malloc(sizeof(char)* length);
-	memcpy(entry->key, key, sizeof(char)* length);
+	entry->key = key;
 	entry->key_length = length;
 	entry->hash = hash;
 

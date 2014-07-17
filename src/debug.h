@@ -2,11 +2,22 @@
 #define DEBUG_H_INCLUDED_AC1FB0B9_4189_4937_985B_0C6F757F7364
 
 #include "config.h"
+#include "stdio.h"
 
 /* Based off p0f error handling macros */
 
 #ifndef _HAVE_DEBUG_H
 #define _HAVE_DEBUG_H
+#ifdef _MSC_VER
+//Just for intellisense
+#define DEBUG(...) do {} while(0)
+#define ERRORF(...) do {} while(0)
+#define SAYF(...) do {} while(0)
+#define FATAL(...) do {} while(0)
+#define ABORT(...) do {} while(0)
+#define PFATAL(...) do {} while(0)
+#define PWARN(...) do {} while(0)
+#else
 
 #ifdef DEBUG_BUILD
 #  define DEBUG(x...) fprintf(stderr, x)
@@ -53,6 +64,6 @@
       ERRORF("\n"); \
     } while (0)
 
-
+#endif
 #endif /* ! _HAVE_DEBUG_H */
 #endif // !defined(DEBUG_H_INCLUDED_AC1FB0B9_4189_4937_985B_0C6F757F7364)

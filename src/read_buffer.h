@@ -117,18 +117,18 @@ Move the write offset
 Helper to Iterate over circular buffer
 */
 #define RBUF_ITERATE(rb,n,buffer,end,inner) do { \
-end = rbuf_read_to_end(&rb); \
-if (end != 0){ \
-	buffer = RBUF_READ(rb); \
-	for (n = 0; n < end; n++){ \
-		inner; \
-		buffer++; \
-	} \
-	end = rbuf_read_remaining(&rb) - end; \
-	for (int i = 0; i < end; i++) { \
-		inner; \
-		buffer++; \
-		n++; \
-	} \
-} \
-while (0);
+	end = rbuf_read_to_end(&rb); \
+	if (end != 0){ \
+		buffer = RBUF_READ(rb); \
+		for (n = 0; n < end; n++){ \
+			inner; \
+			buffer++; \
+		} \
+		end = rbuf_read_remaining(&rb) - end; \
+		for (int i = 0; i < end; i++) { \
+			inner; \
+			buffer++; \
+			n++; \
+		} \
+	}\
+} while (0);

@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <string.h>
 #include "read_buffer.h"
+#include "debug.h"
 
 int rbuf_copyn(struct read_buffer* buffer, char* dest, int n) {
 	assert(n <= BUFFER_SIZE);

@@ -130,55 +130,60 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		break;
 
 	case STATE_REQUESTSTARTURL:
-	{
-								  DEBUG("[#%d] Handling STATE_REQUESTSTARTURL\n", connection->client_sock);
+		DEBUG("[#%d] Handling STATE_REQUESTSTARTURL\n", connection->client_sock);
 
-								  RBUF_ITERATE(connection->input, n, buffer, end, {
-									  if (*buffer == ' '){
-										  *buffer = 0;//Null terminate the key
-										  DEBUG("[#%d] Request key: \"%s\"\n", connection->client_sock, start);
-										  cache_entry* entry;
-										  mode_t modes = 0;
-										  //TODO: memcpy always?
-										  if (connection->type == REQMETHOD_GET){
-											  entry = db_entry_get_read(start, n);
-											  connection->state = STATE_REQUESTENDSEARCH;
-										  }
-										  else{
-											  entry = db_entry_get_write(start, n);
-											  connection->state = STATE_REQUESTHEADERS;
-											  modes = O_CREAT;
-										  }
+		RBUF_ITERATE(connection->input, n, buffer, end, {
+			if (*buffer == ' '){
+				//Copy the key from the buffer
+				char* key = (char*)malloc(sizeof(char)* (n + 1));
+				rbuf_copyn(&connection->input, key, n);
+				*(key + n) = 0;//Null terminate the key
 
-										  connection->target.position = 0;
-										  connection->target.entry = entry;
-										  if (entry != NULL){
-											  if (IS_SINGLE_FILE(entry)){
-												  connection->target.fd = db_entry_open(entry, modes);
-												  connection->target.end_position = entry->data_length;
-											  }
-											  else{
-												  connection->target.fd = db.fd_blockfile;
-												  connection->target.position = entry->block * BLOCK_LENGTH;
-												  connection->target.end_position = connection->target.position + entry->data_length;
-											  }
-											  entry->refs++;
+				DEBUG("[#%d] Request key: \"%s\"\n", connection->client_sock, key);
 
-											  connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200];
-											  connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200];
-										  }
-										  else{
-											  connection->output_buffer = http_templates[HTTPTEMPLATE_FULL404];
-											  connection->output_length = http_templates_length[HTTPTEMPLATE_FULL404];
-										  }
-										  RBUF_READMOVE(connection->input, length);
+				cache_entry* entry;
+				mode_t modes = 0;
+				//TODO: memcpy always?
+				if (connection->type == REQMETHOD_GET){
+					//db_entry_get_read will free key if necessary
+					entry = db_entry_get_read(key, n);
+					connection->state = STATE_REQUESTENDSEARCH;
+				}
+				else{
+					//It is the responsibility of db_entry_get_write to free key if necessary
+					entry = db_entry_get_write(key, n);
+					connection->state = STATE_REQUESTHEADERS;
+					modes = O_CREAT;
+				}
 
-										  return true;
-									  }
-									  buffer++;
-								  })
-									  break;
-	}
+				connection->target.position = 0;
+				connection->target.entry = entry;
+				if (entry != NULL){
+					if (IS_SINGLE_FILE(entry)){
+						connection->target.fd = db_entry_open(entry, modes);
+						connection->target.end_position = entry->data_length;
+					}
+					else{
+						connection->target.fd = db.fd_blockfile;
+						connection->target.position = entry->block * BLOCK_LENGTH;
+						connection->target.end_position = connection->target.position + entry->data_length;
+					}
+					entry->refs++;
+
+					connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200];
+					connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200];
+				}
+				else{
+					connection->output_buffer = http_templates[HTTPTEMPLATE_FULL404];
+					connection->output_length = http_templates_length[HTTPTEMPLATE_FULL404];
+				}
+				RBUF_READMOVE(connection->input, n + 1);
+
+				return true;
+			}
+			buffer++;
+		});
+		break;
 
 	case STATE_REQUESTHEADERS_CONTENTLENGTH:
 		DEBUG("[#%d] Handling STATE_REQUESTHEADERS_CONTENTLENGTH\n", connection->client_sock);
@@ -226,7 +231,10 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 					connection->state = STATE_REQUESTBODY;
 					return true;
 				}
-				start = buffer + 1;
+
+				//Move pointers to next record
+				RBUF_READMOVE(connection->input, n + 1);
+				n = -1;
 			}
 			else if (*buffer != '\r'){
 				temporary = 0;
@@ -235,86 +243,94 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 
 		//Couldnt find the end in this 4kb chunk
 		//Go back 3 bytes, might go back too far - but thats ok we dont have that short headers
-		RBUF_READMOVE(connection->input, n - 2);
+		if (rbuf_write_remaining(&connection->input) != 0){
+			RBUF_READMOVE(connection->input, n - 2);
+		}
+		else{
+			RBUF_READMOVE(connection->input, n + 1);
+			return http_invalid_request(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+		}
+
 		break;
 	case STATE_REQUESTENDSEARCH:
-	{
-								   DEBUG("[#%d] Handling STATE_REQUESTENDSEARCH\n", connection->client_sock);
-								   temporary = 0;
-								   buffer = connection->input_buffer + connection->input_read_position;
-								   end = (char*)(connection->input_buffer + connection->input_buffer_write_position);
+		DEBUG("[#%d] Handling STATE_REQUESTENDSEARCH\n", connection->client_sock);
+		temporary = 0;
 
-								   //Search for two newlines (unix or windows)
-								   while (buffer < end){
-									   if (*buffer == '\n'){
-										   temporary++;
-										   if (temporary == 2){
-											   connection->input_read_position = buffer - connection->input_buffer + 1;
+		//Search for two newlines (unix or windows)
+		RBUF_ITERATE(connection->input, n, buffer, end, {
+			if (*buffer == '\n'){
+				temporary++;
+				if (temporary == 2){
+					RBUF_READMOVE(connection->input, n + 1);
 
-											   if (connection->target.entry != NULL){
-												   connection->state = STATE_RESPONSESTART;
-											   }
-											   else{
-												   connection->state = STATE_RESPONSEWRITEONLY;
-											   }
-											   connection_register_write(epfd, connection->client_sock);
-											   return true;
-										   }
-									   }
-									   else if (*buffer != '\r'){
-										   temporary = 0;
-									   }
-									   buffer++;
-								   }
+					if (connection->target.entry != NULL){
+						connection->state = STATE_RESPONSESTART;
+					}
+					else{
+						connection->state = STATE_RESPONSEWRITEONLY;
+					}
+					connection_register_write(epfd, connection->client_sock);
+					return true;
+				}
+			}
+			else if (*buffer != '\r'){
+				temporary = 0;
+			}
+			buffer++;
+		});
 
-								   //Couldnt find the end in this 4kb chunk
-								   connection->input_read_position = buffer - connection->input_buffer - 3;
+		//Couldnt find the end in this 4kb chunk
+		//Go back 3 bytes, might go back too far - but thats ok we dont have that short headers
+		if (rbuf_write_remaining(&connection->input) != 0){
+			RBUF_READMOVE(connection->input, n - 2);
+		}
+		else{
+			RBUF_READMOVE(connection->input, n + 1);
+			return http_invalid_request(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+		}
 
-								   break;
-	}
+		break;
+
 	case STATE_REQUESTBODY:
-	{
-							  DEBUG("[#%d] Handling STATE_REQUESTBODY\n", connection->client_sock);
-							  cache_target* target = &connection->target;
-							  int max_write = connection->input_buffer_write_position - connection->input_read_position;
-							  assert(max_write >= 0);
-							  int to_write = target->entry->data_length - target->position;
-							  assert(to_write >= 0);
+		DEBUG("[#%d] Handling STATE_REQUESTBODY\n", connection->client_sock);
+		int max_write = rbuf_read_to_end(&connection->input);
+		assert(max_write >= 0);
+		int to_write = connection->target.entry->data_length - connection->target.position;
+		assert(to_write >= 0);
 
-							  //Limit to the ammount read from socket
-							  DEBUG("[#%d] Wanting to write %d bytes (max: %d) to fd %d\n", fd, to_write, max_write, target->fd);
-							  if (to_write > max_write){
-								  to_write = max_write;
-							  }
+		//Limit to the ammount read from socket
+		DEBUG("[#%d] Wanting to write %d bytes (max: %d) to fd %d\n", connection->client_sock, to_write, max_write, connection->target.fd);
+		if (to_write > max_write){
+			to_write = max_write;
+		}
 
-							  if (to_write != 0){
-								  // Write data
-								  int read_bytes = write(target->fd, connection->input_buffer + connection->input_read_position, to_write);
+		if (to_write != 0){
+			// Write data
+			int read_bytes = write(connection->target.fd, RBUF_READ(connection->input), to_write);
 
-								  //Handle the bytes written
-								  DEBUG("[#%d] %d bytes to fd %d\n", connection->client_sock, read_bytes, target->fd);
-								  connection->input_read_position += read_bytes;
-								  target->position += read_bytes;
-							  }
+			//Handle the bytes written
+			DEBUG("[#%d] %d bytes to fd %d\n", connection->client_sock, read_bytes, connection->target.fd);
+			RBUF_READMOVE(connection->input, read_bytes);
+			connection->target.position += read_bytes;
+		}
 
-							  //Check if done
-							  assert((target->entry->data_length - target->position) >= 0);
-							  if ((target->entry->data_length - target->position) == 0){
-								  connection->output_buffer = http_templates[HTTPTEMPLATE_FULL200OK];
-								  connection->output_length = http_templates_length[HTTPTEMPLATE_FULL200OK];
-								  connection->state = STATE_RESPONSEWRITEONLY;
-								  connection_register_write(epfd, connection->client_sock);
+		//Check if done
+		assert((connection->target.entry->data_length - connection->target.position) >= 0);
+		if ((connection->target.entry->data_length - connection->target.position) == 0){
+			connection->output_buffer = http_templates[HTTPTEMPLATE_FULL200OK];
+			connection->output_length = http_templates_length[HTTPTEMPLATE_FULL200OK];
+			connection->state = STATE_RESPONSEWRITEONLY;
+			connection_register_write(epfd, connection->client_sock);
 
-								  //Decrease refs, done with writing
-								  connection->target.entry->writing = false;
-								  connection->target.entry->refs--;
+			//Decrease refs, done with writing
+			connection->target.entry->writing = false;
+			connection->target.entry->refs--;
 
-								  //No longer using an entry
-								  connection->target.entry = NULL;
-								  connection->target.position = 0;
-							  }
-							  break;
-	}
+			//No longer using an entry
+			connection->target.entry = NULL;
+			connection->target.position = 0;
+		}
+		break;
 	}
 
 	return false;
@@ -345,6 +361,8 @@ bool http_read_handle(int epfd, cache_connection* connection){
 	do {
 		run = http_read_handle_state(epfd, connection);
 	} while (run);
+
+	//TODO: Handle full buffer condition
 
 	return false;
 }
