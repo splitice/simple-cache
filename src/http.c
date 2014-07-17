@@ -173,10 +173,12 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 					}
 					entry->refs++;
 
-					http_write_response(epfd, connection, HTTPTEMPLATE_HEADERS200);
+					connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200];
+					connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200];
 				}
 				else{
-					http_write_response(epfd, connection, HTTPTEMPLATE_FULL404);
+					connection->output_buffer = http_templates[HTTPTEMPLATE_FULL404];
+					connection->output_length = http_templates_length[HTTPTEMPLATE_FULL404];
 				}
 				RBUF_READMOVE(connection->input, n + 1);
 
@@ -254,7 +256,9 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		break;
 	case STATE_REQUESTENDSEARCH:
 		DEBUG("[#%d] Handling STATE_REQUESTENDSEARCH\n", connection->client_sock);
-		temporary = 0;
+
+		//Start with one new line (the new line that caused this state change)
+		temporary = 1;
 
 		//Search for two newlines (unix or windows)
 		RBUF_ITERATE(connection->input, n, buffer, end, {
@@ -270,13 +274,12 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 						connection->state = STATE_RESPONSEWRITEONLY;
 					}
 					connection_register_write(epfd, connection->client_sock);
-					return true;
+					return false;
 				}
 			}
 			else if (*buffer != '\r'){
 				temporary = 0;
 			}
-			buffer++;
 		});
 
 		//Couldnt find the end in this 4kb chunk
