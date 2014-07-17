@@ -374,74 +374,60 @@ return true to signal intent to send more data
 */
 bool http_write_handle_state(int epfd, cache_connection* connection){
 	int fd = connection->client_sock;
+	int temp;
 
 	switch (connection->state){
-		/*	case STATE_RESPONSESTART:
-			{
-			DEBUG("[#%d] Handling STATE_RESPONSESTART\n", fd);
-			//Before using this state, ensure the template is already set
-			//Psudeo state, just proceed onwards - data has been written
-			connection->state = STATE_RESPONSEHEADER_CONTENTLENGTH;
-			return true;
-			break;
-			}
-			case STATE_RESPONSEHEADER_CONTENTLENGTH:
-			{
-			DEBUG("[#%d] Handling STATE_RESPONSEHEADER_CONTENTLENGTH\n", fd);
-			int chars = snprintf(misc_buffer, 4096, "Content-Length: %d\r\n", connection->target.entry->data_length);
+	case STATE_RESPONSESTART:
+		//Before using this state, ensure the template is already set
+		//Psudeo state, just proceed onwards - data has been written
+	case STATE_RESPONSEHEADER_CONTENTLENGTH:
+		DEBUG("[#%d] Handling STATE_RESPONSEHEADER_CONTENTLENGTH\n", fd);
+		//Returns the number of chars put into the buffer
+		temp = snprintf(misc_buffer, 4096, "Content-Length: %d\r\n", connection->target.entry->data_length);
 
-			char* content_length = (char*)malloc(chars);
-			memcpy(content_length, misc_buffer, chars);
-
-			connection->output_buffer = content_length;
-			connection->output_length = chars;
-			connection->output_buffer_free = content_length;
-			connection->state = STATE_RESPONSEEND;
-			break;
-			}
-			case STATE_RESPONSEEND:
-			{
-			DEBUG("[#%d] Handling STATE_RESPONSEEND\n", fd);
-			connection->output_buffer = http_templates[HTTPTEMPLATE_DBLNEWLINE];
-			connection->output_length = http_templates_length[HTTPTEMPLATE_DBLNEWLINE];
-			connection->state = STATE_RESPONSEBODY;
-			break;
-			}
-			case STATE_RESPONSEBODY:
-			{
-			DEBUG("[#%d] Handling STATE_RESPONSEBODY\n", fd);
-			cache_target* target = &connection->target;
-			int to_read = connection->target.entry->data_length - target->position;
-			DEBUG("[#%d] To send %d bytes to the socket (len: %d, pos: %d)", fd, to_read, connection->target.entry->data_length, target->position);
-			assert(to_read >= 0);
-			if (to_read != 0){
-			off_t pos = target->position;
-			int bytes_sent = sendfile(fd, target->fd, &pos, to_read);
+		connection->output_buffer_free = (char*)malloc(temp);
+		memcpy(connection->output_buffer_free, misc_buffer, temp);
+		connection->output_buffer = connection->output_buffer_free;
+		connection->output_length = temp;
+		connection->state = STATE_RESPONSEEND;
+		break;
+	case STATE_RESPONSEEND:
+		DEBUG("[#%d] Handling STATE_RESPONSEEND\n", fd);
+		connection->output_buffer = http_templates[HTTPTEMPLATE_DBLNEWLINE];
+		connection->output_length = http_templates_length[HTTPTEMPLATE_DBLNEWLINE];
+		connection->state = STATE_RESPONSEBODY;
+		break;
+	case STATE_RESPONSEBODY:
+		DEBUG("[#%d] Handling STATE_RESPONSEBODY\n", fd);
+		//The number of bytes to read
+		temp = connection->target.entry->data_length - connection->target.position;
+		DEBUG("[#%d] To send %d bytes to the socket (len: %d, pos: %d)", fd, temp, connection->target.entry->data_length, connection->target.position);
+		assert(temp >= 0);
+		if (temp != 0){
+			off_t pos = connection->target.position;
+			int bytes_sent = sendfile(fd, connection->target.fd, &pos, temp);
 			if (bytes_sent < 0){
-			PFATAL("Error sending bytes with sendfile");
+				PFATAL("Error sending bytes with sendfile");
 			}
-			DEBUG("[#%d] Sendfile sent %d bytes from position %d", fd, bytes_sent, target->position);
-			target->position += bytes_sent;
-			DEBUG("[#%d] Position is now %d", fd, target->position);
-			}
+			DEBUG("[#%d] Sendfile sent %d bytes from position %d", fd, bytes_sent, connection->target.position);
+			connection->target.position += bytes_sent;
+			DEBUG("[#%d] Position is now %d", fd, connection->target.position);
+		}
 
 
-			assert(target->position <= connection->target.entry->data_length);
-			if (target->position == connection->target.entry->data_length){
+		assert(connection->target.position <= connection->target.entry->data_length);
+		if (connection->target.position == connection->target.entry->data_length){
 			connection->target.entry->refs--;
 			connection->state = STATE_REQUESTSTARTMETHOD;
 			connection_register_read(epfd, fd);
-			}
-			break;
-			}
-			case STATE_RESPONSEWRITEONLY:
-			{
-			DEBUG("[#%d] Handling STATE_RESPONSEWRITEONLY\n", fd);
-			//Static response, after witing, read next request
-			connection->state = STATE_REQUESTSTARTMETHOD;
-			connection_register_read(epfd, fd);
-			break;
-			}*/
+		}
+		break;
+	case STATE_RESPONSEWRITEONLY:
+		DEBUG("[#%d] Handling STATE_RESPONSEWRITEONLY\n", fd);
+		//Static response, after witing, read next request
+		connection->state = STATE_REQUESTSTARTMETHOD;
+		connection_register_read(epfd, fd);
+		break;
 	}
 
 	return false;
