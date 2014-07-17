@@ -34,6 +34,13 @@ PUT: proceed to STATE_REQUESTBODY
 #define STATE_REQUESTHEADERS 0x3
 
 /*
+Extract decimal value from the Content-Length header
+Format: int
+Used By: PUT
+*/
+#define STATE_REQUESTHEADERS_CONTENTLENGTH 0x10
+
+/*
 Search for the end of the request, skipping over any other headers.
 Lazy, high performance request skip state
 Format: Search for \r\n\r\n or \n\n
@@ -97,6 +104,8 @@ ALL: reset target, register for read, proceed to STATE_REQUESTSTART
 /* ===[ METHODS ]=== */
 #define REQMETHOD_GET 1
 #define REQMETHOD_PUT 2
+
+#define LONGEST_REQMETHOD 3
 
 /* ===[ HTTP TEMPLATES ]=== */
 #define NUMBER_OF_HTTPTEMPLATE 5

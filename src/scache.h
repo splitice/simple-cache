@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "read_buffer.h"
 
 typedef struct cache_entry {
 	//key
@@ -36,11 +37,14 @@ typedef struct {
 	int type : 16;
 	int client_sock;
 
+	//An integer for state specific data
+	//that may persist over reads. Interpretation
+	//is specific to the state, may be a ptr.
+	//TODO: cleaner way?
+	int state_data;
+
 	//Reading from socket buffers
-	int input_read_position;
-	uint32_t input_expect;
-	int input_buffer_write_position;
-	char input_buffer[4096];
+	struct read_buffer input;
 	
 	//Writing to socket buffers
 	const char* output_buffer;

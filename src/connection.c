@@ -125,8 +125,7 @@ static void connection_add(int fd, cache_connection_node* ctable){
 		node->next = newNode;
 		node = newNode;
 	}
-	node->connection.input_read_position = 0;
-	node->connection.input_buffer_write_position = 0;
+	rbuf_init(&node->connection.input);
 	node->connection.state = STATE_REQUESTSTARTMETHOD;
 	node->connection.client_sock = fd;
 	node->connection.output_buffer_free = NULL;
