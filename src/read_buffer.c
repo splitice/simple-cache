@@ -85,40 +85,47 @@ int rbuf_cmpn(struct read_buffer* buffer, const char* with, int n) {
 	return result;
 }
 
-bool rbuf_strntol(struct read_buffer* buffer, int* output)
+bool rbuf_strntol(struct read_buffer* buffer, int* output, int max)
 {
 	int result = 0;
 	int n = rbuf_read_to_end(buffer);
+	if (max != -1 && max < n){
+		n = max;
+		max -= n;
+	}
+
 	char* buf = RBUF_READPTR(buffer);
 
 	//Handle forward
 	while (n--)
 	{
 		result *= 10;
-		int n = (*buf++) - '0';
+		int number = (*buf++) - '0';
 
-		if (n > 9 || n < 0){
+		if (number > 9 || number < 0){
 			DEBUG("Expected number got char %c\n", (unsigned char)(*(buf - 1)));
 			return false;
 		}
-		result += n;
+		result += number;
 	}
 
-	//How many after roll over?
-	n = rbuf_read_remaining(buffer) - n;
-	buf = RBUF_STARTPTR(buffer);
+	if (max != 0){
+		//How many after roll over?
+		n = rbuf_read_remaining(buffer) - n;
+		buf = RBUF_STARTPTR(buffer);
 
-	//Handle rollover
-	while (n--)
-	{
-		result *= 10;
-		int n = (*buf++) - '0';
+		//Handle rollover
+		while (n--)
+		{
+			result *= 10;
+			int n = (*buf++) - '0';
 
-		if (n > 9 || n < 0){
-			DEBUG("Expected number got char %c\n", (unsigned char)(*(buf - 1)));
-			return false;
+			if (n > 9 || n < 0){
+				DEBUG("Expected number got char %c\n", (unsigned char)(*(buf - 1)));
+				return false;
+			}
+			result += n;
 		}
-		result += n;
 	}
 
 	*output = result;

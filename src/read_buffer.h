@@ -28,8 +28,9 @@ int rbuf_cmpn(struct read_buffer* buffer, const char* with, int n);
 
 /*
 Extract integer from character stream (ASCII)
+Only process up to a maximum number of bytes (-1 for entire stream)
 */
-bool rbuf_strntol(struct read_buffer* buffer, int* output);
+bool rbuf_strntol(struct read_buffer* buffer, int* output, int max);
 
 /*
 Get the number of bytes remaining to read

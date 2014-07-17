@@ -139,6 +139,9 @@ bool db_open(const char* path){
 	//Block file
 	snprintf(db.path_blockfile, MAX_PATH, "%s/block.db", path);
 	db.fd_blockfile = open(db.path_blockfile, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+	if (db.fd_blockfile < 0){
+		PFATAL("Failed to open blockfile: %s", db.path_blockfile);
+	}
 }
 
 
@@ -245,7 +248,7 @@ cache_entry* db_entry_get_write(char* key, size_t length){
 		free(entry->key);
 	}
 	else{
-		entry->block = -2;
+		entry->block = db_block_allocate_new();
 	}
 
 	entry->key = key;

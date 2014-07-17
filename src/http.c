@@ -135,7 +135,6 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		DEBUG("[#%d] Handling STATE_REQUESTSTARTURL\n", connection->client_sock);
 
 		RBUF_ITERATE(connection->input, n, buffer, end, {
-			DEBUG("%c,", *buffer);
 			if (*buffer == ' '){
 				//Copy the key from the buffer
 				char* key = (char*)malloc(sizeof(char)* (n + 1));
@@ -150,14 +149,13 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				if (connection->type == REQMETHOD_GET){
 					//db_entry_get_read will free key if necessary
 					entry = db_entry_get_read(key, n);
-					connection->state = STATE_REQUESTENDSEARCH;
 				}
 				else{
 					//It is the responsibility of db_entry_get_write to free key if necessary
 					entry = db_entry_get_write(key, n);
-					connection->state = STATE_REQUESTHEADERS;
 					modes = O_CREAT;
 				}
+				connection->state = STATE_HTTPVERSION;
 
 				connection->target.position = 0;
 				connection->target.entry = entry;
@@ -182,33 +180,67 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				}
 				RBUF_READMOVE(connection->input, n + 1);
 
-				return false;
+				return true;
 			}
 		});
 		break;
 
-	case STATE_REQUESTHEADERS_CONTENTLENGTH:
-		DEBUG("[#%d] Handling STATE_REQUESTHEADERS_CONTENTLENGTH\n", connection->client_sock);
+	case STATE_HTTPVERSION:
+		DEBUG("[#%d] Handling STATE_HTTPVERSION\n", connection->client_sock);
+
 		RBUF_ITERATE(connection->input, n, buffer, end, {
 			if (*buffer == '\n'){
-				//Move read pointer, but keep the newline for newline counting
-				RBUF_READMOVE(connection->input, n);
+				//TODO: handle version differences
+				if (connection->type == REQMETHOD_GET){
+					connection->state = STATE_REQUESTENDSEARCH;
+				}
+				else{
+					connection->state = STATE_REQUESTHEADERS;
+				}
+				RBUF_READMOVE(connection->input, n + 1);
+				return true;
+			}
+		});
+		if (n != 0){
+			RBUF_READMOVE(connection->input, n);
+		}
+		break;
+
+	case STATE_REQUESTHEADERS_CONTENTLENGTH:
+		DEBUG("[#%d] Handling STATE_REQUESTHEADERS_CONTENTLENGTH\n", connection->client_sock);
+		temporary = 0;
+		RBUF_ITERATE(connection->input, n, buffer, end, {
+			if (*buffer == ' ' && !temporary){
+				RBUF_READMOVE(connection->input, 1);
+				n--;
+			}
+			else if (*buffer == '\n' || *buffer == '\r'){
+				//We are going to have to skip another char if \r\n
+				if (*buffer == '\r'){
+					temporary = 2;
+				}
+				else{
+					temporary = 1;
+				}
 
 				int content_length;
-				if (!rbuf_strntol(&connection->input, &content_length)){
+				if (!rbuf_strntol(&connection->input, &content_length, n)){
 					WARN("Invalid Content-Length value provided");
 
 					//This is an INVALID request
-					RBUF_READMOVE(connection->input, 1);
+					RBUF_READMOVE(connection->input, n + temporary);
 					return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 				}
-				else{
-					//We are writing, initalize fd now
-					DEBUG("[#%d] Content-Length of %d found\n", connection->client_sock, content_length);
-					db_entry_write_init(&connection->target, content_length);
-					connection->state = STATE_REQUESTHEADERS;
-					return true;
-				}
+
+				//Else: We are writing, initalize fd now
+				DEBUG("[#%d] Content-Length of %d found\n", connection->client_sock, content_length);
+				db_entry_write_init(&connection->target, content_length);
+				connection->state = STATE_REQUESTHEADERS;
+				RBUF_READMOVE(connection->input, n + temporary);
+				return true;
+			}
+			else{
+				temporary = 1;
 			}
 		});
 		break;
@@ -230,6 +262,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				temporary++;
 				if (temporary == 2){
 					RBUF_READMOVE(connection->input, n + 1);
+					//TODO: handle missing content-length?
 					connection->state = STATE_REQUESTBODY;
 					return true;
 				}
@@ -246,10 +279,10 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		//Couldnt find the end in this 4kb chunk
 		//Go back 3 bytes, might go back too far - but thats ok we dont have that short headers
 		if (rbuf_write_remaining(&connection->input) != 0){
-			RBUF_READMOVE(connection->input, n - 2);
+			RBUF_READMOVE(connection->input, n);
 		}
 		else{
-			RBUF_READMOVE(connection->input, n + 1);
+			RBUF_READMOVE(connection->input, n);
 			return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 		}
 

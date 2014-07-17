@@ -60,6 +60,9 @@ PUT: register for write, proceed to STATE_RESPONSEWRITEONLY
 */
 #define STATE_REQUESTBODY 0x6
 
+
+#define STATE_HTTPVERSION 0x7
+
 /* ===[ WRITE ]=== */
 /*
 Send the response line, and any headers in the template
