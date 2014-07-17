@@ -26,7 +26,7 @@
 int http_templates_length[NUMBER_OF_HTTPTEMPLATE];
 char misc_buffer[4096];
 
-void skip_over_newlines(struct read_buffer* rb){
+static void skip_over_newlines(struct read_buffer* rb){
 	char* buffer;
 	int end = rbuf_read_to_end(rb);
 
@@ -56,7 +56,7 @@ void skip_over_newlines(struct read_buffer* rb){
 	}
 }
 
-bool http_invalid_request(int epfd, cache_connection* connection, int http_template){
+static bool http_write_response(int epfd, cache_connection* connection, int http_template){
 	connection->state = STATE_RESPONSEWRITEONLY;
 	connection->output_buffer = http_templates[http_template];
 	connection->output_length = http_templates_length[http_template];
@@ -99,13 +99,12 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 			//Check if this is never going to be valid, too long
 			if (n > LONGEST_REQMETHOD){
 				RBUF_READMOVE(connection->input, n + 1);
-				return http_invalid_request(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+				return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 			}
 
 			//A space signifies the end of the method
 			if (*buffer == ' '){
 				DEBUG("[#%d] Found first space seperator, len: %d\n", connection->client_sock, n);
-				RBUF_READMOVE(connection->input, n + 1);
 
 				//As long as the method is valid the next step
 				//is to parse the url
@@ -115,16 +114,19 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				if (n == 3 && rbuf_cmpn(&connection->input, "GET", 3) == 0){
 					//This is a GET request
 					connection->type = REQMETHOD_GET;
+					RBUF_READMOVE(connection->input, n + 1);
 					return true;
 				}
 				else if (n == 3 && rbuf_cmpn(&connection->input, "PUT", 3) == 0){
 					//This is a PUT request
 					connection->type = REQMETHOD_PUT;
+					RBUF_READMOVE(connection->input, n + 1);
 					return true;
 				}
 
 				//Else: This is an INVALID request
-				return http_invalid_request(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+				RBUF_READMOVE(connection->input, n + 1);
+				return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 			}
 		});
 		break;
@@ -133,13 +135,14 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		DEBUG("[#%d] Handling STATE_REQUESTSTARTURL\n", connection->client_sock);
 
 		RBUF_ITERATE(connection->input, n, buffer, end, {
+			DEBUG("%c,", *buffer);
 			if (*buffer == ' '){
 				//Copy the key from the buffer
 				char* key = (char*)malloc(sizeof(char)* (n + 1));
 				rbuf_copyn(&connection->input, key, n);
-				*(key + n) = 0;//Null terminate the key
+				*(key + n + 1) = 0;//Null terminate the key
 
-				DEBUG("[#%d] Request key: \"%s\"\n", connection->client_sock, key);
+				DEBUG("[#%d] Request key: \"%s\" (%d)\n", connection->client_sock, key, n);
 
 				cache_entry* entry;
 				mode_t modes = 0;
@@ -170,18 +173,15 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 					}
 					entry->refs++;
 
-					connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200];
-					connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200];
+					http_write_response(epfd, connection, HTTPTEMPLATE_HEADERS200);
 				}
 				else{
-					connection->output_buffer = http_templates[HTTPTEMPLATE_FULL404];
-					connection->output_length = http_templates_length[HTTPTEMPLATE_FULL404];
+					http_write_response(epfd, connection, HTTPTEMPLATE_FULL404);
 				}
 				RBUF_READMOVE(connection->input, n + 1);
 
-				return true;
+				return false;
 			}
-			buffer++;
 		});
 		break;
 
@@ -198,7 +198,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 
 					//This is an INVALID request
 					RBUF_READMOVE(connection->input, 1);
-					return http_invalid_request(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+					return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 				}
 				else{
 					//We are writing, initalize fd now
@@ -248,7 +248,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		}
 		else{
 			RBUF_READMOVE(connection->input, n + 1);
-			return http_invalid_request(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+			return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 		}
 
 		break;
@@ -286,7 +286,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		}
 		else{
 			RBUF_READMOVE(connection->input, n + 1);
-			return http_invalid_request(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+			return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 		}
 
 		break;

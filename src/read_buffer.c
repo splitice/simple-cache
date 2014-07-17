@@ -60,7 +60,7 @@ int rbuf_cmpn(struct read_buffer* buffer, const char* with, int n) {
 
 	//Copy this ammount
 	int result = strncmp(with, RBUF_READPTR(buffer), to_read);
-	n -= to_end;
+	n -= to_read;
 	with += to_read;
 
 	//Do we need more?
