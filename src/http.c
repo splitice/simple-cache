@@ -215,7 +215,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 
 	case STATE_REQUESTHEADERS:
 		DEBUG("[#%d] Handling STATE_REQUESTHEADERS\n", connection->client_sock);
-		temporary = 0;
+		temporary = 1;
 		RBUF_ITERATE(connection->input, n, buffer, end, {
 			if (*buffer == ':'){
 				DEBUG("[#%d] Found header of length %d\n", connection->client_sock, n);
