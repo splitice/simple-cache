@@ -10,7 +10,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "tests", "tests\tests.vcxpro
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "core", "src\core\core.vcxproj", "{764B6B15-F81C-43B2-B9BC-A3A82C5FE526}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "server", "src\server\server\server.vcxproj", "{F55A4D88-0EE9-466D-B9BB-B51614C294FA}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "server", "src\server\server.vcxproj", "{F55A4D88-0EE9-466D-B9BB-B51614C294FA}"
 	ProjectSection(ProjectDependencies) = postProject
 		{764B6B15-F81C-43B2-B9BC-A3A82C5FE526} = {764B6B15-F81C-43B2-B9BC-A3A82C5FE526}
 	EndProjectSection
