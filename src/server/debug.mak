@@ -13,7 +13,7 @@ OBJCOPY := objcopy
 
 #Additional flags
 PREPROCESSOR_MACROS := DEBUG_BUILD
-INCLUDE_DIRS := /home/splitice/simple-cache/src/core
+INCLUDE_DIRS := ../../core
 LIBRARY_DIRS := 
 LIBRARY_NAMES := 
 ADDITIONAL_LINKER_INPUTS := 
