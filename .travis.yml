@@ -3,4 +3,4 @@ compiler: g++
 script:
  - cd tests
  - make
- - tests
+ - ./tests
