@@ -1,13 +1,10 @@
-all: 
-	cd src/core
-	make
-	cd ../server
-	make
-	cd ../../tests
-	make
+all: core server tests
 
-tests:
-	cd src/core
-	make
-	cd ../../tests
-	make
+tests: core
+	cd tests && make
+
+server: core
+	cd src/server && make
+
+core:
+	cd src/core && make
