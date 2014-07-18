@@ -1,5 +1,6 @@
 language: cpp
-compiler: g++
+compiler: 
+ - g++
 script:
  - cd tests
  - make
