@@ -1,28 +1,8 @@
-#if !defined(SCACHE_H_INCLUDED_9AA4BC83_3F1B_42F0_9291_23880637CC16)
-#define SCACHE_H_INCLUDED_9AA4BC83_3F1B_42F0_9291_23880637CC16
+#if !defined(CONNECTION_STRUCTURES_H_INCLUDED_0986159D_B42F_44F7_AC22_75D7DDA2994D)
+#define CONNECTION_STRUCTURES_H_INCLUDED_0986159D_B42F_44F7_AC22_75D7DDA2994D
 
-#include <stdbool.h>
-#include <stdint.h>
+#include "db_structures.h"
 #include "read_buffer.h"
-
-typedef struct cache_entry {
-	//key
-	uint32_t hash;
-	char* key;
-	uint16_t key_length;
-
-	//data
-	uint32_t data_length;
-	uint16_t block;
-
-	//status
-	uint16_t refs;
-	bool writing : 1;
-
-	//lru
-	struct cache_entry* lru_next;
-	struct cache_entry* lru_prev;
-} cache_entry;
 
 typedef struct {
 	cache_entry* entry;
@@ -45,7 +25,7 @@ typedef struct {
 
 	//Reading from socket buffers
 	struct read_buffer input;
-	
+
 	//Writing to socket buffers
 	const char* output_buffer;
 	int output_length;
@@ -57,5 +37,4 @@ typedef struct cache_connection_node {
 	struct cache_connection_node* next;
 } cache_connection_node;
 
-
-#endif // !defined(SCACHE_H_INCLUDED_9AA4BC83_3F1B_42F0_9291_23880637CC16)
+#endif

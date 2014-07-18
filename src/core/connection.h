@@ -2,6 +2,7 @@
 #define CONNECTION_H_INCLUDED_0986159D_B42F_44F7_AC22_75D7DDA2994D
 
 #include "config.h"
+#include "connection_structures.h"
 
 void connection_register_write(int epfd, int fd);
 void connection_register_read(int epfd, int fd);

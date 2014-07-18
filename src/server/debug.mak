@@ -5,18 +5,18 @@
 BINARYDIR := Debug
 
 #Toolchain
-CC := g++
+CC := gcc
 CXX := g++
 LD := $(CXX)
 AR := ar
 OBJCOPY := objcopy
 
 #Additional flags
-PREPROCESSOR_MACROS := DEBUG_BUILD
-INCLUDE_DIRS := /home/splitice/simple-cache/src/core
+PREPROCESSOR_MACROS := DEBUG
+INCLUDE_DIRS := 
 LIBRARY_DIRS := 
 LIBRARY_NAMES := 
-ADDITIONAL_LINKER_INPUTS :=
+ADDITIONAL_LINKER_INPUTS := 
 MACOS_FRAMEWORKS := 
 LINUX_PACKAGES := 
 
@@ -31,5 +31,3 @@ END_GROUP := -Wl,--end-group
 
 #Additional options detected from testing the toolchain
 IS_LINUX_PROJECT := 1
-SHELL = bash
-

@@ -2,7 +2,8 @@
 #define DB_H_INCLUDED_1FA53FD2_BB5F_432E_9E57_761594DEBEC7
 
 #include <stdbool.h>
-#include "scache.h"
+#include "db_structures.h"
+#include "connection_structures.h"
 #include "config.h"
 
 /* Structure representing a free block (linked list node) */

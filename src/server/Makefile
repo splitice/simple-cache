@@ -5,9 +5,9 @@
 
 #VisualGDB: AutoSourceFiles		#<--- remove this line to disable auto-updating of SOURCEFILES and EXTERNAL_LIBS
 
-TARGETNAME := src
+TARGETNAME := server.a
 #TARGETTYPE can be APP, STATIC or SHARED
-TARGETTYPE := APP
+TARGETTYPE := STATIC
 
 to_lowercase = $(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,$(subst F,f,$(subst G,g,$(subst H,h,$(subst I,i,$(subst J,j,$(subst K,k,$(subst L,l,$(subst M,m,$(subst N,n,$(subst O,o,$(subst P,p,$(subst Q,q,$(subst R,r,$(subst S,s,$(subst T,t,$(subst U,u,$(subst V,v,$(subst W,w,$(subst X,x,$(subst Y,y,$(subst Z,z,$1))))))))))))))))))))))))))
 
@@ -23,8 +23,8 @@ error:
 	$(error Invalid configuration, please check your inputs)
 endif
 
-SOURCEFILES := connection.c db.c hash.c http.c read_buffer.c scache.c settings.c
-EXTERNAL_LIBS := 
+SOURCEFILES := server.cpp
+EXTERNAL_LIBS := ../core/$(BINARYDIR)/core.a
 EXTERNAL_LIBS_COPIED := $(foreach lib, $(EXTERNAL_LIBS),$(BINARYDIR)/$(notdir $(lib)))
 
 CFLAGS += $(COMMONFLAGS)
@@ -163,3 +163,6 @@ $(BINARYDIR)/%.o : %.cxx $(all_make_files) |$(BINARYDIR)
 	$(CC) $(CFLAGS) $(CXXFLAGS) -c $< -o $@ -MD -MF $(@:.o=.dep)
 
 #VisualGDB: GeneratedRules				#<--- All lines below are auto-generated
+$(BINARYDIR)/core.a : ../core/$(BINARYDIR)/core.a
+	$(CP) ../core/$(BINARYDIR)/core.a $(BINARYDIR)/core.a
+

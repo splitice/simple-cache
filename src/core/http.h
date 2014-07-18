@@ -1,7 +1,7 @@
 #if !defined(HTTP_H_INCLUDED_F90F71F0_0C8E_44EB_9C1D_60CBA7163EC8)
 #define HTTP_H_INCLUDED_F90F71F0_0C8E_44EB_9C1D_60CBA7163EC8
 
-#include "scache.h"
+#include "connection.h"
 
 /* ===[ READ ]=== */
 /*

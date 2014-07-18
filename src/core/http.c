@@ -16,7 +16,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
-#include "scache.h"
 #include "http.h"
 #include "config.h"
 #include "debug.h"
