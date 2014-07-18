@@ -5,14 +5,14 @@
 BINARYDIR := Debug
 
 #Toolchain
-CC := gcc
+CC := g++
 CXX := g++
 LD := $(CXX)
 AR := ar
 OBJCOPY := objcopy
 
 #Additional flags
-PREPROCESSOR_MACROS := DEBUG
+PREPROCESSOR_MACROS := DEBUG_BUILD
 INCLUDE_DIRS := 
 LIBRARY_DIRS := 
 LIBRARY_NAMES := 

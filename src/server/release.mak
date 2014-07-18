@@ -5,7 +5,7 @@
 BINARYDIR := Release
 
 #Toolchain
-CC := gcc
+CC := g++
 CXX := g++
 LD := $(CXX)
 AR := ar
