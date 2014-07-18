@@ -23,7 +23,7 @@ error:
 	$(error Invalid configuration, please check your inputs)
 endif
 
-SOURCEFILES := ../../server/connection.c ../../server/db.c ../../server/hash.c ../../server/http.c ../../server/read_buffer.c ../../server/settings.c
+SOURCEFILES := connection.c db.c hash.c http.c read_buffer.c settings.c
 EXTERNAL_LIBS := 
 EXTERNAL_LIBS_COPIED := $(foreach lib, $(EXTERNAL_LIBS),$(BINARYDIR)/$(notdir $(lib)))
 
@@ -163,28 +163,3 @@ $(BINARYDIR)/%.o : %.cxx $(all_make_files) |$(BINARYDIR)
 	$(CC) $(CFLAGS) $(CXXFLAGS) -c $< -o $@ -MD -MF $(@:.o=.dep)
 
 #VisualGDB: GeneratedRules				#<--- All lines below are auto-generated
-
-
-$(BINARYDIR)/connection.o : ../../server/connection.c $(all_make_files) |$(BINARYDIR)
-	$(CC) $(CFLAGS) -c $< -o $@ -MD -MF $(@:.o=.dep)
-
-
-$(BINARYDIR)/db.o : ../../server/db.c $(all_make_files) |$(BINARYDIR)
-	$(CC) $(CFLAGS) -c $< -o $@ -MD -MF $(@:.o=.dep)
-
-
-$(BINARYDIR)/hash.o : ../../server/hash.c $(all_make_files) |$(BINARYDIR)
-	$(CC) $(CFLAGS) -c $< -o $@ -MD -MF $(@:.o=.dep)
-
-
-$(BINARYDIR)/http.o : ../../server/http.c $(all_make_files) |$(BINARYDIR)
-	$(CC) $(CFLAGS) -c $< -o $@ -MD -MF $(@:.o=.dep)
-
-
-$(BINARYDIR)/read_buffer.o : ../../server/read_buffer.c $(all_make_files) |$(BINARYDIR)
-	$(CC) $(CFLAGS) -c $< -o $@ -MD -MF $(@:.o=.dep)
-
-
-$(BINARYDIR)/settings.o : ../../server/settings.c $(all_make_files) |$(BINARYDIR)
-	$(CC) $(CFLAGS) -c $< -o $@ -MD -MF $(@:.o=.dep)
-

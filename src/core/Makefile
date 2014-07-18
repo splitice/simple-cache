@@ -23,7 +23,7 @@ error:
 	$(error Invalid configuration, please check your inputs)
 endif
 
-SOURCEFILES := connection.c db.c hash.c http.c read_buffer.c settings.c
+SOURCEFILES := connection.cpp db.cpp hash.cpp http.cpp read_buffer.cpp settings.cpp
 EXTERNAL_LIBS := 
 EXTERNAL_LIBS_COPIED := $(foreach lib, $(EXTERNAL_LIBS),$(BINARYDIR)/$(notdir $(lib)))
 
