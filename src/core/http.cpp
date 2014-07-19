@@ -21,6 +21,7 @@
 #include "debug.h"
 #include "connection.h"
 #include "db.h"
+#include "timer.h"
 
 int http_templates_length[NUMBER_OF_HTTPTEMPLATE];
 char misc_buffer[4096];
@@ -303,6 +304,49 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		});
 		break;
 
+	case STATE_REQUESTHEADERS_XTTL:
+		DEBUG("[#%d] Handling STATE_REQUESTHEADERS_XTTL\n", connection->client_sock);
+		temporary = 0;
+		RBUF_ITERATE(connection->input, n, buffer, end, {
+			if (*buffer == ' ' && !temporary){
+				RBUF_READMOVE(connection->input, 1);
+				n--;
+			}
+			else if (*buffer == '\n' || *buffer == '\r'){
+				//We are going to have to skip another char if \r\n
+				if (*buffer == '\r'){
+					temporary = 2;
+				}
+				else{
+					temporary = 1;
+				}
+
+				int ttl;
+				if (!rbuf_strntol(&connection->input, &ttl, n)){
+					WARN("Invalid X-Ttl value provided");
+
+					//This is an INVALID request
+					RBUF_READMOVE(connection->input, n + temporary);
+					return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+				}
+
+				//Else: We are writing, initalize fd now
+				DEBUG("[#%d] X-Ttl of %d found\n", connection->client_sock, ttl);
+				
+				if (ttl != 0){
+					connection->target.entry->expires = ttl + current_time.tv_sec;
+				}
+								
+				connection->state = STATE_REQUESTHEADERS;
+				RBUF_READMOVE(connection->input, n + temporary);
+				return true;
+			}
+			else{
+				temporary = 1;
+			}
+		});
+		break;
+
 	case STATE_REQUESTHEADERS_ZERO:
 	case STATE_REQUESTHEADERS:
 		DEBUG("[#%d] Handling %s\n", connection->client_sock, (connection->state == STATE_REQUESTHEADERS) ? "STATE_REQUESTHEADERS" : "STATE_REQUESTHEADERS_ZERO");
@@ -315,6 +359,12 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 					DEBUG("[#%d] Found Content-Length header\n", connection->client_sock);
 					RBUF_READMOVE(connection->input, n + 1);
 					connection->state = STATE_REQUESTHEADERS_CONTENTLENGTH;
+					return true;
+				}
+				if (n == 5 && rbuf_cmpn(&connection->input, "X-Ttl", 5) == 0){
+					DEBUG("[#%d] Found X-Ttl header\n", connection->client_sock);
+					RBUF_READMOVE(connection->input, n + 1);
+					connection->state = STATE_REQUESTHEADERS_XTTL;
 					return true;
 				}
 			}

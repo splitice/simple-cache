@@ -86,6 +86,8 @@ GET: proceed to STATE_RESPONSEEND
 */
 #define STATE_RESPONSEHEADER_CONTENTLENGTH 0x11
 
+#define STATE_REQUESTHEADERS_XTTL 0x12
+
 /*
 Send \r\n to signal the end of the response headers
 Used By: GET
