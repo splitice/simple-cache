@@ -20,7 +20,7 @@ int rbuf_copyn(struct read_buffer* buffer, char* dest, int n) {
 
 	//Copy this ammount
 	memcpy(dest, RBUF_READPTR(buffer), to_read);
-	n -= to_end;
+	n -= to_read;
 	dest += to_read;
 
 	//Do we need more?
