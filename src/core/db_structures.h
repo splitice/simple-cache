@@ -5,22 +5,16 @@
 #include "stdbool.h"
 
 typedef struct cache_entry {
-	//key
 	uint32_t hash;
 	char* key;
-	uint16_t key_length;
-
-	//data
-	uint32_t data_length;
-	uint16_t block;
-
-	//status
-	uint16_t refs;
-	bool writing : 1;
-
-	//lru
 	struct cache_entry* lru_next;
 	struct cache_entry* lru_prev;
+	uint32_t data_length;
+	uint32_t block;
+	uint16_t key_length;
+	uint16_t refs;
+	bool writing : 1;
+	bool deleted : 1;
 } cache_entry;
 
 #endif

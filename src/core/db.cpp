@@ -1,3 +1,26 @@
+/*
+Functions and structures for database storage
+
+Block File
+===========
+------------------------------------------------------
+|        Block 1        |       Block 2        |
+|  (BLOCK_SIZE bytes)   |  (BLOCK_SIZE bytes)  |  ...
+------------------------------------------------------
+
+LRU
+===
+
+ Least Recently Used <------------------------> Most Recently Used
+
+-------------------------------------------------------------------
+| Entry #0    | Entry #2     |      | Entry #10    | Entry #11    |
+| next: NULL  | next: #0     |  ... | next: #9     | next: NULL   |
+| prev: #1    | prev: #2     |      | prev: #11    | prev: #10    |
+-------------------------------------------------------------------
+
+        Head <-----------------------------------------> Tail
+*/
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -17,7 +40,7 @@ struct db_details db {
 	.path_single = { 0 },
 	.path_blockfile = { 0 },
 	.fd_blockfile = -1,
-	.cache_hash_set = { 0 },
+	.cache_hash_set = NULL,
 	.lru_head = NULL,
 	.lru_tail = NULL,
 	.free_blocks = NULL,
@@ -31,49 +54,67 @@ char filename_buffer[MAX_PATH];
 
 /* Methods */
 
-void db_lru_hit(cache_entry* entry){
+void db_lru_remove_node(cache_entry* entry){
 	if (entry->lru_prev != NULL){
 		entry->lru_prev->lru_next = entry->lru_next;
 	}
 	else{
-		//Is tail already, no need for further work
-		return;
+		//This node is the tail
+		db.lru_tail = entry->lru_next;
 	}
+
 	if (entry->lru_next != NULL){
 		entry->lru_next->lru_prev = entry->lru_prev;
-		entry->lru_next = NULL;
 	}
 	else{
 		//Is head
-		db.lru_head = NULL;
+		db.lru_head = entry->lru_prev;
 	}
+}
+
+void db_lru_hit(cache_entry* entry){
+	//Remove from current position
+	db_lru_remove_node(entry);
 
 	//Re-insert @ tail
+	entry->lru_prev = NULL;	
+	entry->lru_next = db.lru_tail;
+	db.lru_tail = entry;
+}
+
+void db_lru_insert(cache_entry* entry){
+	//insert @ tail
+	entry->lru_prev = NULL;
 	entry->lru_next = db.lru_tail;
 	db.lru_tail = entry;
 }
 
 void db_lru_cleanup(int bytes_to_remove){
-	while (bytes_to_remove > 0){
-		assert(db.lru_head != NULL);
-
+	while (bytes_to_remove > 0 && db.lru_head != NULL){
 		cache_entry* l = db.lru_head;
 		db.lru_head = db.lru_head->lru_next;
+		db.lru_head->lru_prev = NULL;
 
 		bytes_to_remove -= l->data_length;
 
 		db_entry_delete(l);
 	}
+
+	//null the tail as well
+	if (db.lru_head == NULL){
+		db.lru_tail = NULL;
+	}
 }
 
 void db_lru_gc(){
-    if(settings.max_size < db.db_size_bytes){
-        int bytes_to_remove = settings.max_size * settings.db_lru_clear;
+	if (settings.max_size > 0 && settings.max_size < db.db_size_bytes){
+		int bytes_to_remove = (db.db_size_bytes - settings.max_size) + (settings.max_size * settings.db_lru_clear);
+		
         db_lru_cleanup(bytes_to_remove);
     }
 }
 
-void db_block_free(int block){
+void db_block_free(uint32_t block){
 	block_free_node* old = db.free_blocks;
 	db.free_blocks = (block_free_node*)malloc(sizeof(block_free_node));
 	db.free_blocks->block_number = block;
@@ -81,7 +122,7 @@ void db_block_free(int block){
 }
 
 int db_block_allocate_new(){
-	int block_num = db.blocks_allocated;
+	uint32_t block_num = db.blocks_allocated;
 	db.blocks_allocated++;
 	if(ftruncate(db.fd_blockfile, db.blocks_allocated*BLOCK_LENGTH) < 0){
 	    PWARN("File truncation failed");
@@ -142,6 +183,9 @@ bool db_open(const char* path){
 	if (db.fd_blockfile < 0){
 		PFATAL("Failed to open blockfile: %s", db.path_blockfile);
 	}
+
+	//cache entries
+	db.cache_hash_set = (cache_entry**)calloc(HASH_ENTRIES, sizeof(cache_entry*));
 }
 
 
@@ -154,8 +198,33 @@ int db_entry_open(cache_entry* e, int modes){
 	return fd;
 }
 
+void db_entry_deref(cache_entry* entry){
+	entry->refs--;
+	if (entry->refs == 0 && entry->deleted){
+		//If is a block, can now free it
+		if (!IS_SINGLE_FILE(entry)){
+			db_block_free(entry->block);
+		}
+
+		//Clear entry - file has already been deleted.
+		//At this stage entry has already been removed from LRU and hash table
+		//exists only to complete files being served.
+		int hash_key = entry->hash % HASH_ENTRIES;
+		db.cache_hash_set[hash_key] = NULL;
+		free(entry);
+	}
+}
+
+void db_entry_incref(cache_entry* entry){
+	entry->refs++;
+}
+
 void db_entry_close(cache_target* target){
-	close(target->fd);
+	cache_entry* entry = target->entry;
+	if (target->fd != db.fd_blockfile){
+		close(target->fd);
+	}
+	db_entry_deref(target->entry);
 }
 
 void db_entry_delete(cache_entry* e){
@@ -174,23 +243,18 @@ void db_entry_delete(cache_entry* e){
 	//Debug only?
 	e->key_length = 0;
 
-	//Re-link next if needed
-	if (e->lru_next != NULL){
-		e->lru_next->lru_prev = e->lru_prev;
-		if (e->lru_prev == NULL){
-			db.lru_tail = e->lru_next;
-		}
+	//Update LRU
+	db_lru_remove_node(e);
+	if (e == db.lru_head){
+		db.lru_head = e->lru_prev;
 	}
-
-	//Re-link previous if needed
-	if (e->lru_prev != NULL){
-		e->lru_prev->lru_next = e->lru_next;
-		if (e->lru_prev == NULL){
-			db.lru_head = e->lru_prev;
-		}
+	if (e == db.lru_tail){
+		db.lru_tail = e->lru_next;
 	}
 
 	db.db_size_bytes -= e->data_length;
+	db.db_stats_deletes++;
+	db.db_stats_operations++;
 }
 
 uint32_t hash_string(const char* str, int length){
@@ -203,7 +267,7 @@ cache_entry* db_entry_get_read(char* key, size_t length){
 	uint32_t hash = hash_string(key, length);
 
 	int hash_key = hash % HASH_ENTRIES;
-	cache_entry* entry = &db.cache_hash_set[hash_key];
+	cache_entry* entry = db.cache_hash_set[hash_key];
 
 	if (entry->key == NULL || entry->key_length != length || strncmp(key, entry->key, length)){
 		DEBUG("[#] Unable to look up key: ");
@@ -232,6 +296,12 @@ cache_entry* db_entry_get_read(char* key, size_t length){
 	//LRU hit
 	db_lru_hit(entry);
 
+	//Stats
+	db.db_stats_gets++;
+	db.db_stats_operations++;
+
+	//Refs
+	db_entry_incref(entry);
 
 	return entry;
 }
@@ -240,7 +310,7 @@ cache_entry* db_entry_get_write(char* key, size_t length){
 	uint32_t hash = hash_string(key, length);
 
 	int hash_key = hash % HASH_ENTRIES;
-	cache_entry* entry = &db.cache_hash_set[hash_key];
+	cache_entry* entry = db.cache_hash_set[hash_key];
 
 	//This is a re-used entry
 	if (entry->key != NULL){
@@ -250,16 +320,83 @@ cache_entry* db_entry_get_write(char* key, size_t length){
 		}
 
 		free(entry->key);
+
+		//LRU: used
+		db_lru_hit(entry);
 	}
 	else{
 		entry->block = db_block_allocate_new();
+
+		//LRU: insert
+		db_lru_insert(entry);
 	}
 
 	entry->key = key;
 	entry->key_length = length;
 	entry->hash = hash;
 
+	//Stats
+	db.db_stats_inserts++;
+	db.db_stats_operations++;
+
+	//Refs
+	db_entry_incref(entry);
+
+	//LRU
+	if ((db.db_stats_inserts % DB_LRU_EVERY) == 0){
+		DEBUG("[#] Do LRU GC check.\n");
+		db_lru_gc();
+	}
+
 	return entry;
+}
+
+cache_entry* db_entry_get_delete(char* key, size_t length){
+	uint32_t hash = hash_string(key, length);
+
+	int hash_key = hash % HASH_ENTRIES;
+	cache_entry* entry = db.cache_hash_set[hash_key];
+
+	if (entry->key == NULL || entry->key_length != length || strncmp(key, entry->key, length)){
+		DEBUG("[#] Unable to look up key: ");
+
+		if (entry->key == NULL){
+			DEBUG("DB Key is null\n");
+		}
+		else{
+			if (entry->key_length != length){
+				DEBUG("DB Key length does not match\n");
+			}
+			else{
+				if (strncmp(key, entry->key, length)){
+					DEBUG("String Keys dont match\n");
+				}
+			}
+		}
+
+		free(key);
+		return NULL;
+	}
+
+	//Free key text, not needed.
+	free(key);
+
+	//Stats
+	db.db_stats_deletes++;
+	db.db_stats_operations++;
+
+	//Refs
+	db_entry_incref(entry);
+
+	return entry;
+}
+
+void db_entry_handle_delete(cache_entry* entry){
+	if (IS_SINGLE_FILE(entry)){
+		//Unlink
+		get_key_path(entry, filename_buffer);
+		unlink(filename_buffer);
+	}
 }
 
 void db_entry_write_init(cache_target* target, uint32_t data_length){

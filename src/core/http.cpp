@@ -176,7 +176,6 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 					if (connection->type == REQMETHOD_GET){
 						connection->target.end_position = connection->target.position + entry->data_length;
 					}
-					entry->refs++;
 
 					connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200];
 					connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200];

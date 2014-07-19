@@ -2,13 +2,14 @@
 #define DB_H_INCLUDED_1FA53FD2_BB5F_432E_9E57_761594DEBEC7
 
 #include <stdbool.h>
+#include <stdint.h>
 #include "db_structures.h"
 #include "connection_structures.h"
 #include "config.h"
 
 /* Structure representing a free block (linked list node) */
 typedef struct block_free_node {
-	int block_number;
+	uint32_t block_number;
 	struct block_free_node* next;
 } block_free_node;
 
@@ -24,7 +25,7 @@ typedef struct db_details {
 
 	//Entries
 	//TODO: table structure
-	cache_entry cache_hash_set[HASH_ENTRIES];
+	cache_entry** cache_hash_set;
 
 	//LRU
 	cache_entry* lru_head;
@@ -32,11 +33,17 @@ typedef struct db_details {
 
 	//block file
 	block_free_node* free_blocks;
-	int blocks_allocated;
+	uint32_t blocks_allocated;
+
+	//resource utilization
+	uint64_t db_size_bytes;
+	uint64_t db_keys;
 
 	//Stats
-	unsigned int db_size_bytes;
-	unsigned int db_keys;
+	uint64_t db_stats_inserts;
+	uint64_t db_stats_gets;
+	uint64_t db_stats_deletes;
+	uint64_t db_stats_operations;
 } db_details;
 
 extern struct db_details db;
