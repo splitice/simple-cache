@@ -26,16 +26,16 @@ void temporary_init(){
 	cache_target target;
 	target.position = 0;
 	char* key = (char*)malloc(3);
-	key[0] = 'O';
-	key[1] = 'K';
+	key[0] = '/';
+	key[1] = 'e';
 	key[2] = '\0';
 	target.entry = db_entry_get_write(key, 2);
 	target.fd = db_entry_open(target.entry, O_CREAT);
 	target.fd = db.fd_blockfile;
 	target.position = target.entry->block * BLOCK_LENGTH;
-	target.end_position = target.position + target.entry->data_length;
 
 	db_entry_write_init(&target, 2);
+	target.end_position = target.position + target.entry->data_length;
 	lseek(target.fd, target.position, SEEK_SET);
 	int written = write(target.fd, "OK", 2);
 	if (written < 0){

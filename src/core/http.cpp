@@ -173,6 +173,9 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 						connection->target.fd = db.fd_blockfile;
 						connection->target.position = entry->block * BLOCK_LENGTH;
 					}
+					if (connection->type == REQMETHOD_GET){
+						connection->target.end_position = connection->target.position + entry->data_length;
+					}
 					entry->refs++;
 
 					connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200];
@@ -458,8 +461,8 @@ bool http_write_handle_state(int epfd, cache_connection* connection){
 		break;
 	case STATE_RESPONSEEND:
 		DEBUG("[#%d] Handling STATE_RESPONSEEND\n", fd);
-		connection->output_buffer = http_templates[HTTPTEMPLATE_DBLNEWLINE];
-		connection->output_length = http_templates_length[HTTPTEMPLATE_DBLNEWLINE];
+		connection->output_buffer = http_templates[HTTPTEMPLATE_NEWLINE];
+		connection->output_length = http_templates_length[HTTPTEMPLATE_NEWLINE];
 		connection->state = STATE_RESPONSEBODY;
 		break;
 	case STATE_RESPONSEBODY:
