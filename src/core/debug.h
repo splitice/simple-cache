@@ -1,8 +1,9 @@
 #if !defined(DEBUG_H_INCLUDED_AC1FB0B9_4189_4937_985B_0C6F757F7364)
 #define DEBUG_H_INCLUDED_AC1FB0B9_4189_4937_985B_0C6F757F7364
 
+#include <stdio.h>
+#include <stdlib.h>
 #include "config.h"
-#include "stdio.h"
 
 /* Based off p0f error handling macros */
 

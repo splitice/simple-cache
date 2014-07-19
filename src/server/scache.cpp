@@ -22,6 +22,7 @@
 #include "http.h"
 #include "db.h"
 #include "settings.h"
+#include "timer.h"
 
 void temporary_init(){
 	cache_target target;
@@ -49,6 +50,7 @@ void temporary_init(){
 /* Time to go down the rabbit hole */
 int main(int argc, char** argv)
 {
+	timer_setup();
 	parse_arguments(argc, argv);
 	http_templates_init();
 	db_open("/dbtest");
