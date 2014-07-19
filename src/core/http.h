@@ -110,10 +110,34 @@ ALL: reset target, register for read, proceed to STATE_REQUESTSTART
 */
 #define STATE_RESPONSEWRITEONLY 0x14
 
-/* ===[ METHODS ]=== */
-#define REQMETHOD_GET 1
-#define REQMETHOD_PUT 2
-#define REQMETHOD_DELETE 3
+/* ===[ Requests ]=== */
+/*
+(X) GET
+(X) POST
+(X) PUT
+(X) DELETE
+(X) KEY
+(X) TABLE
+(X) RESERVED1
+(X) RESERVED2
+*/
+
+/* Request methods */
+#define REQUEST_HTTPGET 0x80
+#define REQUEST_HTTPPOST 0x40
+#define REQUEST_HTTPPUT 0x20
+#define REQUEST_HTTPDELETE 0x10
+
+/* Request levels */
+#define REQUEST_LEVELKEY 0x08
+#define REQUEST_LEVELTABLE 0x04
+#define REQUEST_LEVELRESERVED1 0x02
+#define REQUEST_LEVELRESERVED2 0x01
+
+/* Common types (method + level) */
+#define REQUEST_GETKEY (REQUEST_HTTPGET | REQUEST_LEVELKEY)
+#define REQUEST_PUTKEY (REQUEST_HTTPPUT | REQUEST_LEVELKEY)
+#define REQUEST_DELETEKEY (REQUEST_HTTPDELETE | REQUEST_LEVELKEY)
 
 #define LONGEST_REQMETHOD 6
 

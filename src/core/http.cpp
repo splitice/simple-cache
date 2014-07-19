@@ -119,19 +119,19 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				//Workout what valid method we have been given (if any)
 				if (n == 3 && rbuf_cmpn(&connection->input, "GET", 3) == 0){
 					//This is a GET request
-					connection->type = REQMETHOD_GET;
+					connection->type = REQUEST_GETKEY;
 					RBUF_READMOVE(connection->input, n + 1);
 					return true;
 				}
 				else if (n == 3 && rbuf_cmpn(&connection->input, "PUT", 3) == 0){
 					//This is a PUT request
-					connection->type = REQMETHOD_PUT;
+					connection->type = REQUEST_PUTKEY;
 					RBUF_READMOVE(connection->input, n + 1);
 					return true;
 				}
 				else if (n == 6 && rbuf_cmpn(&connection->input, "DELETE", 6) == 0){
 					//This is a DELETE request
-					connection->type = REQMETHOD_DELETE;
+					connection->type = REQUEST_DELETEKEY;
 					RBUF_READMOVE(connection->input, n + 1);
 					return true;
 				}
@@ -158,16 +158,16 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				cache_entry* entry;
 				mode_t modes = 0;
 				//TODO: memcpy always?
-				if (connection->type == REQMETHOD_GET){
+				if (connection->type == REQUEST_GETKEY){
 					//db_entry_get_read will free key if necessary
 					entry = db_entry_get_read(key, n);
 				}
-				else if(connection->type == REQMETHOD_PUT){
+				else if(connection->type == REQUEST_PUTKEY){
 					//It is the responsibility of db_entry_get_write to free key if necessary
 					entry = db_entry_get_write(key, n);
 					modes = O_CREAT;
 				}
-				else if (connection->type == REQMETHOD_DELETE){
+				else if (connection->type == REQUEST_DELETEKEY){
 					//It is the responsibility of db_entry_get_write to free key if necessary
 					entry = db_entry_get_delete(key, n);
 
@@ -186,7 +186,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 						connection->target.fd = db.fd_blockfile;
 						connection->target.position = entry->block * BLOCK_LENGTH;
 					}
-					if (connection->type == REQMETHOD_GET){
+					if (connection->type == REQUEST_GETKEY){
 						connection->target.end_position = connection->target.position + entry->data_length;
 					}
 
@@ -212,13 +212,13 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		RBUF_ITERATE(connection->input, n, buffer, end, {
 			if (*buffer == '\n'){
 				//TODO: handle version differences
-				if (connection->type == REQMETHOD_GET){
+				if (connection->type == REQUEST_GETKEY){
 					connection->state = STATE_REQUESTENDSEARCH;
 				}
-				else if (connection->type == REQMETHOD_PUT){
+				else if (connection->type == REQUEST_PUTKEY){
 					connection->state = STATE_REQUESTHEADERS;
 				}
-				else if (connection->type == REQMETHOD_DELETE){
+				else if (connection->type == REQUEST_DELETEKEY){
 					connection->state = STATE_REQUESTENDSEARCH;
 				}
 				RBUF_READMOVE(connection->input, n + 1);
@@ -359,7 +359,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 					RBUF_READMOVE(connection->input, n + 1);
 
 					if (connection->target.entry != NULL){
-						if (connection->type == REQMETHOD_DELETE){
+						if (connection->type == REQUEST_DELETEKEY){
 							connection->state = STATE_RESPONSEWRITEONLY;
 							db_entry_handle_delete(connection->target.entry);
 							db_entry_close(&connection->target);

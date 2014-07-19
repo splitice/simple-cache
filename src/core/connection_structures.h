@@ -14,7 +14,9 @@ typedef struct {
 typedef struct {
 	cache_target target;
 	int state : 16;
-	int type : 16;
+	int type : 8;
+	//8 bytes padding
+	//todo: fill with something
 	int client_sock;
 
 	//An integer for state specific data
