@@ -129,6 +129,12 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 					RBUF_READMOVE(connection->input, n + 1);
 					return true;
 				}
+				else if (n == 6 && rbuf_cmpn(&connection->input, "DELETE", 6) == 0){
+					//This is a DELETE request
+					connection->type = REQMETHOD_DELETE;
+					RBUF_READMOVE(connection->input, n + 1);
+					return true;
+				}
 
 				//Else: This is an INVALID request
 				RBUF_READMOVE(connection->input, n + 1);
@@ -156,10 +162,14 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 					//db_entry_get_read will free key if necessary
 					entry = db_entry_get_read(key, n);
 				}
-				else{
+				else if(connection->type == REQMETHOD_PUT){
 					//It is the responsibility of db_entry_get_write to free key if necessary
 					entry = db_entry_get_write(key, n);
 					modes = O_CREAT;
+				}
+				else if (connection->type == REQMETHOD_DELETE){
+					//It is the responsibility of db_entry_get_write to free key if necessary
+					entry = db_entry_get_delete(key, n);
 				}
 				connection->state = STATE_HTTPVERSION;
 
@@ -200,8 +210,11 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				if (connection->type == REQMETHOD_GET){
 					connection->state = STATE_REQUESTENDSEARCH;
 				}
-				else{
+				else if (connection->type == REQMETHOD_PUT){
 					connection->state = STATE_REQUESTHEADERS;
+				}
+				else if (connection->type == REQMETHOD_DELETE){
+					connection->state = STATE_REQUESTENDSEARCH;
 				}
 				RBUF_READMOVE(connection->input, n + 1);
 				return true;
@@ -333,7 +346,11 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				if (temporary == 2){
 					RBUF_READMOVE(connection->input, n + 1);
 
-					if (connection->target.entry != NULL){
+					if (connection->type == REQMETHOD_DELETE){
+						connection->state = STATE_RESPONSEWRITEONLY;
+						db_entry_handle_delete(connection->target.entry);
+						db_entry_close(&connection->target);
+					}else if (connection->target.entry != NULL){
 						connection->state = STATE_RESPONSESTART;
 					}
 					else{
@@ -395,11 +412,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 
 			//Decrease refs, done with writing
 			connection->target.entry->writing = false;
-			connection->target.entry->refs--;
-
-			//No longer using an entry
-			connection->target.entry = NULL;
-			connection->target.position = 0;
+			db_entry_close(&connection->target);
 		}
 		break;
 	}
@@ -488,7 +501,7 @@ bool http_write_handle_state(int epfd, cache_connection* connection){
 
 		assert(connection->target.position <= connection->target.end_position);
 		if (connection->target.position == connection->target.end_position){
-			connection->target.entry->refs--;
+			db_entry_close(&connection->target);
 			connection->state = STATE_REQUESTSTARTMETHOD;
 			connection_register_read(epfd, fd);
 		}

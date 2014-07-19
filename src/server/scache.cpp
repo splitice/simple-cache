@@ -42,7 +42,7 @@ void temporary_init(){
 	if (written < 0){
 		PFATAL("Error writing data");
 	}
-	//db_entry_close(&target);
+	db_entry_close(&target);
 }
 
 /* Time to go down the rabbit hole */

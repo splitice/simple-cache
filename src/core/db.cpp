@@ -235,6 +235,7 @@ void db_entry_close(cache_target* target){
 		close(target->fd);
 	}
 	db_entry_deref(target->entry);
+	target->position = 0;
 }
 
 void db_entry_delete(cache_entry* e){
@@ -421,6 +422,10 @@ void db_entry_handle_delete(cache_entry* entry){
 
 	//Remove from LRU
 	db_lru_delete_node(entry);
+
+	//Remove from hash table
+	int hash_key = entry->hash % HASH_ENTRIES;
+	db.cache_hash_set[hash_key] = NULL;
 
 	//Dont need the key any more, deleted
 	free(entry->key);
