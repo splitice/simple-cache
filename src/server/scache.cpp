@@ -25,7 +25,11 @@
 void temporary_init(){
 	cache_target target;
 	target.position = 0;
-	target.entry = db_entry_get_write("/e", 2);
+	char* key = (char*)malloc(3);
+	key[0] = 'O';
+	key[1] = 'K';
+	key[2] = '\0';
+	target.entry = db_entry_get_write(key, 2);
 	target.fd = db_entry_open(target.entry, O_CREAT);
 	target.fd = db.fd_blockfile;
 	target.position = target.entry->block * BLOCK_LENGTH;

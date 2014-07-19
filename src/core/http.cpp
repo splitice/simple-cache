@@ -41,7 +41,7 @@ static void skip_over_newlines(struct read_buffer* rb){
 			return;
 		}
 		rb->read_position++;
-		buffer;
+		buffer++;
 	}
 
 	//Go over anything from the start
@@ -51,7 +51,7 @@ static void skip_over_newlines(struct read_buffer* rb){
 			return;
 		}
 		rb->read_position++;
-		buffer;
+		buffer++;
 	}
 }
 
@@ -95,7 +95,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 	//State machine
 	switch (connection->state){
 	case STATE_REQUESTSTARTMETHOD:
-		DEBUG("[#%d] Handling STATE_REQUESTSTART\n", connection->client_sock);
+		DEBUG("[#%d] Handling STATE_REQUESTSTARTMETHOD\n", connection->client_sock);
 
 		//Skip newlines at begining of request (bad clients)
 		skip_over_newlines(&connection->input);
@@ -168,12 +168,10 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				if (entry != NULL){
 					if (IS_SINGLE_FILE(entry)){
 						connection->target.fd = db_entry_open(entry, modes);
-						connection->target.end_position = entry->data_length;
 					}
 					else{
 						connection->target.fd = db.fd_blockfile;
 						connection->target.position = entry->block * BLOCK_LENGTH;
-						connection->target.end_position = connection->target.position + entry->data_length;
 					}
 					entry->refs++;
 
@@ -256,6 +254,13 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				//Else: We are writing, initalize fd now
 				DEBUG("[#%d] Content-Length of %d found\n", connection->client_sock, content_length);
 				db_entry_write_init(&connection->target, content_length);
+
+				if (IS_SINGLE_FILE(connection->target.entry)){
+					connection->target.end_position = connection->target.entry->data_length;
+				}
+				else{
+					connection->target.end_position = connection->target.position + connection->target.entry->data_length;
+				}
 				connection->state = STATE_REQUESTHEADERS;
 				RBUF_READMOVE(connection->input, n + temporary);
 				return true;
@@ -354,7 +359,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		DEBUG("[#%d] Handling STATE_REQUESTBODY\n", connection->client_sock);
 		int max_write = rbuf_read_to_end(&connection->input);
 		assert(max_write >= 0);
-		int to_write = connection->target.entry->data_length - connection->target.position;
+		int to_write = connection->target.end_position - connection->target.position;
 		assert(to_write >= 0);
 
 		//Limit to the ammount read from socket
@@ -375,8 +380,8 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		}
 
 		//Check if done
-		assert((connection->target.entry->data_length - connection->target.position) >= 0);
-		if ((connection->target.entry->data_length - connection->target.position) == 0){
+		assert((connection->target.end_position - connection->target.position) >= 0);
+		if (connection->target.end_position == connection->target.position){
 			connection->output_buffer = http_templates[HTTPTEMPLATE_FULL200OK];
 			connection->output_length = http_templates_length[HTTPTEMPLATE_FULL200OK];
 			connection->state = STATE_RESPONSEWRITEONLY;
@@ -460,7 +465,7 @@ bool http_write_handle_state(int epfd, cache_connection* connection){
 	case STATE_RESPONSEBODY:
 		DEBUG("[#%d] Handling STATE_RESPONSEBODY\n", fd);
 		//The number of bytes to read
-		temp = connection->target.entry->data_length - connection->target.position;
+		temp = connection->target.end_position - connection->target.position;
 		DEBUG("[#%d] To send %d bytes to the socket (len: %d, pos: %d)\n", fd, temp, connection->target.entry->data_length, connection->target.position);
 		assert(temp >= 0);
 		if (temp != 0){
@@ -475,8 +480,8 @@ bool http_write_handle_state(int epfd, cache_connection* connection){
 		}
 
 
-		assert(connection->target.position <= connection->target.entry->data_length);
-		if (connection->target.position == connection->target.entry->data_length){
+		assert(connection->target.position <= connection->target.end_position);
+		if (connection->target.position == connection->target.end_position){
 			connection->target.entry->refs--;
 			connection->state = STATE_REQUESTSTARTMETHOD;
 			connection_register_read(epfd, fd);
