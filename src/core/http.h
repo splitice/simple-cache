@@ -118,21 +118,23 @@ ALL: reset target, register for read, proceed to STATE_REQUESTSTART
 #define LONGEST_REQMETHOD 6
 
 /* ===[ HTTP TEMPLATES ]=== */
-#define NUMBER_OF_HTTPTEMPLATE 6
+#define NUMBER_OF_HTTPTEMPLATE 7
 #define HTTPTEMPLATE_HEADERS200 0
 #define HTTPTEMPLATE_FULL404 1
 #define HTTPTEMPLATE_FULL200OK 2
 #define HTTPTEMPLATE_NEWLINE 3
 #define HTTPTEMPLATE_DBLNEWLINE 4
 #define HTTPTEMPLATE_FULLINVALIDMETHOD 5
+#define HTTPTEMPLATE_FULLHTTP200DELETED 6
 
 static const char http_templates[NUMBER_OF_HTTPTEMPLATE][100] = {
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\n",
 	"HTTP/1.1 404 File Not Found\r\nConnection: Keep-Alive\r\nContent-Length: 15\r\n\r\nKey not Found\r\n",
-	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\nContent-Length: 2\r\nOK\r\n\r\n",
+	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\nContent-Length: 4\r\n\r\nOK\r\n",
 	"\r\n",
 	"\r\n\r\n",
 	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 14\r\nInvalid Method\r\n\r\n",
+	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\nContent-Length: 9\r\n\r\nDELETED\r\n"
 };
 
 int extern http_templates_length[NUMBER_OF_HTTPTEMPLATE];

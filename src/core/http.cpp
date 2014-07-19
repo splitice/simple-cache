@@ -170,6 +170,9 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				else if (connection->type == REQMETHOD_DELETE){
 					//It is the responsibility of db_entry_get_write to free key if necessary
 					entry = db_entry_get_delete(key, n);
+
+					connection->output_buffer = http_templates[HTTPTEMPLATE_FULLHTTP200DELETED];
+					connection->output_length = http_templates_length[HTTPTEMPLATE_FULLHTTP200DELETED];
 				}
 				connection->state = STATE_HTTPVERSION;
 
@@ -187,8 +190,10 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 						connection->target.end_position = connection->target.position + entry->data_length;
 					}
 
-					connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200];
-					connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200];
+					if (connection->output_buffer == NULL){
+						connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200];
+						connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200];
+					}
 				}
 				else{
 					connection->output_buffer = http_templates[HTTPTEMPLATE_FULL404];
@@ -346,12 +351,15 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				if (temporary == 2){
 					RBUF_READMOVE(connection->input, n + 1);
 
-					if (connection->type == REQMETHOD_DELETE){
-						connection->state = STATE_RESPONSEWRITEONLY;
-						db_entry_handle_delete(connection->target.entry);
-						db_entry_close(&connection->target);
-					}else if (connection->target.entry != NULL){
-						connection->state = STATE_RESPONSESTART;
+					if (connection->target.entry != NULL){
+						if (connection->type == REQMETHOD_DELETE){
+							connection->state = STATE_RESPONSEWRITEONLY;
+							db_entry_handle_delete(connection->target.entry);
+							db_entry_close(&connection->target);
+						}
+						else{
+							connection->state = STATE_RESPONSESTART;
+						}
 					}
 					else{
 						connection->state = STATE_RESPONSEWRITEONLY;

@@ -376,10 +376,10 @@ cache_entry* db_entry_get_delete(char* key, size_t length){
 	int hash_key = hash % HASH_ENTRIES;
 	cache_entry* entry = db.cache_hash_set[hash_key];
 
-	if (entry->key == NULL || entry->key_length != length || strncmp(key, entry->key, length)){
+	if (entry == NULL || entry->key_length != length || strncmp(key, entry->key, length)){
 		DEBUG("[#] Unable to look up key: ");
 
-		if (entry->key == NULL){
+		if (entry == NULL){
 			DEBUG("DB Key is null\n");
 		}
 		else{
