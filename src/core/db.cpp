@@ -72,6 +72,16 @@ void db_lru_remove_node(cache_entry* entry){
 	}
 }
 
+void db_lru_delete_node(cache_entry* entry){
+	db_lru_remove_node(entry);
+	if (entry == db.lru_head){
+		db.lru_head = entry->lru_prev;
+	}
+	if (entry == db.lru_tail){
+		db.lru_tail = entry->lru_next;
+	}
+}
+
 void db_lru_hit(cache_entry* entry){
 	//Remove from current position
 	db_lru_remove_node(entry);
@@ -244,15 +254,9 @@ void db_entry_delete(cache_entry* e){
 	e->key_length = 0;
 
 	//Update LRU
-	db_lru_remove_node(e);
-	if (e == db.lru_head){
-		db.lru_head = e->lru_prev;
-	}
-	if (e == db.lru_tail){
-		db.lru_tail = e->lru_next;
-	}
+	db_lru_delete_node(e);
 
-	db.db_size_bytes -= e->data_length;
+	//Stats
 	db.db_stats_deletes++;
 	db.db_stats_operations++;
 }
@@ -306,38 +310,47 @@ cache_entry* db_entry_get_read(char* key, size_t length){
 	return entry;
 }
 
+cache_entry* db_entry_new(){
+	cache_entry* entry = (cache_entry*)malloc(sizeof(cache_entry));
+	entry->refs = 0;
+	entry->writing = false;
+	entry->deleted = false;
+	return entry;
+}
+
 cache_entry* db_entry_get_write(char* key, size_t length){
 	uint32_t hash = hash_string(key, length);
 
 	int hash_key = hash % HASH_ENTRIES;
 	cache_entry* entry = db.cache_hash_set[hash_key];
 
+	//Stats
+	db.db_stats_inserts++;
+	db.db_stats_operations++;
+
 	//This is a re-used entry
-	if (entry->key != NULL){
-		//We have clients reading this key, cant write currently
-		if (entry->refs){
+	if (entry != NULL){
+		//If we are currently writing, then it will be mocked
+		if (entry->writing == true){
 			return NULL;
 		}
 
-		free(entry->key);
+		//We have clients reading this key, cant write currently
+		db_entry_handle_delete(entry);
 
-		//LRU: used
-		db_lru_hit(entry);
+		entry = db_entry_new();
 	}
 	else{
+		entry = db_entry_new();
 		entry->block = db_block_allocate_new();
-
-		//LRU: insert
-		db_lru_insert(entry);
 	}
+
+	//LRU: insert
+	db_lru_insert(entry);
 
 	entry->key = key;
 	entry->key_length = length;
 	entry->hash = hash;
-
-	//Stats
-	db.db_stats_inserts++;
-	db.db_stats_operations++;
 
 	//Refs
 	db_entry_incref(entry);
@@ -392,11 +405,23 @@ cache_entry* db_entry_get_delete(char* key, size_t length){
 }
 
 void db_entry_handle_delete(cache_entry* entry){
+	assert(!entry->deleted);
+
 	if (IS_SINGLE_FILE(entry)){
 		//Unlink
 		get_key_path(entry, filename_buffer);
 		unlink(filename_buffer);
 	}
+
+	//Counters
+	db.db_size_bytes -= entry->data_length;
+
+	//Remove from LRU
+	db_lru_delete_node(entry);
+
+	//Dont need the key any more, deleted
+	free(entry->key);
+	entry->deleted = true;
 }
 
 void db_entry_write_init(cache_target* target, uint32_t data_length){
@@ -445,6 +470,8 @@ void db_entry_write_init(cache_target* target, uint32_t data_length){
 		}
 		//Else: We are going to use a block, and the entry is currently a block
 	}
-	db.db_size_bytes += data_length - entry->data_length;
+
+	//Update database counters
+	db.db_size_bytes += data_length;
 	entry->data_length = data_length;
 }
