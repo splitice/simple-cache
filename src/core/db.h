@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "khash.h"
 #include "db_structures.h"
 #include "connection_structures.h"
 #include "config.h"
@@ -14,7 +15,10 @@ typedef struct block_free_node {
 } block_free_node;
 
 typedef struct db_table {
+	uint32_t hash;
+	char* key;
 
+	uint32_t entries;
 };
 
 /* Details regarding a database */
