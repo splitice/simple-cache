@@ -67,7 +67,7 @@ PUT: register for write, proceed to STATE_RESPONSEWRITEONLY
 
 #define STATE_REQUESTENDSEARCH_ZERO 0x9
 
-#define STATE_REQUESTHEADERS_ZERO 0x10
+#define STATE_REQUESTHEADERS_ZERO 0xa
 
 /* ===[ WRITE ]=== */
 /*
