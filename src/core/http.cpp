@@ -318,7 +318,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		break;
 	case STATE_REQUESTENDSEARCH:
 	case STATE_REQUESTENDSEARCH_ZERO:
-		DEBUG("[#%d] Handling STATE_REQUESTENDSEARCH or STATE_REQUESTENDSEARCH_ZERO\n", connection->client_sock);
+		DEBUG("[#%d] Handling %s\n", connection->client_sock, (connection->state == STATE_REQUESTENDSEARCH)?"STATE_REQUESTENDSEARCH":"STATE_REQUESTENDSEARCH_ZERO");
 
 		//Start with one new line (the new line that caused this state change)
 		temporary = (connection->state == STATE_REQUESTENDSEARCH);
@@ -347,8 +347,8 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 
 		//Couldnt find the end in this 4kb chunk
 		//Maximum request size == buffer size
+		RBUF_READMOVE(connection->input, n);
 		if (rbuf_write_remaining(&connection->input) == 0){
-			RBUF_READMOVE(connection->input, n + 1);
 			return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 		}
 		else{
