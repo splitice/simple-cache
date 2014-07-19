@@ -209,10 +209,12 @@ int db_entry_open(cache_entry* e, int modes){
 }
 
 void db_entry_deref(cache_entry* entry){
+	DEBUG("Decrementing refcount - was: %d\n", entry->refs);
 	entry->refs--;
 
 	//Actually clean up the entry
 	if (entry->refs == 0 && entry->deleted){
+		DEBUG("Cleaning up reference due to refcount == 0\n");
 		//If is a block, can now free it
 		if (!IS_SINGLE_FILE(entry)){
 			db_block_free(entry->block);
@@ -228,6 +230,7 @@ void db_entry_deref(cache_entry* entry){
 }
 
 void db_entry_incref(cache_entry* entry){
+	DEBUG("Incrementing refcount - was: %d\n", entry->refs);
 	entry->refs++;
 }
 
@@ -307,6 +310,12 @@ cache_entry* db_entry_get_read(char* key, size_t length){
 	db.db_stats_gets++;
 	db.db_stats_operations++;
 
+	//Check if currently writing (unfinished)
+	if (entry->writing){
+		//TODO: possibly future, subscribe and writer handles data delivery
+		return NULL;
+	}
+
 	//Refs
 	db_entry_incref(entry);
 
@@ -360,6 +369,7 @@ cache_entry* db_entry_get_write(char* key, size_t length){
 
 	//Refs
 	db_entry_incref(entry);
+	entry->writing = true;
 
 	//LRU
 	if ((db.db_stats_inserts % DB_LRU_EVERY) == 0){

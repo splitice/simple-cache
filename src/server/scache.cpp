@@ -42,6 +42,7 @@ void temporary_init(){
 	if (written < 0){
 		PFATAL("Error writing data");
 	}
+	target.entry->writing = false;
 	db_entry_close(&target);
 }
 

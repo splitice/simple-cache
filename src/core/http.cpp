@@ -310,9 +310,16 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				temporary++;
 				if (temporary == 2){
 					RBUF_READMOVE(connection->input, n + 1);
-					//TODO: handle missing content-length?
-					connection->state = STATE_REQUESTBODY;
-					return true;
+
+					//TODO: better
+					if (connection->target.entry->data_length != 0){
+						//TODO: handle missing content-length?
+						connection->state = STATE_REQUESTBODY;
+						return true;
+					}
+					else{
+						return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+					}
 				}
 
 				//Move pointers to next record
