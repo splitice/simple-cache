@@ -19,6 +19,7 @@
 #include "connection.h"
 #include "debug.h"
 #include "http.h"
+#include "settings.h"
 
 /* Globals */
 int listenfd;
@@ -78,7 +79,7 @@ void connection_open_listener(){
 
 	struct sockaddr_in servaddr;
 	/* Set up to be a daemon listening on port 8000 */
-	listenfd = socket(AF_INET, SOCK_STREAM, 0);
+	listenfd = socket(settings.bind_af, SOCK_STREAM, 0);
 
 
 	/* Enable address reuse */
@@ -88,11 +89,11 @@ void connection_open_listener(){
 		goto fail;
 	}
 
-	//bind
+	//bind1
 	memset(&servaddr, 0, sizeof(servaddr));
-	servaddr.sin_family = AF_INET;
+	servaddr.sin_family = settings.bind_af;
 	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	servaddr.sin_port = htons(8000);
+	servaddr.sin_port = htons(settings.bind_port);
 	res = bind(listenfd, (struct sockaddr *) &servaddr, sizeof(servaddr));
 	if (res < 0){
 		goto fail;
@@ -111,7 +112,7 @@ void connection_open_listener(){
 
 	return;
 fail:
-	PFATAL("error opening listener");
+	PFATAL("error opening listener (:%d)", settings.bind_port);
 }
 
 static void connection_add(int fd, cache_connection_node* ctable){
