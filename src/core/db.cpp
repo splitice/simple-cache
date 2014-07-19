@@ -210,6 +210,8 @@ int db_entry_open(cache_entry* e, int modes){
 
 void db_entry_deref(cache_entry* entry){
 	entry->refs--;
+
+	//Actually clean up the entry
 	if (entry->refs == 0 && entry->deleted){
 		//If is a block, can now free it
 		if (!IS_SINGLE_FILE(entry)){

@@ -113,7 +113,7 @@ ALL: reset target, register for read, proceed to STATE_REQUESTSTART
 /* ===[ METHODS ]=== */
 #define REQMETHOD_GET 1
 #define REQMETHOD_PUT 2
-#define REQMETHOD_DELETE 2
+#define REQMETHOD_DELETE 3
 
 #define LONGEST_REQMETHOD 6
 
