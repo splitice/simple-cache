@@ -27,14 +27,17 @@ void temporary_init(){
 	target.position = 0;
 	target.entry = db_entry_get_write("/e", 2);
 	target.fd = db_entry_open(target.entry, O_CREAT);
-	db_entry_write_init(&target, 2);
+	target.fd = db.fd_blockfile;
 	target.position = target.entry->block * BLOCK_LENGTH;
+	target.end_position = target.position + target.entry->data_length;
+
+	db_entry_write_init(&target, 2);
 	lseek(target.fd, target.position, SEEK_SET);
 	int written = write(target.fd, "OK", 2);
 	if (written < 0){
 		PFATAL("Error writing data");
 	}
-	db_entry_close(&target);
+	//db_entry_close(&target);
 }
 
 /* Time to go down the rabbit hole */
