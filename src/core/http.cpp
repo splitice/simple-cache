@@ -55,6 +55,13 @@ static void skip_over_newlines(struct read_buffer* rb){
 	}
 }
 
+static bool http_write_response_after_eol(int epfd, cache_connection* connection, int http_template){
+	connection->state = STATE_HTTPEOLWRITE;
+	connection->output_buffer = http_templates[http_template];
+	connection->output_length = http_templates_length[http_template];
+	return false;
+}
+
 static bool http_write_response(int epfd, cache_connection* connection, int http_template){
 	connection->state = STATE_RESPONSEWRITEONLY;
 	connection->output_buffer = http_templates[http_template];
@@ -125,7 +132,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 
 				//Else: This is an INVALID request
 				RBUF_READMOVE(connection->input, n + 1);
-				return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+				return http_write_response_after_eol(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 			}
 		});
 		break;
@@ -198,6 +205,21 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				}
 				RBUF_READMOVE(connection->input, n + 1);
 				return true;
+			}
+		});
+		if (n != 0){
+			RBUF_READMOVE(connection->input, n);
+		}
+		break;
+
+	case STATE_HTTPEOLWRITE:
+		DEBUG("[#%d] Handling STATE_HTTPEOLWRITE\n", connection->client_sock);
+
+		RBUF_ITERATE(connection->input, n, buffer, end, {
+			if (*buffer == '\n'){
+				connection->state = STATE_RESPONSEWRITEONLY;
+				connection_register_write(epfd, connection->client_sock);
+				return false;
 			}
 		});
 		if (n != 0){
@@ -287,10 +309,11 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 
 		break;
 	case STATE_REQUESTENDSEARCH:
-		DEBUG("[#%d] Handling STATE_REQUESTENDSEARCH\n", connection->client_sock);
+	case STATE_REQUESTENDSEARCH_ZERO:
+		DEBUG("[#%d] Handling STATE_REQUESTENDSEARCH or STATE_REQUESTENDSEARCH_ZERO\n", connection->client_sock);
 
 		//Start with one new line (the new line that caused this state change)
-		temporary = 1;
+		temporary = (connection->state == STATE_REQUESTENDSEARCH);
 
 		//Search for two newlines (unix or windows)
 		RBUF_ITERATE(connection->input, n, buffer, end, {
@@ -315,13 +338,14 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		});
 
 		//Couldnt find the end in this 4kb chunk
-		//Go back 3 bytes, might go back too far - but thats ok we dont have that short headers
-		if (rbuf_write_remaining(&connection->input) != 0){
-			RBUF_READMOVE(connection->input, n - 2);
-		}
-		else{
+		//Maximum request size == buffer size
+		if (rbuf_write_remaining(&connection->input) == 0){
 			RBUF_READMOVE(connection->input, n + 1);
 			return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+		}
+		else{
+			//State depends on finishing state of temporary variable
+			connection->state = (temporary == 0) ? STATE_REQUESTENDSEARCH_ZERO : STATE_REQUESTENDSEARCH;
 		}
 
 		break;
