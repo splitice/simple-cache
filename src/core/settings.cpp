@@ -1,12 +1,51 @@
-#include "settings.h"
 #include <getopt.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <arpa/inet.h>
+#include "settings.h"
 
 struct scache_settings settings;
-
 void parse_arguments(int argc, char** argv){
-	int r;
-    while ((r = getopt(argc, argv, "+LS:df:i:m:o:pr:s:t:u:b")) != -1) switch (r) {
-            case 'L':
-                break;
+	static struct option long_options[] =
+	{
+		/* These options set a flag. */
+		{ "4", no_argument, &settings.bind_af, AF_INET },
+		{ "6", no_argument, &settings.bind_af, AF_INET6 },
+		/* These options set a value */
+		{ "database-max-size", required_argument, 0, 's' },
+		{ "database-file-path", required_argument, 0, 'd' },
+		{ "database-lru-clear", required_argument, 0, 'l' },
+		{ "bind-addr", required_argument, 0, 'b' },
+		{ "bind-port", required_argument, 0, 'p' },
+		{ 0, 0, 0, 0 }
+	};
+
+	//By default bind to any IPv4
+	settings.bind_af = AF_INET;
+	memset(settings.bind_addr, sizeof(settings.bind_addr), sizeof(char));//INADDR_ANY
+
+	int r = 0, option_index = 0;
+	while ((r = getopt_long(argc, argv, "+46sdlbp", long_options, &option_index)) != -1) {
+		if (long_options[option_index].flag != 0)
+			break;
+
+		switch (r) {
+		case 's':
+			settings.max_size = atol(optarg);
+			break;
+		case 'p':
+			settings.bind_port = atoi(optarg);
+			break;
+		case 'd':
+			settings.db_file_path = optarg;
+			break;
+		case 'b':
+			inet_pton(settings.bind_af, optarg, settings.bind_addr);
+			break;
+		case 'l':
+			settings.db_lru_clear = atof(optarg);
+			break;
+		}
     }
 }

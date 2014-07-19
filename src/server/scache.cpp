@@ -21,6 +21,7 @@
 #include "hash.h"
 #include "http.h"
 #include "db.h"
+#include "settings.h"
 
 void temporary_init(){
 	cache_target target;
@@ -45,8 +46,9 @@ void temporary_init(){
 }
 
 /* Time to go down the rabbit hole */
-int main()
+int main(int argc, char** argv)
 {
+	parse_arguments(argc, argv);
 	http_templates_init();
 	db_open("/dbtest");
 	temporary_init();
