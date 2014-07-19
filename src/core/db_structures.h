@@ -11,6 +11,7 @@ typedef struct cache_entry {
 	struct cache_entry* lru_prev;
 	uint32_t data_length;
 	uint32_t block;
+	__time_t expires;
 	uint16_t key_length;
 	uint16_t refs;
 	bool writing : 1;

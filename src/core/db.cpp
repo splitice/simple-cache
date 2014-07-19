@@ -34,6 +34,7 @@ LRU
 #include "debug.h"
 #include "hash.h"
 #include "settings.h"
+#include "timer.h"
 
 /* Globals */
 struct db_details db {
@@ -301,20 +302,27 @@ cache_entry* db_entry_get_read(char* key, size_t length){
 	int hash_key = hash % HASH_ENTRIES;
 	cache_entry* entry = db.cache_hash_set[hash_key];
 
-	if (entry == NULL || entry->key_length != length || strncmp(key, entry->key, length)){
+	if (entry == NULL){
+		DEBUG("[#] Key does not exist\n");
+		free(key);
+		return NULL;
+	}
+
+	if (entry->expires != 0 && entry->expires < current_time.tv_sec){
+		DEBUG("[#] Key expired\n");
+		free(key);
+		return NULL;
+	}
+
+	if (entry->key_length != length || strncmp(key, entry->key, length)){
 		DEBUG("[#] Unable to look up key: ");
 
-		if (entry == NULL){
-			DEBUG("DB Key is null\n");
+		if (entry->key_length != length){
+			DEBUG("DB Key length does not match\n");
 		}
 		else{
-			if (entry->key_length != length){
-				DEBUG("DB Key length does not match\n");
-			}
-			else{
-				if (strncmp(key, entry->key, length)){
-					DEBUG("String Keys dont match\n");
-				}
+			if (strncmp(key, entry->key, length)){
+				DEBUG("String Keys dont match\n");
 			}
 		}
 
@@ -349,6 +357,7 @@ cache_entry* db_entry_new(){
 	entry->refs = 0;
 	entry->writing = false;
 	entry->deleted = false;
+	entry->expires = 0;
 	return entry;
 }
 
