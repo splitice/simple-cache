@@ -341,6 +341,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 
 		if (to_write != 0){
 			// Write data
+			lseek(connection->target.fd, connection->target.position, SEEK_SET);
 			int read_bytes = write(connection->target.fd, RBUF_READ(connection->input), to_write);
 
 			//Handle the bytes written
@@ -436,7 +437,7 @@ bool http_write_handle_state(int epfd, cache_connection* connection){
 		DEBUG("[#%d] Handling STATE_RESPONSEBODY\n", fd);
 		//The number of bytes to read
 		temp = connection->target.entry->data_length - connection->target.position;
-		DEBUG("[#%d] To send %d bytes to the socket (len: %d, pos: %d)", fd, temp, connection->target.entry->data_length, connection->target.position);
+		DEBUG("[#%d] To send %d bytes to the socket (len: %d, pos: %d)\n", fd, temp, connection->target.entry->data_length, connection->target.position);
 		assert(temp >= 0);
 		if (temp != 0){
 			off_t pos = connection->target.position;
@@ -444,9 +445,9 @@ bool http_write_handle_state(int epfd, cache_connection* connection){
 			if (bytes_sent < 0){
 				PFATAL("Error sending bytes with sendfile");
 			}
-			DEBUG("[#%d] Sendfile sent %d bytes from position %d", fd, bytes_sent, connection->target.position);
+			DEBUG("[#%d] Sendfile sent %d bytes from position %d\n", fd, bytes_sent, connection->target.position);
 			connection->target.position += bytes_sent;
-			DEBUG("[#%d] Position is now %d", fd, connection->target.position);
+			DEBUG("[#%d] Position is now %d\n", fd, connection->target.position);
 		}
 
 

@@ -119,9 +119,10 @@ Helper to Iterate over circular buffer
 */
 #define RBUF_ITERATE(rb,n,buffer,end,inner) do { \
 	end = rbuf_read_to_end(&rb); \
+	n = 0; \
 	if (end != 0){ \
 		buffer = RBUF_READ(rb); \
-		for (n = 0; n < end; n++){ \
+		for (; n < end; n++){ \
 			inner; \
 			buffer++; \
 		} \
@@ -131,5 +132,5 @@ Helper to Iterate over circular buffer
 			buffer++; \
 			n++; \
 		} \
-	}\
+	} \
 } while (0);

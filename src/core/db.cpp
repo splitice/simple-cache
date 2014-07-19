@@ -99,7 +99,7 @@ int db_block_get_write(){
 		return ret;
 	}
 	else{
-		return db_block_allocate_new();
+		return -2;
 	}
 }
 
@@ -154,6 +154,10 @@ int db_entry_open(cache_entry* e, int modes){
 	return fd;
 }
 
+void db_entry_close(cache_target* target){
+	close(target->fd);
+}
+
 void db_entry_delete(cache_entry* e){
 	if (IS_SINGLE_FILE(e)){
 		get_key_path(e, filename_buffer);
@@ -189,7 +193,7 @@ void db_entry_delete(cache_entry* e){
 	db.db_size_bytes -= e->data_length;
 }
 
-uint32_t hash_string(char* str, int length){
+uint32_t hash_string(const char* str, int length){
 	uint32_t out;
 	MurmurHash3_x86_32(str, length, 13, &out);
 	return out;

@@ -22,11 +22,27 @@
 #include "http.h"
 #include "db.h"
 
+void temporary_init(){
+	cache_target target;
+	target.position = 0;
+	target.entry = db_entry_get_write("/e", 2);
+	target.fd = db_entry_open(target.entry, O_CREAT);
+	db_entry_write_init(&target, 2);
+	target.position = target.entry->block * BLOCK_LENGTH;
+	lseek(target.fd, target.position, SEEK_SET);
+	int written = write(target.fd, "OK", 2);
+	if (written < 0){
+		PFATAL("Error writing data");
+	}
+	db_entry_close(&target);
+}
+
 /* Time to go down the rabbit hole */
 int main()
 {
 	http_templates_init();
 	db_open("/dbtest");
+	temporary_init();
 	connection_open_listener();
 	epoll_event_loop();
 }

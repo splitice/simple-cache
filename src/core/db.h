@@ -46,6 +46,7 @@ cache_entry* db_entry_get_read(char* key, size_t length);
 cache_entry* db_entry_get_write(char* key, size_t length);
 void db_entry_write_init(cache_target* target, uint32_t data_length);
 void db_entry_delete(cache_entry* e);
+void db_entry_close(cache_target* target);
 
 #define IS_SINGLE_FILE(x) x->data_length>BLOCK_LENGTH
 
