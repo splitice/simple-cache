@@ -137,7 +137,7 @@ int rbuf_read_remaining(struct read_buffer* buffer) {
 
 	//has rolled around
 	if (count < 0){
-		return BUFFER_SIZE - buffer->read_position - count;
+		return (BUFFER_SIZE - buffer->read_position) + buffer->write_position;
 	}
 
 	//write position > read_position
@@ -150,7 +150,10 @@ int rbuf_read_to_end(struct read_buffer* buffer) {
 	return buffer->write_position - buffer->read_position;
 }
 int rbuf_write_remaining(struct read_buffer* buffer) {
-	return BUFFER_SIZE - rbuf_read_remaining(buffer);
+	if (buffer->write_position >= buffer->read_position){
+		return buffer->read_position + (BUFFER_SIZE - buffer->write_position);
+	}
+	return buffer->read_position - buffer->write_position;
 }
 int rbuf_write_to_end(struct read_buffer* buffer) {
 	//to either the end of the buffer, or to the read position whichever is first
