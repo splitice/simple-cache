@@ -119,19 +119,19 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				//Workout what valid method we have been given (if any)
 				if (n == 3 && rbuf_cmpn(&connection->input, "GET", 3) == 0){
 					//This is a GET request
-					connection->type = REQUEST_GETKEY;
+					connection->type = REQUEST_HTTPGET;
 					RBUF_READMOVE(connection->input, n + 1);
 					return true;
 				}
 				else if (n == 3 && rbuf_cmpn(&connection->input, "PUT", 3) == 0){
 					//This is a PUT request
-					connection->type = REQUEST_PUTKEY;
+					connection->type = REQUEST_HTTPPUT;
 					RBUF_READMOVE(connection->input, n + 1);
 					return true;
 				}
 				else if (n == 6 && rbuf_cmpn(&connection->input, "DELETE", 6) == 0){
 					//This is a DELETE request
-					connection->type = REQUEST_DELETEKEY;
+					connection->type = REQUEST_HTTPDELETE;
 					RBUF_READMOVE(connection->input, n + 1);
 					return true;
 				}
@@ -145,63 +145,75 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 
 	case STATE_REQUESTSTARTURL:
 		DEBUG("[#%d] Handling STATE_REQUESTSTARTURL\n", connection->client_sock);
-
+		temporary = 0;
 		RBUF_ITERATE(connection->input, n, buffer, end, {
-			if (*buffer == ' '){
-				//Copy the key from the buffer
-				char* key = (char*)malloc(sizeof(char)* (n + 1));
-				rbuf_copyn(&connection->input, key, n);
-				*(key + n + 1) = 0;//Null terminate the key
-
-				DEBUG("[#%d] Request key: \"%s\" (%d)\n", connection->client_sock, key, n);
-
-				cache_entry* entry;
-				mode_t modes = 0;
-				//TODO: memcpy always?
-				if (connection->type == REQUEST_GETKEY){
-					//db_entry_get_read will free key if necessary
-					entry = db_entry_get_read(key, n);
+			if (n != 0 && *buffer == '/'){
+				if (temporary != 0){
+					return http_write_response_after_eol(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 				}
-				else if(connection->type == REQUEST_PUTKEY){
-					//It is the responsibility of db_entry_get_write to free key if necessary
-					entry = db_entry_get_write(key, n);
-					modes = O_CREAT;
-				}
-				else if (connection->type == REQUEST_DELETEKEY){
-					//It is the responsibility of db_entry_get_write to free key if necessary
-					entry = db_entry_get_delete(key, n);
+				temporary = n;
+			}else if (*buffer == ' '){
+				if (temporary == 0){
+					//Table command
 
-					connection->output_buffer = http_templates[HTTPTEMPLATE_FULLHTTP200DELETED];
-					connection->output_length = http_templates_length[HTTPTEMPLATE_FULLHTTP200DELETED];
-				}
-				connection->state = STATE_HTTPVERSION;
-
-				connection->target.position = 0;
-				connection->target.entry = entry;
-				if (entry != NULL){
-					if (IS_SINGLE_FILE(entry)){
-						connection->target.fd = db_entry_open(entry, modes);
-					}
-					else{
-						connection->target.fd = db.fd_blockfile;
-						connection->target.position = entry->block * BLOCK_LENGTH;
-					}
-					if (connection->type == REQUEST_GETKEY){
-						connection->target.end_position = connection->target.position + entry->data_length;
-					}
-
-					if (connection->output_buffer == NULL){
-						connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200];
-						connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200];
-					}
 				}
 				else{
-					connection->output_buffer = http_templates[HTTPTEMPLATE_FULL404];
-					connection->output_length = http_templates_length[HTTPTEMPLATE_FULL404];
-				}
-				RBUF_READMOVE(connection->input, n + 1);
+					//Key request
+					//Copy the key from the buffer
+					char* key = (char*)malloc(sizeof(char)* (n + 1));
+					rbuf_copyn(&connection->input, key, n);
+					*(key + n + 1) = 0;//Null terminate the key
 
-				return true;
+					DEBUG("[#%d] Request key: \"%s\" (%d)\n", connection->client_sock, key, n);
+
+					cache_entry* entry;
+					mode_t modes = 0;
+					//TODO: memcpy always?
+					if (connection->type == REQUEST_GETKEY){
+						//db_entry_get_read will free key if necessary
+						entry = db_entry_get_read(key, n);
+					}
+					else if (connection->type == REQUEST_PUTKEY){
+						//It is the responsibility of db_entry_get_write to free key if necessary
+						entry = db_entry_get_write(key, n);
+						modes = O_CREAT;
+					}
+					else if (connection->type == REQUEST_DELETEKEY){
+						//It is the responsibility of db_entry_get_write to free key if necessary
+						entry = db_entry_get_delete(key, n);
+
+						connection->output_buffer = http_templates[HTTPTEMPLATE_FULLHTTP200DELETED];
+						connection->output_length = http_templates_length[HTTPTEMPLATE_FULLHTTP200DELETED];
+					}
+					connection->state = STATE_HTTPVERSION;
+
+					connection->target.position = 0;
+					connection->target.entry = entry;
+					if (entry != NULL){
+						if (IS_SINGLE_FILE(entry)){
+							connection->target.fd = db_entry_open(entry, modes);
+						}
+						else{
+							connection->target.fd = db.fd_blockfile;
+							connection->target.position = entry->block * BLOCK_LENGTH;
+						}
+						if (connection->type == REQUEST_GETKEY){
+							connection->target.end_position = connection->target.position + entry->data_length;
+						}
+
+						if (connection->output_buffer == NULL){
+							connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200];
+							connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200];
+						}
+					}
+					else{
+						connection->output_buffer = http_templates[HTTPTEMPLATE_FULL404];
+						connection->output_length = http_templates_length[HTTPTEMPLATE_FULL404];
+					}
+					RBUF_READMOVE(connection->input, n + 1);
+
+					return true;
+				}
 			}
 		});
 		break;

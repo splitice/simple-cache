@@ -13,6 +13,10 @@ typedef struct block_free_node {
 	struct block_free_node* next;
 } block_free_node;
 
+typedef struct db_table {
+
+};
+
 /* Details regarding a database */
 typedef struct db_details {
 	//Paths
@@ -33,7 +37,7 @@ typedef struct db_details {
 
 	//block file
 	block_free_node* free_blocks;
-	uint32_t blocks_allocated;
+	uint32_t blocks_exist;
 
 	//resource utilization
 	uint64_t db_size_bytes;

@@ -112,6 +112,8 @@ ALL: reset target, register for read, proceed to STATE_REQUESTSTART
 
 /* ===[ Requests ]=== */
 /*
+8 bit integer consisting of the bits
+
 (X) GET
 (X) POST
 (X) PUT
@@ -123,6 +125,7 @@ ALL: reset target, register for read, proceed to STATE_REQUESTSTART
 */
 
 /* Request methods */
+#define LONGEST_REQMETHOD 6
 #define REQUEST_HTTPGET 0x80
 #define REQUEST_HTTPPOST 0x40
 #define REQUEST_HTTPPUT 0x20
@@ -138,8 +141,7 @@ ALL: reset target, register for read, proceed to STATE_REQUESTSTART
 #define REQUEST_GETKEY (REQUEST_HTTPGET | REQUEST_LEVELKEY)
 #define REQUEST_PUTKEY (REQUEST_HTTPPUT | REQUEST_LEVELKEY)
 #define REQUEST_DELETEKEY (REQUEST_HTTPDELETE | REQUEST_LEVELKEY)
-
-#define LONGEST_REQMETHOD 6
+#define REQUEST_GETTABLE (REQUEST_HTTPGET | REQUEST_LEVELTABLE)
 
 /* ===[ HTTP TEMPLATES ]=== */
 #define NUMBER_OF_HTTPTEMPLATE 7

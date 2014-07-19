@@ -22,6 +22,7 @@ LRU
         Head <-----------------------------------------> Tail
 */
 #include <stdio.h>
+#include <dirent.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -44,7 +45,7 @@ struct db_details db {
 	.lru_head = NULL,
 	.lru_tail = NULL,
 	.free_blocks = NULL,
-	.blocks_allocated = 0,
+	.blocks_exist = 0,
 	.db_size_bytes = 0,
 	.db_keys = 0
 };
@@ -132,9 +133,9 @@ void db_block_free(uint32_t block){
 }
 
 int db_block_allocate_new(){
-	uint32_t block_num = db.blocks_allocated;
-	db.blocks_allocated++;
-	if(ftruncate(db.fd_blockfile, db.blocks_allocated*BLOCK_LENGTH) < 0){
+	uint32_t block_num = db.blocks_exist;
+	db.blocks_exist++;
+	if (ftruncate(db.fd_blockfile, db.blocks_exist*BLOCK_LENGTH) < 0){
 	    PWARN("File truncation failed");
 	}
 	return block_num;
@@ -155,6 +156,8 @@ int db_block_get_write(){
 }
 
 void db_init_folders(){
+	char file_buffer[MAX_PATH];
+
 	mkdir(db.path_single, 0777);
 
 	for (int i1 = 0; i1 < 26; i1++){
@@ -168,6 +171,18 @@ void db_init_folders(){
 				DEBUG("[#] Creating directory %s\n", filename_buffer);
 
 				mkdir(filename_buffer, 0777);
+			}
+			else{
+				struct dirent *next_file;
+				DIR *theFolder = opendir(filename_buffer);
+				while (next_file = readdir(theFolder))
+				{
+					if (*(next_file->d_name) == '.')
+						continue;
+					// build the full path for each file in the folder
+					sprintf(file_buffer, "%s/%s", filename_buffer, next_file->d_name);
+					remove(file_buffer);
+				}
 			}
 		}
 	}
@@ -192,6 +207,13 @@ bool db_open(const char* path){
 	db.fd_blockfile = open(db.path_blockfile, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 	if (db.fd_blockfile < 0){
 		PFATAL("Failed to open blockfile: %s", db.path_blockfile);
+	}
+
+	//Mark all blocks that already exist in the block file as non-allocated
+	int size = lseek(db.fd_blockfile, 0L, SEEK_END);
+	for (uint32_t i = 0; i < size; i += BLOCK_LENGTH){
+		db_block_free(i / BLOCK_LENGTH);
+		db.blocks_exist++;
 	}
 
 	//cache entries
