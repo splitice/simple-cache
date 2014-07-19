@@ -274,9 +274,11 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		});
 		break;
 
+	case STATE_REQUESTHEADERS_ZERO:
 	case STATE_REQUESTHEADERS:
-		DEBUG("[#%d] Handling STATE_REQUESTHEADERS\n", connection->client_sock);
-		temporary = 1;
+		DEBUG("[#%d] Handling %s\n", connection->client_sock, (connection->state == STATE_REQUESTHEADERS) ? "STATE_REQUESTHEADERS" : "STATE_REQUESTHEADERS_ZERO");
+		temporary = (connection->state == STATE_REQUESTHEADERS);
+
 		RBUF_ITERATE(connection->input, n, buffer, end, {
 			if (*buffer == ':'){
 				DEBUG("[#%d] Found header of length %d\n", connection->client_sock, n);
@@ -307,13 +309,15 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 
 		//Couldnt find the end in this 4kb chunk
 		//Go back 3 bytes, might go back too far - but thats ok we dont have that short headers
-		if (rbuf_write_remaining(&connection->input) != 0){
-			RBUF_READMOVE(connection->input, n);
-		}
-		else{
-			RBUF_READMOVE(connection->input, n);
+		RBUF_READMOVE(connection->input, n);
+		if (rbuf_write_remaining(&connection->input) == 0){
 			return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 		}
+		else{
+			//State depends on finishing state of temporary variable
+			connection->state = (temporary == 0) ? STATE_REQUESTHEADERS_ZERO : STATE_REQUESTHEADERS;
+		}
+
 
 		break;
 	case STATE_REQUESTENDSEARCH:

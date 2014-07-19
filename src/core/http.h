@@ -38,7 +38,7 @@ Extract decimal value from the Content-Length header
 Format: int
 Used By: PUT
 */
-#define STATE_REQUESTHEADERS_CONTENTLENGTH 0x10
+#define STATE_REQUESTHEADERS_CONTENTLENGTH 0x20
 
 /*
 Search for the end of the request, skipping over any other headers.
@@ -66,6 +66,8 @@ PUT: register for write, proceed to STATE_RESPONSEWRITEONLY
 #define STATE_HTTPEOLWRITE 0x8
 
 #define STATE_REQUESTENDSEARCH_ZERO 0x9
+
+#define STATE_REQUESTHEADERS_ZERO 0x10
 
 /* ===[ WRITE ]=== */
 /*
