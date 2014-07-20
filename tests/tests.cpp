@@ -20,7 +20,7 @@ static const char * all_tests() {
 
 int main(int argc, char *argv[])
 {
-	int final_result;
+	int final_result = 0;
 	const char *result;
 	TESTSET("read_buffer", test_rbuffer);
 	return final_result != 0;
