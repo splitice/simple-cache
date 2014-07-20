@@ -21,6 +21,8 @@ typedef struct db_table {
 	uint32_t entries;
 };
 
+KHASH_MAP_INIT_INT(1, cache_entry*)
+
 /* Details regarding a database */
 typedef struct db_details {
 	//Paths
@@ -33,7 +35,8 @@ typedef struct db_details {
 
 	//Entries
 	//TODO: table structure
-	cache_entry** cache_hash_set;
+	//cache_entry** cache_hash_set;
+	khash_t(1) *cache_hash_set;
 
 	//LRU
 	cache_entry* lru_head;

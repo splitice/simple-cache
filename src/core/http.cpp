@@ -170,22 +170,23 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 					cache_entry* entry;
 					mode_t modes = 0;
 					//TODO: memcpy always?
-					if (connection->type == REQUEST_GETKEY){
+					if (REQUEST_IS(connection->type, REQUEST_HTTPGET)){
 						//db_entry_get_read will free key if necessary
 						entry = db_entry_get_read(key, n);
 					}
-					else if (connection->type == REQUEST_PUTKEY){
+					else if (REQUEST_IS(connection->type, REQUEST_HTTPPUT)){
 						//It is the responsibility of db_entry_get_write to free key if necessary
 						entry = db_entry_get_write(key, n);
 						modes = O_CREAT;
 					}
-					else if (connection->type == REQUEST_DELETEKEY){
+					else if (REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
 						//It is the responsibility of db_entry_get_write to free key if necessary
 						entry = db_entry_get_delete(key, n);
 
 						connection->output_buffer = http_templates[HTTPTEMPLATE_FULLHTTP200DELETED];
 						connection->output_length = http_templates_length[HTTPTEMPLATE_FULLHTTP200DELETED];
 					}
+					connection->type |= REQUEST_LEVELKEY;
 					connection->state = STATE_HTTPVERSION;
 
 					connection->target.position = 0;
@@ -233,6 +234,9 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 				}
 				else if (connection->type == REQUEST_DELETEKEY){
 					connection->state = STATE_REQUESTENDSEARCH;
+				}
+				else{
+					FATAL("Unknown connection type state\r\n");
 				}
 				RBUF_READMOVE(connection->input, n + 1);
 				return true;

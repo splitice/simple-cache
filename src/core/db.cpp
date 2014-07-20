@@ -218,7 +218,8 @@ bool db_open(const char* path){
 	}
 
 	//cache entries
-	db.cache_hash_set = (cache_entry**)calloc(HASH_ENTRIES, sizeof(cache_entry*));
+	//db.cache_hash_set = (cache_entry**)calloc(HASH_ENTRIES, sizeof(cache_entry*));
+	db.cache_hash_set = kh_init(1);
 }
 
 
@@ -246,8 +247,7 @@ void db_entry_deref(cache_entry* entry){
 		//Clear entry - file has already been deleted.
 		//At this stage entry has already been removed from LRU and hash table
 		//exists only to complete files being served.
-		int hash_key = entry->hash % HASH_ENTRIES;
-		db.cache_hash_set[hash_key] = NULL;
+		kh_del(1, db.cache_hash_set, entry->hash);
 		free(entry);
 	}
 }
@@ -299,8 +299,8 @@ uint32_t hash_string(const char* str, int length){
 cache_entry* db_entry_get_read(char* key, size_t length){
 	uint32_t hash = hash_string(key, length);
 
-	int hash_key = hash % HASH_ENTRIES;
-	cache_entry* entry = db.cache_hash_set[hash_key];
+	khiter_t k = kh_get(1, db.cache_hash_set, hash);
+	cache_entry* entry = k == 0 ? NULL : kh_value(db.cache_hash_set, k);
 
 	if (entry == NULL){
 		DEBUG("[#] Key does not exist\n");
@@ -363,9 +363,9 @@ cache_entry* db_entry_new(){
 
 cache_entry* db_entry_get_write(char* key, size_t length){
 	uint32_t hash = hash_string(key, length);
+	khiter_t k = kh_get(1, db.cache_hash_set, hash);
 
-	int hash_key = hash % HASH_ENTRIES;
-	cache_entry* entry = db.cache_hash_set[hash_key];
+	cache_entry* entry = k == 0 ? NULL : kh_value(db.cache_hash_set, k);
 
 	//Stats
 	db.db_stats_inserts++;
@@ -389,7 +389,10 @@ cache_entry* db_entry_get_write(char* key, size_t length){
 	}
 
 	//Store entry
-	db.cache_hash_set[hash_key] = entry;
+	int ret;
+
+	k = kh_put(1, db.cache_hash_set, hash, &ret);
+	kh_value(db.cache_hash_set, k) = entry;
 
 	//LRU: insert
 	db_lru_insert(entry);
@@ -413,9 +416,8 @@ cache_entry* db_entry_get_write(char* key, size_t length){
 
 cache_entry* db_entry_get_delete(char* key, size_t length){
 	uint32_t hash = hash_string(key, length);
-
-	int hash_key = hash % HASH_ENTRIES;
-	cache_entry* entry = db.cache_hash_set[hash_key];
+	khiter_t k = kh_get(1, db.cache_hash_set, hash);
+	cache_entry* entry = k == 0 ? NULL : kh_value(db.cache_hash_set, k);
 
 	if (entry == NULL || entry->key_length != length || strncmp(key, entry->key, length)){
 		DEBUG("[#] Unable to look up key: ");
@@ -467,8 +469,7 @@ void db_entry_handle_delete(cache_entry* entry){
 	db_lru_delete_node(entry);
 
 	//Remove from hash table
-	int hash_key = entry->hash % HASH_ENTRIES;
-	db.cache_hash_set[hash_key] = NULL;
+	kh_del(1, db.cache_hash_set, entry->hash);
 
 	//Dont need the key any more, deleted
 	free(entry->key);
