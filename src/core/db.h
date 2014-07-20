@@ -9,12 +9,12 @@
 #include "config.h"
 
 /* Structure representing a free block (linked list node) */
-typedef struct block_free_node {
+struct block_free_node {
 	uint32_t block_number;
 	struct block_free_node* next;
-} block_free_node;
+};
 
-typedef struct db_table {
+struct db_table {
 	uint32_t hash;
 	char* key;
 
@@ -24,7 +24,7 @@ typedef struct db_table {
 KHASH_MAP_INIT_INT(1, cache_entry*)
 
 /* Details regarding a database */
-typedef struct db_details {
+struct db_details {
 	//Paths
 	char path_root[MAX_PATH];
 	char path_single[MAX_PATH];
@@ -43,7 +43,7 @@ typedef struct db_details {
 	cache_entry* lru_tail;
 
 	//block file
-	block_free_node* free_blocks;
+	struct block_free_node* free_blocks;
 	uint32_t blocks_exist;
 
 	//resource utilization
@@ -55,7 +55,7 @@ typedef struct db_details {
 	uint64_t db_stats_gets;
 	uint64_t db_stats_deletes;
 	uint64_t db_stats_operations;
-} db_details;
+};
 
 extern struct db_details db;
 bool db_open(const char* path);

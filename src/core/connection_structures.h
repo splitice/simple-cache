@@ -4,15 +4,15 @@
 #include "db_structures.h"
 #include "read_buffer.h"
 
-typedef struct {
-	cache_entry* entry;
+struct cache_target {
+	struct cache_entry* entry;
 	int position;
 	int end_position;
 	int fd;
-} cache_target;
+};
 
-typedef struct {
-	cache_target target;
+struct cache_connection {
+	struct cache_target target;
 	unsigned int state : 16;
 	unsigned int type : 8;
 	//8 bytes padding
@@ -32,11 +32,11 @@ typedef struct {
 	const char* output_buffer;
 	int output_length;
 	char* output_buffer_free;
-} cache_connection;
+};
 
-typedef struct cache_connection_node {
-	cache_connection connection;
+struct cache_connection_node {
+	struct cache_connection connection;
 	struct cache_connection_node* next;
-} cache_connection_node;
+};
 
 #endif
