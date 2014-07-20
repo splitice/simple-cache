@@ -60,7 +60,7 @@ int main(int argc, char** argv)
 	timer_setup();
 	parse_arguments(argc, argv);
 	http_templates_init();
-	db_open("/dbtest");
+	db_open(settings.db_file_path);
 	temporary_init();
 	connection_open_listener();
 	epoll_event_loop();
