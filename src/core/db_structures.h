@@ -3,8 +3,13 @@
 
 #include "stdint.h"
 #include "stdbool.h"
+#include "khash.h"
 
-typedef struct cache_entry {
+
+struct db_table;
+
+struct cache_entry
+{
 	uint32_t hash;
 	char* key;
 	struct cache_entry* lru_next;
@@ -14,8 +19,22 @@ typedef struct cache_entry {
 	__time_t expires;
 	uint16_t key_length;
 	uint16_t refs;
+	db_table* table;
 	bool writing : 1;
 	bool deleted : 1;
-} cache_entry;
+};
+
+KHASH_MAP_INIT_INT(entry, struct cache_entry*)
+
+struct db_table {
+	uint32_t hash;
+	char* key;
+
+	uint32_t entries;
+	khash_t(entry) *cache_hash_set;
+};
+
+
+KHASH_MAP_INIT_INT(table, struct db_table*)
 
 #endif

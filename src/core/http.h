@@ -22,7 +22,7 @@ GET: proceed to STATE_REQUESTENDSEARCH
 PUT: proceed to STATE_REQUESTHEADERS
 DELETE: proceed to STATE_REQUESTENDSEARCH
 */
-#define STATE_REQUESTSTARTURL 0x2
+#define STATE_REQUESTSTARTURL1 0x2
 
 /*
 Extract needed information from headers
@@ -68,6 +68,8 @@ PUT: register for write, proceed to STATE_RESPONSEWRITEONLY
 #define STATE_REQUESTENDSEARCH_ZERO 0x9
 
 #define STATE_REQUESTHEADERS_ZERO 0xa
+
+#define STATE_REQUESTSTARTURL2 0xb
 
 /* ===[ WRITE ]=== */
 /*

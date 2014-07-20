@@ -11,19 +11,19 @@ struct cache_target {
 	int fd;
 };
 
+struct table_target {
+	struct db_table* table;
+};
+
+union utarget {
+	struct cache_target cache;
+	struct table_target table;
+};
+
 struct cache_connection {
-	struct cache_target target;
-	unsigned int state : 16;
-	unsigned int type : 8;
-	//8 bytes padding
+	utarget target;
 	//todo: fill with something
 	int client_sock;
-
-	//An integer for state specific data
-	//that may persist over reads. Interpretation
-	//is specific to the state, may be a ptr.
-	//TODO: cleaner way?
-	int state_data;
 
 	//Reading from socket buffers
 	struct read_buffer input;
@@ -32,6 +32,9 @@ struct cache_connection {
 	const char* output_buffer;
 	int output_length;
 	char* output_buffer_free;
+	unsigned int state : 16;
+	unsigned int type : 8;
+	//8 bytes padding
 };
 
 struct cache_connection_node {

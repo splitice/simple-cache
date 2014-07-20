@@ -18,6 +18,7 @@
 #include <errno.h>
 #include "config.h"
 #include "debug.h"
+#include "connection.h"
 #include "hash.h"
 #include "http.h"
 #include "db.h"
@@ -25,13 +26,19 @@
 #include "timer.h"
 
 void temporary_init(){
-	cache_target target;
+	struct cache_target target;
+
+	char* tableKey = (char*)malloc(2);
+	tableKey[0] = 't';
+	tableKey[1] = '\0';
+
+	struct db_table* table = db_table_get_write(tableKey, 1);
+
 	target.position = 0;
-	char* key = (char*)malloc(3);
-	key[0] = '/';
-	key[1] = 'e';
-	key[2] = '\0';
-	target.entry = db_entry_get_write(key, 2);
+	char* key = (char*)malloc(2);
+	key[0] = 'e';
+	key[1] = '\0';
+	target.entry = db_entry_get_write(table, key, 1);
 	target.fd = db_entry_open(target.entry, O_CREAT);
 	target.fd = db.fd_blockfile;
 	target.position = target.entry->block * BLOCK_LENGTH;

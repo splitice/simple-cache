@@ -42,19 +42,24 @@ struct db_details db {
 	.path_single = { 0 },
 	.path_blockfile = { 0 },
 	.fd_blockfile = -1,
-	.cache_hash_set = NULL,
 	.lru_head = NULL,
 	.lru_tail = NULL,
 	.free_blocks = NULL,
 	.blocks_exist = 0,
 	.db_size_bytes = 0,
-	.db_keys = 0
+	.db_keys = 0,
+	.db_stats_inserts = 0,
+	.db_stats_gets = 0,
+	.db_stats_deletes = 0,
+	.db_stats_operations = 0,
+	.tables = NULL
 };
 
 //Buffers
 char filename_buffer[MAX_PATH];
 
 /* Methods */
+void db_entry_delete(struct cache_entry* e);
 
 void db_lru_remove_node(cache_entry* entry){
 	if (entry->lru_prev != NULL){
@@ -219,7 +224,7 @@ bool db_open(const char* path){
 
 	//cache entries
 	//db.cache_hash_set = (cache_entry**)calloc(HASH_ENTRIES, sizeof(cache_entry*));
-	db.cache_hash_set = kh_init(1);
+	db.tables = kh_init(table);
 }
 
 
@@ -247,7 +252,7 @@ void db_entry_deref(cache_entry* entry){
 		//Clear entry - file has already been deleted.
 		//At this stage entry has already been removed from LRU and hash table
 		//exists only to complete files being served.
-		kh_del(1, db.cache_hash_set, entry->hash);
+		kh_del(entry, entry->table->cache_hash_set, entry->hash);
 		free(entry);
 	}
 }
@@ -296,11 +301,11 @@ uint32_t hash_string(const char* str, int length){
 	return out;
 }
 
-cache_entry* db_entry_get_read(char* key, size_t length){
+cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length){
 	uint32_t hash = hash_string(key, length);
 
-	khiter_t k = kh_get(1, db.cache_hash_set, hash);
-	cache_entry* entry = k == 0 ? NULL : kh_value(db.cache_hash_set, k);
+	khiter_t k = kh_get(entry, table->cache_hash_set, hash);
+	cache_entry* entry = k == 0 ? NULL : kh_value(table->cache_hash_set, k);
 
 	if (entry == NULL){
 		DEBUG("[#] Key does not exist\n");
@@ -361,11 +366,54 @@ cache_entry* db_entry_new(){
 	return entry;
 }
 
-cache_entry* db_entry_get_write(char* key, size_t length){
-	uint32_t hash = hash_string(key, length);
-	khiter_t k = kh_get(1, db.cache_hash_set, hash);
+struct db_table* db_table_get_read(char* name, int length){
+	uint32_t hash = hash_string(name, length);
 
-	cache_entry* entry = k == 0 ? NULL : kh_value(db.cache_hash_set, k);
+	khiter_t k = kh_get(table, db.tables, hash);
+
+	if (k == 0){
+		free(name);
+		return NULL;
+	}
+
+	db_table* entry = kh_value(db.tables, k);
+
+	free(name);
+	assert(entry != NULL);
+
+	return entry;
+}
+struct db_table* db_table_get_write(char* name, int length){
+	uint32_t hash = hash_string(name, length);
+
+	khiter_t k = kh_get(table, db.tables, hash);
+
+	if (k == 0){
+		db_table* table = (db_table*)malloc(sizeof(db_table));
+		table->hash = hash;
+		table->key = name;
+		table->entries = 0;
+		table->cache_hash_set = kh_init(entry);
+
+		int ret;
+		k = kh_put(table, db.tables, hash, &ret);
+		kh_value(db.tables, k) = table;
+		return table;
+	}
+
+	db_table* entry = kh_value(db.tables, k);
+
+	free(name);
+	assert(entry != NULL);
+
+	return entry;
+}
+
+cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length){
+	uint32_t hash = hash_string(key, length);
+	khiter_t k = kh_get(entry, table->cache_hash_set, hash);
+
+	cache_entry* entry = k == 0 ? NULL : kh_value(table->cache_hash_set, k);
 
 	//Stats
 	db.db_stats_inserts++;
@@ -391,8 +439,8 @@ cache_entry* db_entry_get_write(char* key, size_t length){
 	//Store entry
 	int ret;
 
-	k = kh_put(1, db.cache_hash_set, hash, &ret);
-	kh_value(db.cache_hash_set, k) = entry;
+	k = kh_put(entry, table->cache_hash_set, hash, &ret);
+	kh_value(table->cache_hash_set, k) = entry;
 
 	//LRU: insert
 	db_lru_insert(entry);
@@ -414,10 +462,10 @@ cache_entry* db_entry_get_write(char* key, size_t length){
 	return entry;
 }
 
-cache_entry* db_entry_get_delete(char* key, size_t length){
+cache_entry* db_entry_get_delete(struct db_table* table, char* key, size_t length){
 	uint32_t hash = hash_string(key, length);
-	khiter_t k = kh_get(1, db.cache_hash_set, hash);
-	cache_entry* entry = k == 0 ? NULL : kh_value(db.cache_hash_set, k);
+	khiter_t k = kh_get(entry, table->cache_hash_set, hash);
+	cache_entry* entry = k == 0 ? NULL : kh_value(table->cache_hash_set, k);
 
 	if (entry == NULL || entry->key_length != length || strncmp(key, entry->key, length)){
 		DEBUG("[#] Unable to look up key: ");
@@ -469,7 +517,7 @@ void db_entry_handle_delete(cache_entry* entry){
 	db_lru_delete_node(entry);
 
 	//Remove from hash table
-	kh_del(1, db.cache_hash_set, entry->hash);
+	kh_del(entry, entry->table->cache_hash_set, entry->hash);
 
 	//Dont need the key any more, deleted
 	free(entry->key);

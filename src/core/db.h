@@ -14,15 +14,6 @@ struct block_free_node {
 	struct block_free_node* next;
 };
 
-struct db_table {
-	uint32_t hash;
-	char* key;
-
-	uint32_t entries;
-};
-
-KHASH_MAP_INIT_INT(1, cache_entry*)
-
 /* Details regarding a database */
 struct db_details {
 	//Paths
@@ -33,14 +24,9 @@ struct db_details {
 	//Blockfile
 	int fd_blockfile;
 
-	//Entries
-	//TODO: table structure
-	//cache_entry** cache_hash_set;
-	khash_t(1) *cache_hash_set;
-
 	//LRU
-	cache_entry* lru_head;
-	cache_entry* lru_tail;
+	struct cache_entry* lru_head;
+	struct cache_entry* lru_tail;
 
 	//block file
 	struct block_free_node* free_blocks;
@@ -55,18 +41,36 @@ struct db_details {
 	uint64_t db_stats_gets;
 	uint64_t db_stats_deletes;
 	uint64_t db_stats_operations;
+
+	//Tables
+	khash_t(table) *tables;
 };
 
 extern struct db_details db;
+
+/* Open a database (from path) */
 bool db_open(const char* path);
+
+/* Lookup Table in Database */
+struct db_table* db_table_get_read(char* name, int length);
+struct db_table* db_table_get_write(char* name, int length);
+
+/* Lookup Cache Entry in Table */
+struct cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length);
+struct cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length);
+struct cache_entry* db_entry_get_delete(struct db_table* table, char* key, size_t length);
+
+/* Open entry file */
 int db_entry_open(cache_entry* e, int modes);
-cache_entry* db_entry_get_read(char* key, size_t length);
-cache_entry* db_entry_get_write(char* key, size_t length);
-cache_entry* db_entry_get_delete(char* key, size_t length);
-void db_entry_write_init(cache_target* target, uint32_t data_length);
-void db_entry_delete(cache_entry* e);
-void db_entry_close(cache_target* target);
-void db_entry_handle_delete(cache_entry* entry);
+
+/* Prepare for write */
+void db_entry_write_init(struct cache_target* target, uint32_t data_length);
+
+/* Delete an entry (request) */
+void db_entry_handle_delete(struct cache_entry* entry);
+
+/* Close entry, close fd, deref etc */
+void db_entry_close(struct cache_target* target);
 
 #define IS_SINGLE_FILE(x) x->data_length>BLOCK_LENGTH
 
