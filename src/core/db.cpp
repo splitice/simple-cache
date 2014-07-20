@@ -305,7 +305,7 @@ cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length)
 	uint32_t hash = hash_string(key, length);
 
 	khiter_t k = kh_get(entry, table->cache_hash_set, hash);
-	cache_entry* entry = k == 0 ? NULL : kh_value(table->cache_hash_set, k);
+	cache_entry* entry = k == kh_end(table->cache_hash_set) ? NULL : kh_value(table->cache_hash_set, k);
 
 	if (entry == NULL){
 		DEBUG("[#] Key does not exist\n");
@@ -371,7 +371,7 @@ struct db_table* db_table_get_read(char* name, int length){
 
 	khiter_t k = kh_get(table, db.tables, hash);
 
-	if (k == 0){
+	if (k == kh_end(db.tables)){
 		free(name);
 		return NULL;
 	}
@@ -388,7 +388,7 @@ struct db_table* db_table_get_write(char* name, int length){
 
 	khiter_t k = kh_get(table, db.tables, hash);
 
-	if (k == 0){
+	if (k == kh_end(db.tables)){
 		db_table* table = (db_table*)malloc(sizeof(db_table));
 		table->hash = hash;
 		table->key = name;
@@ -413,7 +413,7 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	uint32_t hash = hash_string(key, length);
 	khiter_t k = kh_get(entry, table->cache_hash_set, hash);
 
-	cache_entry* entry = k == 0 ? NULL : kh_value(table->cache_hash_set, k);
+	cache_entry* entry = k == kh_end(table->cache_hash_set) ? NULL : kh_value(table->cache_hash_set, k);
 
 	//Stats
 	db.db_stats_inserts++;
@@ -465,7 +465,7 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 cache_entry* db_entry_get_delete(struct db_table* table, char* key, size_t length){
 	uint32_t hash = hash_string(key, length);
 	khiter_t k = kh_get(entry, table->cache_hash_set, hash);
-	cache_entry* entry = k == 0 ? NULL : kh_value(table->cache_hash_set, k);
+	cache_entry* entry = k == kh_end(table->cache_hash_set) ? NULL : kh_value(table->cache_hash_set, k);
 
 	if (entry == NULL || entry->key_length != length || strncmp(key, entry->key, length)){
 		DEBUG("[#] Unable to look up key: ");
