@@ -195,7 +195,7 @@ bool run_unit(std::string& request, std::string& expect, int port){
 pid_t start_server(const char* binary_path, int port, const char* db){
 	char execcmd[512];
 
-	if (!access(binary_path, X_OK)){
+	if (access(binary_path, X_OK)){
 		WARN("%s not executable or does not exist", binary_path);
 		return -1;
 	}
@@ -242,7 +242,10 @@ bool run_scenario(const char* binary, const char* testcases, const char* filenam
 	char testcase_path[1024];
 	sprintf(testcase_path,"%s/%s", testcases, filename);
 	char* db = tempnam(NULL, NULL);
-	mkdir(db, 0777);
+	int res = mkdir(db, 0777);
+	if (res < 0){
+		PFATAL("Failed to create temporary directory: %s", db);
+	}
 	pid_t pid = start_server(binary, port, db);
 	if (pid < 0){
 		WARN("Failed to start simple-cache server");
@@ -250,5 +253,10 @@ bool run_scenario(const char* binary, const char* testcases, const char* filenam
 	}
 	bool result = execute_file(testcase_path, port);
 	stop_server(pid);
+
+	//Cleanup temporary directory
+	sprintf(testcase_path, "rm -rF \"%s\"", db);
+	system(testcase_path);
+
 	return result;
 }
