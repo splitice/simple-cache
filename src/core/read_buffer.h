@@ -57,12 +57,12 @@ int rbuf_write_to_end(struct read_buffer* buffer);
 /*
 Get a pointer to the buffer at the current read position
 */
-#define RBUF_READ(x) x.buffer + x.read_position
+#define RBUF_READ(x) (x.buffer + x.read_position)
 
 /*
 Get a pointer to the buffer at the current read position plus an offset
 */
-#define RBUF_READIDX(x, i) x.buffer + ((x.read_position + i) % BUFFER_SIZE)
+#define RBUF_READIDX(x, i) (x.buffer + ((x.read_position + i) % BUFFER_SIZE))
 
 /*
 Get a pointer to the buffer at the start (idx:0)
@@ -72,7 +72,7 @@ Get a pointer to the buffer at the start (idx:0)
 /*
 Get a pointer to the buffer at the current write offset
 */
-#define RBUF_WRITE(x) x.buffer + x.write_position
+#define RBUF_WRITE(x) (x.buffer + x.write_position)
 
 /*
 Move the read offset
@@ -87,12 +87,12 @@ Move the write offset
 /*
 Get a pointer to the buffer at the current read position
 */
-#define RBUF_READPTR(x) x->buffer + x->read_position
+#define RBUF_READPTR(x) (x->buffer + x->read_position)
 
 /*
 Get a pointer to the buffer at the current read position plus an offset
 */
-#define RBUF_READIDXPTR(x, i) x->buffer + ((x->read_position + i) % BUFFER_SIZE)
+#define RBUF_READIDXPTR(x, i) (x->buffer + ((x->read_position + i) % BUFFER_SIZE))
 
 /*
 Get a pointer to the buffer at the start (idx:0)
@@ -102,7 +102,7 @@ Get a pointer to the buffer at the start (idx:0)
 /*
 Get a pointer to the buffer at the current write offset
 */
-#define RBUF_WRITEPTR(x) x->buffer + x->write_position
+#define RBUF_WRITEPTR(x) (x->buffer + x->write_position)
 
 /*
 Move the read offset

@@ -402,14 +402,15 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 
 		RBUF_ITERATE(connection->input, n, buffer, end, {
 			if (*buffer == ':'){
-				DEBUG("[#%d] Found header of length %d\n", connection->client_sock, n);
-				if (n == 14 && rbuf_cmpn(&connection->input, "Content-Length", 14) == 0){
+				int bytes = buffer - RBUF_READ(connection->input);
+				DEBUG("[#%d] Found header of length %d\n", connection->client_sock, bytes);
+				if (bytes == 14 && rbuf_cmpn(&connection->input, "Content-Length", 14) == 0){
 					DEBUG("[#%d] Found Content-Length header\n", connection->client_sock);
 					RBUF_READMOVE(connection->input, n + 1);
 					connection->state = STATE_REQUESTHEADERS_CONTENTLENGTH;
 					return true;
 				}
-				if (n == 5 && rbuf_cmpn(&connection->input, "X-Ttl", 5) == 0){
+				if (bytes == 5 && rbuf_cmpn(&connection->input, "X-Ttl", 5) == 0){
 					DEBUG("[#%d] Found X-Ttl header\n", connection->client_sock);
 					RBUF_READMOVE(connection->input, n + 1);
 					connection->state = STATE_REQUESTHEADERS_XTTL;
