@@ -13,6 +13,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/time.h>
 #include "debug.h"
 
 #define UNIT_REQUEST ">>>>>"
@@ -94,7 +95,19 @@ bool run_unit(std::string& request, std::string& expect, int port){
 	servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 	servaddr.sin_port = htons(port);
 
-	int res = connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
+	int res;
+
+	struct timeval start_time;
+	int err = gettimeofday(&start_time, NULL);
+	
+	struct timeval current_time;
+	do {
+		res = connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
+		int err = gettimeofday(&current_time, NULL);
+		if (err == -1){
+			PFATAL("Failed to get system time");
+		}
+	} while (res < 0 && (current_time.tv_sec - start_time.tv_sec) < 3);
 
 	if (res < 0){
 		PFATAL("Failed to connect to scache server\n");
