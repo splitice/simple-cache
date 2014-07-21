@@ -105,6 +105,7 @@ static bool http_key_lookup(cache_connection* connection, int n, int epfd){
 	connection->type |= REQUEST_LEVELKEY;
 	connection->state = STATE_HTTPVERSION;
 
+	//TODO: cant know the size yet for PUT
 	connection->target.cache.position = 0;
 	connection->target.cache.entry = entry;
 	if (entry != NULL){
@@ -442,9 +443,6 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 			}
 		});
 
-		//Couldnt find the end in this 4kb chunk
-		//Go back 3 bytes, might go back too far - but thats ok we dont have that short headers
-		RBUF_READMOVE(connection->input, n);
 		if (rbuf_write_remaining(&connection->input) == 0){
 			return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 		}
