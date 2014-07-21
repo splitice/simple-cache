@@ -110,6 +110,8 @@ void connection_open_listener(){
 		goto fail;
 	}
 
+	SAYF("Listening on %d\n", settings.bind_port);
+
 	return;
 fail:
 	PFATAL("error opening listener (:%d)", settings.bind_port);
