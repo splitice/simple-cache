@@ -103,6 +103,9 @@ bool run_unit(std::string& request, std::string& expect, int port){
 	struct timeval current_time;
 	do {
 		res = connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
+		if (res < 0){
+			usleep(100);
+		}
 		int err = gettimeofday(&current_time, NULL);
 		if (err == -1){
 			PFATAL("Failed to get system time");
