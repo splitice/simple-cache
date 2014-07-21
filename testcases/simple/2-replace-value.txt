@@ -1,4 +1,4 @@
-Desciption: PUT content, then retrieve with GET
+Desciption: PUT content, then PUT again to replace it
 
 >>>>>
 PUT /t/k HTTP/1.1

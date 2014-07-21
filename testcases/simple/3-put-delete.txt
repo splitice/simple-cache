@@ -1,4 +1,4 @@
-Desciption: PUT content, then retrieve with GET
+Desciption: PUT content, then delete it. Test existance and value with GET
 
 >>>>>
 PUT /t/k HTTP/1.1
