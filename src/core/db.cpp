@@ -174,7 +174,7 @@ void db_init_folders(){
 			snprintf(filename_buffer, MAX_PATH, "%s%c%c", db.path_single, folder1, folder2);
 
 			if (access(filename_buffer, F_OK) == -1){
-				DEBUG("[#] Creating directory %s\n", filename_buffer);
+				//DEBUG("[#] Creating directory %s\n", filename_buffer);
 
 				mkdir(filename_buffer, 0777);
 			}

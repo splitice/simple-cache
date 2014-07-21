@@ -145,6 +145,12 @@ bool run_unit(std::string& request, std::string& expect, int port){
 		}
 		int n = recv(sockfd, recv_buffer, to_recv, 0);
 
+		if (n == 0){
+			printf("Expected: %s\n", buffer);
+			printf("Connection Closed\n", recv_buffer);
+			return false;
+		}
+
 		if (n == -1){
 			if (errno == EAGAIN || errno == EWOULDBLOCK){
 				printf("A timeout occured waiting for a response\n");
@@ -171,13 +177,28 @@ bool run_unit(std::string& request, std::string& expect, int port){
 pid_t start_server(const char* binary_path, int port, const char* db){
 	char execcmd[512];
 
+	char* pidfile = tempnam(NULL, NULL);
+
 	if (access(binary_path, X_OK)){
 		WARN("%s not executable or does not exist", binary_path);
 		return -1;
 	}
 
-	sprintf(execcmd,"%s --bind-port %d --database-file-path %s", binary_path, port, db);
-	int pid = system2(execcmd);
+	sprintf(execcmd, "%s --bind-port %d --database-file-path %s --make-pid %s", binary_path, port, db, pidfile);
+	system2(execcmd);
+
+	FILE* f;
+	do {
+		f = fopen(pidfile, "r");
+		usleep(100);
+	} while (f == 0);
+	char* line = NULL;
+	size_t len;
+	getline(&line, &len, f);
+	int pid = atoi(line);
+	fclose(f);
+	free(pidfile);
+
 	return pid;
 }
 
@@ -259,12 +280,15 @@ bool run_scenarios(const char* binary, const char* testcases, const char* direct
 	sprintf(directory_buffer, "%s/%s", directory_path, testcases);
 	struct dirent *next_file;
 	DIR *theFolder = opendir(directory_buffer);
+	if (theFolder == NULL){
+		FATAL("%s does not exist", directory_buffer);
+	}
 	while (next_file = readdir(theFolder))
 	{
 		if (*(next_file->d_name) == '.')
 			continue;
 		// build the full path for each file in the folder
-		bool result = run_scenario(binary, next_file->d_name, directory_buffer, port);
+		bool result = run_scenario(binary, directory_buffer, next_file->d_name, port);
 		if (result){
 			SAYF("Scenario %s failed\n", next_file->d_name);
 			full_result |= result;

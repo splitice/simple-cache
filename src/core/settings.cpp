@@ -45,8 +45,9 @@ void parse_arguments(int argc, char** argv){
 	{
 		/* These options set a flag. */
 		/* These options set a value */
+		{ "make-pid", required_argument, 0, 'm' },
 		{ "database-max-size", required_argument, 0, 's' },
-		{ "database-file-path", required_argument, 0, 'd' },
+		{ "database-file-path", required_argument, 0, 'r' },
 		{ "database-lru-clear", required_argument, 0, 'l' },
 		{ "bind-addr", required_argument, 0, 'b' },
 		{ "bind-port", required_argument, 0, 'p' },
@@ -54,11 +55,8 @@ void parse_arguments(int argc, char** argv){
 	};
 
 	//Defaults
-	settings.bind_port = 8000;
 	settings.db_file_path = "/var/lib/scache/";
-	settings.max_size = 0;
 	//By default bind to any IPv4
-	settings.bind_af = AF_INET;
 	memset(settings.bind_addr, sizeof(settings.bind_addr), sizeof(char));//INADDR_ANY
 
 	int r = 0, option_index = 0;
@@ -76,7 +74,8 @@ void parse_arguments(int argc, char** argv){
 			settings.daemon_mode = true;
 			break;
 		case 'm':
-			settings.pidfile = optarg;
+			settings.pidfile = optarg; 
+			break;
 		case 's':
 			settings.max_size = atol(optarg);
 			break;
