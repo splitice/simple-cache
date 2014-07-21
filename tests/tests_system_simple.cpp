@@ -6,8 +6,9 @@ static const char* binary_path;
 static const char* testcases_path;
 
 static const char * test_simple_put_get() {
+	int result = false;
 
-	run_scenario(binary_path, testcases_path, "1-put-get.txt", 8001);
+	result |= run_scenario(binary_path, testcases_path, "1-put-get.txt", 8001);
 
 	return 0;
 }

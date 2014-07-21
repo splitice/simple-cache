@@ -135,14 +135,17 @@ bool run_unit(std::string& request, std::string& expect, int port){
 	servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
 	servaddr.sin_port = htons(port);
 
-	connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
+	int res = connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
+
+	if (res < 0){
+		PFATAL("Failed to connect to scache server\n");
+	}
 
 	//Send request
 	int len = request.length();
 	const char* buffer = request.c_str();
 	while (len != 0){
-		int sent = sendto(sockfd, buffer, len, 0,
-			(struct sockaddr *)&servaddr, sizeof(servaddr));
+		int sent = send(sockfd, buffer, len, 0);
 
 		buffer += sent;
 		len -= sent;
@@ -152,12 +155,27 @@ bool run_unit(std::string& request, std::string& expect, int port){
 	buffer = expect.c_str();
 	len = expect.length();
 
+	struct timeval tv;
+
+	tv.tv_sec = 1;  /* 1 Sec Timeout */
+	tv.tv_usec = 0;  // Not init'ing this can cause strange errors
+
+	setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(struct timeval));
+
 	while (len != 0){
 		int to_recv = 1024;
 		if (len < to_recv){
 			to_recv = len;
 		}
-		int n = recvfrom(sockfd, recv_buffer, to_recv, 0, NULL, NULL);
+		int n = recv(sockfd, recv_buffer, to_recv, 0);
+
+		if (n == -1){
+			if (n == EAGAIN || n == EWOULDBLOCK){
+				printf("A timeout occured waiting for a response\n");
+				return false;
+			}
+			PFATAL("An error occured reading from socket");
+		}
 
 		if (strncmp(recv_buffer, buffer, n) != 0){
 			*(buffer + n) == 0;//Incase we arent comparing it all
@@ -220,6 +238,7 @@ bool run_scenario(const char* binary, const char* testcases, const char* filenam
 	char* db = tempnam(NULL, NULL);
 	mkdir(db, 0777);
 	pid_t pid = start_server(binary, port, db);
-	execute_file(testcase_path, port);
+	bool result = execute_file(testcase_path, port);
 	stop_server(pid);
+	return result;
 }
