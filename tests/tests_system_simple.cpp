@@ -8,7 +8,7 @@ static const char* testcases_path;
 static const char * test_simple_put_get() {
 	bool result = false;
 
-	result |= run_scenario(binary_path, testcases_path, "1-put-get.txt", 8001);
+	result |= !run_scenario(binary_path, testcases_path, "1-put-get.txt", 8001);
 
 	return result ? "System Tests failed" : 0;
 }

@@ -145,7 +145,7 @@ bool run_unit(std::string& request, std::string& expect, int port){
 		int n = recv(sockfd, recv_buffer, to_recv, 0);
 
 		if (n == -1){
-			if (n == EAGAIN || n == EWOULDBLOCK){
+			if (errno == EAGAIN || errno == EWOULDBLOCK){
 				printf("A timeout occured waiting for a response\n");
 				return false;
 			}
@@ -186,6 +186,18 @@ void stop_server(pid_t pid){
 	}
 }
 
+void trim_last_nl(std::string* str){
+	int length = str->length();
+	if ((*str)[length - 1] == '\n'){
+		if ((*str)[length - 2] == '\r'){
+			*str = str->substr(0, length - 2);
+		}
+		else{
+			*str = str->substr(0, length - 1);
+		}
+	}
+}
+
 bool execute_file(const char* filename, int port){
 	FILE* f = fopen(filename, "r");
 
@@ -194,6 +206,10 @@ bool execute_file(const char* filename, int port){
 	std::string expect;
 	do {
 		more = extract_unit(f, request, expect);
+
+		//Remove last newline
+		trim_last_nl(&request);
+		trim_last_nl(&expect);
 
 		bool result = run_unit(request, expect, port);
 		if (!result){
@@ -223,6 +239,7 @@ bool run_scenario(const char* binary, const char* testcases, const char* filenam
 	pid_t pid = start_server(binary, port, db);
 	if (pid < 0){
 		WARN("Failed to start simple-cache server");
+		stop_server(pid);
 		return false;
 	}
 	bool result = execute_file(testcase_path, port);
