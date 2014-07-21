@@ -19,7 +19,7 @@
 
 #define UNIT_REQUEST ">>>>>"
 #define UNIT_RESPONSE "-----"
-#define UNIT_SEPERATOR_LEN 7
+#define UNIT_SEPERATOR_LEN 6
 
 bool extract_unit(FILE* f, std::string& request, std::string& expect){
 	char * line = NULL;
@@ -28,6 +28,11 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect){
 	int state = 0;
 	long last_pos;
 	while ((read = getline(&line, &len, f)) != -1) {
+		if (read >= 2){
+			if (line[read - 2] == '\r'){
+				read--;
+			}
+		}
 		switch (state){
 		case 0:
 			if (read == UNIT_SEPERATOR_LEN){
@@ -58,7 +63,7 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect){
 		}
 	}
 
-	if (state < 2){
+	if (state == 1){
 		printf("Error parsing scenario (possibly incomplete)\n");
 		request.clear();
 		expect.clear();
