@@ -30,6 +30,8 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect){
 	while ((read = getline(&line, &len, f)) != -1) {
 		if (read >= 2){
 			if (line[read - 2] == '\r'){
+				line[read - 2] = '\n';
+				line[read - 1] = '\0';
 				read--;
 			}
 		}
@@ -89,6 +91,23 @@ pid_t system2(const char * command)
 	}
 
 	return pid;
+}
+
+int remove_cr(char* buffer, int n){
+	int ret = n;
+	int writePos = 0;
+	for (int i = 0; i < n; i++){
+		if (buffer[i] == '\r'){
+			ret--;
+		}
+		else{
+			if (i != writePos){
+				buffer[writePos] = buffer[i];
+			}
+			writePos++;
+		}
+	}
+	return ret;
 }
 
 bool run_unit(std::string& request, std::string& expect, int port){
@@ -152,6 +171,8 @@ bool run_unit(std::string& request, std::string& expect, int port){
 		}
 		int n = recv(sockfd, recv_buffer, to_recv, 0);
 
+		n = remove_cr(recv_buffer, n);
+
 		if (n == 0){
 			printf("Expected: %s\n", buffer);
 			printf("Connection Closed\n", recv_buffer);
@@ -213,6 +234,7 @@ void stop_server(pid_t pid){
 	if (kill(pid, SIGTERM) == -1){
 		PFATAL("Unable to kill scache service");
 	}
+	sleep(1);
 }
 
 void trim_last_nl(std::string* str){
@@ -278,7 +300,7 @@ bool run_scenario(const char* binary, const char* testcases, const char* filenam
 	if (pid < 0){
 		WARN("Failed to start simple-cache server");
 		stop_server(pid);
-		return false;
+		return true;
 	}
 	bool result = execute_file(testcase_path, port);
 	stop_server(pid);
@@ -291,7 +313,7 @@ bool run_scenario(const char* binary, const char* testcases, const char* filenam
 }
 
 bool run_scenarios(const char* binary, const char* testcases, const char* directory_path, int port){
-	bool full_result = false;
+	bool full_result = true;
 	char directory_buffer[MAX_PATH];
 	sprintf(directory_buffer, "%s/%s", directory_path, testcases);
 	struct dirent *next_file;
@@ -305,9 +327,9 @@ bool run_scenarios(const char* binary, const char* testcases, const char* direct
 			continue;
 		// build the full path for each file in the folder
 		bool result = run_scenario(binary, directory_buffer, next_file->d_name, port);
-		if (result){
+		if (!result){
 			SAYF("Scenario %s failed\n", next_file->d_name);
-			full_result |= result;
+			full_result &= result;
 		}
 	}
 	return full_result;

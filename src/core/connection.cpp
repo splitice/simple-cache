@@ -74,6 +74,11 @@ int setNonblocking(int fd)
 #endif
 }
 
+
+void connection_close_listener(){
+	close(listenfd);
+}
+
 void connection_open_listener(){
 	int res;
 

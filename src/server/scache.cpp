@@ -145,6 +145,8 @@ int main(int argc, char** argv)
 	install_signal_handlers();
 	epoll_event_loop();
 
+	connection_close_listener();
+
 	if (settings.pidfile){
 		close(pidfd);
 		unlink(settings.pidfile);

@@ -93,6 +93,6 @@ Connection: Keep-Alive
 -----
 HTTP/1.1 200 OK
 Connection: Keep-Alive
-Content-Length: 2
+Content-Length: 4
 
 1234

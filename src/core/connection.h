@@ -7,6 +7,7 @@
 void connection_register_write(int epfd, int fd);
 void connection_register_read(int epfd, int fd);
 void connection_open_listener();
+void connection_close_listener();
 void epoll_event_loop();
 
 #define CONNECTION_HASH_KEY(x) x%CONNECTION_HASH_ENTRIES
