@@ -10,7 +10,7 @@ static const char * test_simple_put_get() {
 
 	result |= run_scenario(binary_path, testcases_path, "1-put-get.txt", 8001);
 
-	return result ? "System Tests failed" : NULL;
+	return result ? "System Tests failed" : 0;
 }
 
 static const char * test_simple(const char* a_binary_path, const char* a_testcases_path) {
