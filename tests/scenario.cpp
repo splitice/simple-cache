@@ -60,6 +60,8 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect){
 
 	if (state < 2){
 		printf("Error parsing scenario (possibly incomplete)\n");
+		request.clear();
+		expect.clear();
 		return false;
 	}
 	
@@ -229,12 +231,18 @@ bool execute_file(const char* filename, int port){
 	do {
 		more = extract_unit(f, request, expect);
 
+		if (request.empty() || expect.empty()){
+			fclose(f);
+			return false;
+		}
+
 		//Remove last newline
 		trim_last_nl(&request);
 		trim_last_nl(&expect);
 
 		bool result = run_unit(request, expect, port);
 		if (!result){
+			fclose(f);
 			printf("Failed to run step...\n");
 			return false;
 		}
