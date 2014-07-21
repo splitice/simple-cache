@@ -6,11 +6,11 @@ static const char* binary_path;
 static const char* testcases_path;
 
 static const char * test_simple_put_get() {
-	int result = false;
+	bool result = false;
 
 	result |= run_scenario(binary_path, testcases_path, "1-put-get.txt", 8001);
 
-	return 0;
+	return result ? "System Tests failed" : NULL;
 }
 
 static const char * test_simple(const char* a_binary_path, const char* a_testcases_path) {
