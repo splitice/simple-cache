@@ -15,5 +15,5 @@ install:
 script:
  - make all CXX="g++-4.8" CC="g++-4.8" CONFIG="${BUILD_TYPE}"
  - PWD=$(pwd)
- - ls -las $PWD/src/server/$BUILD_OUTPUT/scache
+ - ifconfig
  - ./tests/$BUILD_OUTPUT/tests $PWD/src/server/$BUILD_OUTPUT/scache ./testcases/
