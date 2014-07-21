@@ -197,7 +197,7 @@ pid_t start_server(const char* binary_path, int port, const char* db){
 
 	if (!access(binary_path, X_OK)){
 		WARN("%s not executable or does not exist", binary_path);
-		return false;
+		return -1;
 	}
 
 	sprintf(execcmd,"%s --bind-port %d --database-file-path %s", binary_path, port, db);
