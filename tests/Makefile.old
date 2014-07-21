@@ -25,7 +25,7 @@ error:
 	$(error Invalid configuration, please check your inputs)
 endif
 
-SOURCEFILES := tests.cpp
+SOURCEFILES := tests.cpp tests_rbuffer.cpp
 EXTERNAL_LIBS := ../src/core/$(BINARYDIR)/core.a
 EXTERNAL_LIBS_COPIED := $(foreach lib, $(EXTERNAL_LIBS),$(BINARYDIR)/$(notdir $(lib)))
 

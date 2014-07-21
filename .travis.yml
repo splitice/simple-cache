@@ -13,5 +13,5 @@ install:
  - sudo apt-get update -qq
  - sudo apt-get install -qq g++-4.8
 script:
- - make tests CXX="g++-4.8" CC="g++-4.8" CONFIG="${BUILD_TYPE}"
- - ./tests/$BUILD_OUTPUT/tests
+ - make all CXX="g++-4.8" CC="g++-4.8" CONFIG="${BUILD_TYPE}"
+ - ./tests/$BUILD_OUTPUT/tests ./src/server/$BUILD_OUTPUT/scache ./testcases/
