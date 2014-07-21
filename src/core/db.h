@@ -67,6 +67,7 @@ int db_entry_open(cache_entry* e, int modes);
 void db_entry_write_init(struct cache_target* target, uint32_t data_length);
 
 /* Delete an entry (request) */
+void db_entry_handle_delete(struct cache_entry* entry, khiter_t k);
 void db_entry_handle_delete(struct cache_entry* entry);
 
 /* Close entry, close fd, deref etc */

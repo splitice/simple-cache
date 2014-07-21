@@ -194,6 +194,12 @@ void db_init_folders(){
 	}
 }
 
+uint32_t hash_string(const char* str, int length){
+	uint32_t out;
+	MurmurHash3_x86_32(str, length, 13, &out);
+	return out;
+}
+
 void get_key_path(cache_entry* e, char* out){
 	char folder1 = 'A' + (e->hash % 26);
 	char folder2 = 'A' + ((e->hash >> 8) % 26);
@@ -249,10 +255,12 @@ void db_entry_deref(cache_entry* entry){
 			db_block_free(entry->block);
 		}
 
+		uint32_t hash = hash_string(entry->key, entry->key_length);
+		khiter_t k = kh_get(entry, entry->table->cache_hash_set, hash);
 		//Clear entry - file has already been deleted.
 		//At this stage entry has already been removed from LRU and hash table
 		//exists only to complete files being served.
-		kh_del(entry, entry->table->cache_hash_set, entry->hash);
+		kh_del(entry, entry->table->cache_hash_set, k);
 		free(entry);
 	}
 }
@@ -293,12 +301,6 @@ void db_entry_delete(cache_entry* e){
 	//Stats
 	db.db_stats_deletes++;
 	db.db_stats_operations++;
-}
-
-uint32_t hash_string(const char* str, int length){
-	uint32_t out;
-	MurmurHash3_x86_32(str, length, 13, &out);
-	return out;
 }
 
 cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length){
@@ -357,12 +359,13 @@ cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length)
 	return entry;
 }
 
-cache_entry* db_entry_new(){
+cache_entry* db_entry_new(db_table* table){
 	cache_entry* entry = (cache_entry*)malloc(sizeof(cache_entry));
 	entry->refs = 0;
 	entry->writing = false;
 	entry->deleted = false;
 	entry->expires = 0;
+	entry->table = table;
 	return entry;
 }
 
@@ -427,12 +430,12 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 		}
 
 		//We have clients reading this key, cant write currently
-		db_entry_handle_delete(entry);
+		db_entry_handle_delete(entry, k);
 
-		entry = db_entry_new();
+		entry = db_entry_new(table);
 	}
 	else{
-		entry = db_entry_new();
+		entry = db_entry_new(table);
 		entry->block = db_block_allocate_new();
 	}
 
@@ -502,6 +505,13 @@ cache_entry* db_entry_get_delete(struct db_table* table, char* key, size_t lengt
 }
 
 void db_entry_handle_delete(cache_entry* entry){
+	uint32_t hash = hash_string(entry->key, entry->key_length);
+	khiter_t k = kh_get(entry, entry->table->cache_hash_set, hash);
+
+	db_entry_handle_delete(entry, k);
+}
+
+void db_entry_handle_delete(cache_entry* entry, khiter_t k){
 	assert(!entry->deleted);
 
 	if (IS_SINGLE_FILE(entry)){
@@ -517,7 +527,7 @@ void db_entry_handle_delete(cache_entry* entry){
 	db_lru_delete_node(entry);
 
 	//Remove from hash table
-	kh_del(entry, entry->table->cache_hash_set, entry->hash);
+	kh_del(entry, entry->table->cache_hash_set, k);
 
 	//Dont need the key any more, deleted
 	free(entry->key);

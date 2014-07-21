@@ -228,6 +228,8 @@ bool execute_file(const char* filename, int port){
 	bool more;
 	std::string request;
 	std::string expect;
+
+	int step = 1;
 	do {
 		more = extract_unit(f, request, expect);
 
@@ -243,13 +245,14 @@ bool execute_file(const char* filename, int port){
 		bool result = run_unit(request, expect, port);
 		if (!result){
 			fclose(f);
-			printf("Failed to run step...\n");
+			printf("Failed to run step %d of file %s\n", step, filename);
 			return false;
 		}
 
 		if (more){
 			request.clear();
 			expect.clear();
+			step++;
 		}
 	} while (more);
 

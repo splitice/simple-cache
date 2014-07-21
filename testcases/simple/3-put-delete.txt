@@ -32,9 +32,9 @@ Connection: Keep-Alive
 -----
 HTTP/1.1 200 OK
 Connection: Keep-Alive
-Content-Length: 4
+Content-Length: 9
 
-OK
+DELETED
 
 >>>>>
 GET /t/k HTTP/1.1
