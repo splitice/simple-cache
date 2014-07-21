@@ -229,7 +229,7 @@ bool run_scenario(const char* binary, const char* testcases, const char* filenam
 	stop_server(pid);
 
 	//Cleanup temporary directory
-	sprintf(testcase_path, "rm -rF \"%s\"", db);
+	sprintf(testcase_path, "rm -Rf \"%s\"", db);
 	system(testcase_path);
 
 	return result;
