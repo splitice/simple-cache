@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <dirent.h>
 #include <string>
 #include <string.h>
 #include <stdbool.h>
@@ -250,4 +251,24 @@ bool run_scenario(const char* binary, const char* testcases, const char* filenam
 	system(testcase_path);
 
 	return result;
+}
+
+bool run_scenarios(const char* binary, const char* testcases, const char* directory_path, int port){
+	bool full_result = false;
+	char directory_buffer[MAX_PATH];
+	sprintf(directory_buffer, "%s/%s", directory_path, testcases);
+	struct dirent *next_file;
+	DIR *theFolder = opendir(directory_buffer);
+	while (next_file = readdir(theFolder))
+	{
+		if (*(next_file->d_name) == '.')
+			continue;
+		// build the full path for each file in the folder
+		bool result = run_scenario(binary, next_file->d_name, directory_buffer, port);
+		if (result){
+			SAYF("Scenario %s failed\n", next_file->d_name);
+			full_result |= result;
+		}
+	}
+	return full_result;
 }
