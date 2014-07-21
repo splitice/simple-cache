@@ -194,6 +194,12 @@ bool run_unit(std::string& request, std::string& expect, int port){
 
 pid_t start_server(const char* binary_path, int port, const char* db){
 	char execcmd[512];
+
+	if (!access(binary_path, X_OK)){
+		WARN("%s not executable or does not exist", binary_path);
+		return false;
+	}
+
 	sprintf(execcmd,"%s --bind-port %d --database-file-path %s", binary_path, port, db);
 	int infp, outfp;
 	int pid = system2(execcmd, &infp, &outfp);
@@ -238,6 +244,10 @@ bool run_scenario(const char* binary, const char* testcases, const char* filenam
 	char* db = tempnam(NULL, NULL);
 	mkdir(db, 0777);
 	pid_t pid = start_server(binary, port, db);
+	if (pid < 0){
+		WARN("Failed to start simple-cache server");
+		return false;
+	}
 	bool result = execute_file(testcase_path, port);
 	stop_server(pid);
 	return result;
