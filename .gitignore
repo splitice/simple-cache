@@ -161,6 +161,7 @@ $RECYCLE.BIN/
 *.vgdbsettings
 *.vcxproj
 *.vcxproj.*
+*.sln
 VisualGDBCache
 
 gcc_Debug.h
