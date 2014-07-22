@@ -60,18 +60,16 @@ struct cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t 
 struct cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length);
 struct cache_entry* db_entry_get_delete(struct db_table* table, char* key, size_t length);
 
-/* Open entry file */
-int db_entry_open(cache_entry* e, int modes);
-
 /* Prepare for write */
-void db_entry_write_init(struct cache_target* target, uint32_t data_length);
+void db_entry_write_allocate(cache_entry* entry, uint32_t data_length, int fd);
 
 /* Delete an entry (request) */
 void db_entry_handle_delete(struct cache_entry* entry, khiter_t k);
 void db_entry_handle_delete(struct cache_entry* entry);
 
 /* Close entry, close fd, deref etc */
-void db_entry_close(struct cache_target* target);
+void db_target_close(struct cache_target* target);
+void db_target_setup(struct cache_target* target, struct cache_entry* entry, bool write);
 
 #define IS_SINGLE_FILE(x) x->data_length>BLOCK_LENGTH
 

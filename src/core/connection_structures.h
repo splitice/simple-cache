@@ -16,7 +16,7 @@ struct table_target {
 };
 
 union utarget {
-	struct cache_target cache;
+	struct cache_target key;
 	struct table_target table;
 };
 
