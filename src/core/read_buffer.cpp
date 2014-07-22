@@ -167,4 +167,20 @@ int rbuf_write_to_end(struct read_buffer* buffer) {
 void rbuf_init(struct read_buffer* buf){
 	buf->read_position = 0;
 	buf->write_position = 0;
+#ifdef DEBUG_BUILD
+	buf->write_remaining = 0;
+#endif
+}
+
+void rb_debug_read_check(struct read_buffer* buffer, int by){
+#ifdef DEBUG_BUILD
+	buffer->write_remaining -= by;
+	assert(buffer->write_remaining >= 0);
+#endif
+}
+
+void rb_debug_write_incr(struct read_buffer* buffer, int by){
+#ifdef DEBUG_BUILD
+	buffer->write_remaining += by;
+#endif
 }

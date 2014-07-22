@@ -41,6 +41,9 @@ static void skip_over_newlines(struct read_buffer* rb){
 		if (*buffer != '\r' && *buffer != '\n'){
 			return;
 		}
+#ifdef DEBUG_BUILD
+		rb_debug_read_check(rb, 1);
+#endif
 		rb->read_position++;
 		buffer++;
 	}
@@ -51,6 +54,9 @@ static void skip_over_newlines(struct read_buffer* rb){
 		if (*buffer != '\r' && *buffer != '\n'){
 			return;
 		}
+#ifdef DEBUG_BUILD
+		rb_debug_read_check(rb, 1);
+#endif
 		rb->read_position++;
 		buffer++;
 	}
@@ -103,9 +109,105 @@ static bool http_key_lookup(cache_connection* connection, int n, int epfd){
 	connection->type |= REQUEST_LEVELKEY;
 	connection->state = STATE_HTTPVERSION;
 
-	db_target_setup(&connection->target.key, entry, REQUEST_IS(connection->type, REQUEST_HTTPPUT));
+	if (entry){
+		db_target_setup(&connection->target.key, entry, REQUEST_IS(connection->type, REQUEST_HTTPPUT));
+	}
+	else{
+		connection->target.key.entry = NULL;
+	}
 
 	return true;
+}
+
+static inline bool http_read_requeststartmethod(int epfd, cache_connection* connection, char* buffer, int n){
+	//Check if this is never going to be valid, too long
+	if (n > LONGEST_REQMETHOD){
+		RBUF_READMOVE(connection->input, n + 1);
+		return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+	}
+
+	//A space signifies the end of the method
+	if (*buffer == ' '){
+		DEBUG("[#%d] Found first space seperator, len: %d\n", connection->client_sock, n);
+
+		//As long as the method is valid the next step
+		//is to parse the url
+		connection->state = STATE_REQUESTSTARTURL1;
+
+		//Workout what valid method we have been given (if any)
+		if (n == 3 && rbuf_cmpn(&connection->input, "GET", 3) == 0){
+			//This is a GET request
+			connection->type = REQUEST_HTTPGET;
+			RBUF_READMOVE(connection->input, n + 1);
+			return true;
+		}
+		else if (n == 3 && rbuf_cmpn(&connection->input, "PUT", 3) == 0){
+			//This is a PUT request
+			connection->type = REQUEST_HTTPPUT;
+			RBUF_READMOVE(connection->input, n + 1);
+			return true;
+		}
+		else if (n == 6 && rbuf_cmpn(&connection->input, "DELETE", 6) == 0){
+			//This is a DELETE request
+			connection->type = REQUEST_HTTPDELETE;
+			RBUF_READMOVE(connection->input, n + 1);
+			return true;
+		}
+
+		//Else: This is an INVALID request
+		RBUF_READMOVE(connection->input, n + 1);
+		return http_write_response_after_eol(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+	}
+}
+
+static inline bool http_read_requeststarturl1(int epfd, cache_connection* connection, char* buffer, int n){
+	//Assert: first char is a / (start of URL)
+	assert(n != 0 || *buffer == '/');
+
+
+	if (n != 0 && *buffer == '/'){
+		//Key command
+		//URL: table/key
+
+		RBUF_READMOVE(connection->input, 1);
+		char* key = (char*)malloc(sizeof(char)* (n));
+		rbuf_copyn(&connection->input, key, n - 1);
+		*(key + n) = 0;//Null terminate the key
+
+		DEBUG("[#%d] Request table: \"%s\" (%d)\n", connection->client_sock, key, n);
+
+		if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
+			connection->target.table.table = db_table_get_read(key, n - 1);
+		}
+		else{
+			connection->target.table.table = db_table_get_write(key, n - 1);
+		}
+
+		if (connection->target.table.table){
+			connection->state = STATE_REQUESTSTARTURL2;
+		}
+		else{
+			return http_write_response_after_eol(epfd, connection, HTTPTEMPLATE_FULL404);
+		}
+
+		RBUF_READMOVE(connection->input, n);
+		return true;
+	}
+	else if (*buffer == ' '){
+		//Table command
+		//URL: table
+
+		if (REQUEST_IS(connection->type, REQUEST_HTTPGET)){
+
+		}
+		else if (REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
+
+		}
+		else
+		{
+			return http_write_response_after_eol(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+		}
+	}
 }
 
 /*
@@ -139,94 +241,13 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 		skip_over_newlines(&connection->input);
 
 		//Process request line
-		RBUF_ITERATE(connection->input, n, buffer, end, {
-			//Check if this is never going to be valid, too long
-			if (n > LONGEST_REQMETHOD){
-				RBUF_READMOVE(connection->input, n + 1);
-				return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
-			}
-
-			//A space signifies the end of the method
-			if (*buffer == ' '){
-				DEBUG("[#%d] Found first space seperator, len: %d\n", connection->client_sock, n);
-
-				//As long as the method is valid the next step
-				//is to parse the url
-				connection->state = STATE_REQUESTSTARTURL1;
-
-				//Workout what valid method we have been given (if any)
-				if (n == 3 && rbuf_cmpn(&connection->input, "GET", 3) == 0){
-					//This is a GET request
-					connection->type = REQUEST_HTTPGET;
-					RBUF_READMOVE(connection->input, n + 1);
-					return true;
-				}
-				else if (n == 3 && rbuf_cmpn(&connection->input, "PUT", 3) == 0){
-					//This is a PUT request
-					connection->type = REQUEST_HTTPPUT;
-					RBUF_READMOVE(connection->input, n + 1);
-					return true;
-				}
-				else if (n == 6 && rbuf_cmpn(&connection->input, "DELETE", 6) == 0){
-					//This is a DELETE request
-					connection->type = REQUEST_HTTPDELETE;
-					RBUF_READMOVE(connection->input, n + 1);
-					return true;
-				}
-
-				//Else: This is an INVALID request
-				RBUF_READMOVE(connection->input, n + 1);
-				return http_write_response_after_eol(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
-			}
-		});
+		RBUF_ITERATE(connection->input, n, buffer, end, return http_read_requeststartmethod(epfd, connection, buffer, n));
 		break;
 
 	case STATE_REQUESTSTARTURL1:
 		DEBUG("[#%d] Handling STATE_REQUESTSTARTURL\n", connection->client_sock);
 
-		RBUF_ITERATE(connection->input, n, buffer, end, {
-			//Assert: first char is a / (start of URL)
-			assert(n!=0 || *buffer=='/');
-
-
-			if (n != 0 && *buffer == '/'){
-				//Key command
-				//URL: table/key
-
-				RBUF_READMOVE(connection->input, 1);
-				char* key = (char*)malloc(sizeof(char)* (n));
-				rbuf_copyn(&connection->input, key, n - 1);
-				*(key + n) = 0;//Null terminate the key
-
-				DEBUG("[#%d] Request table: \"%s\" (%d)\n", connection->client_sock, key, n);
-
-				if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
-					connection->target.table.table = db_table_get_read(key, n - 1);
-				}
-				else{
-					connection->target.table.table = db_table_get_write(key, n - 1);
-				}
-
-				connection->state = STATE_REQUESTSTARTURL2;
-
-				RBUF_READMOVE(connection->input, n);
-				return true;
-			}else if (*buffer == ' '){
-				//Table command
-				//URL: table
-
-				if (REQUEST_IS(connection->type, REQUEST_HTTPGET)){
-
-				}
-				else if (REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
-
-				}
-				else
-				{
-					return http_write_response_after_eol(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
-				}
-			}
-		});
+		RBUF_ITERATE(connection->input, n, buffer, end, return http_read_requeststarturl1(epfd, connection, buffer, n));
 		break;
 
 	case STATE_REQUESTSTARTURL2:
