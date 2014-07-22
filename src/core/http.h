@@ -135,7 +135,7 @@ ALL: reset target, register for read, proceed to STATE_REQUESTSTART
 #define REQUEST_GETTABLE (REQUEST_HTTPGET | REQUEST_LEVELTABLE)
 
 /* Helpers */
-#define REQUEST_IS(type, mask) (type & mask) == mask
+#define REQUEST_IS(type, mask) ((type & mask) == mask)
 
 /* ===[ HTTP TEMPLATES ]=== */
 #define NUMBER_OF_HTTPTEMPLATE 7

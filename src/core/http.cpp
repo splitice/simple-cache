@@ -103,7 +103,6 @@ static bool http_key_lookup(cache_connection* connection, int n, int epfd){
 	connection->type |= REQUEST_LEVELKEY;
 	connection->state = STATE_HTTPVERSION;
 
-	//TODO: cant know the size yet for PUT
 	db_target_setup(&connection->target.key, entry, REQUEST_IS(connection->type, REQUEST_HTTPPUT));
 
 	return true;
@@ -301,7 +300,7 @@ bool http_read_handle_state(int epfd, cache_connection* connection){
 
 				//Else: We are writing, initalize fd now
 				DEBUG("[#%d] Content-Length of %d found\n", connection->client_sock, content_length);
-				db_entry_write_allocate(connection->target.key.entry, content_length, connection->target.key.fd);
+				db_target_write_allocate(&connection->target.key, content_length);
 
 				if (IS_SINGLE_FILE(connection->target.key.entry)){
 					connection->target.key.end_position = connection->target.key.entry->data_length;

@@ -242,18 +242,22 @@ int db_entry_open(struct cache_entry* e, mode_t modes){
 	return fd;
 }
 
-void db_target_setup(struct cache_target* target, struct cache_entry* entry, bool write){
-	target->entry = entry;
-	if (IS_SINGLE_FILE(entry)){
+void db_target_open(struct cache_target* target){
+	if (IS_SINGLE_FILE(target->entry)){
 		target->position = 0;
-		target->fd = db_entry_open(entry, write ? O_CREAT : 0);
+		target->fd = db_entry_open(target->entry, write ? O_CREAT : 0);
 	}
 	else{
 		target->fd = db.fd_blockfile;
-		target->position = entry->block * BLOCK_LENGTH;
+		target->position = target->entry->block * BLOCK_LENGTH;
 	}
+	target->end_position = target->position + target->entry->data_length;
+}
+
+void db_target_setup(struct cache_target* target, struct cache_entry* entry, bool write){
+	target->entry = entry;
 	if (!write){
-		target->end_position = target->position + entry->data_length;
+		db_target_open(target);
 	}
 }
 
@@ -548,12 +552,13 @@ void db_entry_handle_delete(cache_entry* entry, khiter_t k){
 	entry->deleted = true;
 }
 
-void db_entry_write_allocate(cache_entry* entry, uint32_t data_length, int fd){
+void db_target_write_allocate(struct cache_target* target, uint32_t data_length){
+	cache_entry* entry = target->entry;
 	if (entry->block == -2){
 		//if this is a new entry, with nothing previously allocated.
 		if (data_length > BLOCK_LENGTH){
 			//Shorten or lengthen file to appropriate size
-			if(ftruncate(fd, data_length)<0){
+			if(ftruncate(target->fd, data_length)<0){
 			    PWARN("File truncation failed");
 			}
 		}
@@ -565,7 +570,7 @@ void db_entry_write_allocate(cache_entry* entry, uint32_t data_length, int fd){
 		//If this is to be an entry stored in a file
 		if (IS_SINGLE_FILE(entry)){
 			//Shorten or lengthen file to appropriate size
-			if(ftruncate(fd, data_length)<0){
+			if (ftruncate(target->fd, data_length)<0){
 			    PWARN("File truncation failed");
 			}
 		}
@@ -577,7 +582,7 @@ void db_entry_write_allocate(cache_entry* entry, uint32_t data_length, int fd){
 			entry->block = -1;
 
 			//Lengthen file to required size
-			if(ftruncate(fd, data_length)<0){
+			if (ftruncate(target->fd, data_length)<0){
 			    PWARN("File truncation failed");
 			}
 		}
@@ -597,4 +602,6 @@ void db_entry_write_allocate(cache_entry* entry, uint32_t data_length, int fd){
 	//Update database counters
 	db.db_size_bytes += data_length;
 	entry->data_length = data_length;
+
+	db_target_open(target);
 }
