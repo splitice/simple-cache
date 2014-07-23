@@ -247,15 +247,16 @@ void epoll_event_loop(void (*connection_handler)(cache_connection* connection)){
 						close_connection = 1;
 					}
 					else if (events[n].events & EPOLLIN){
-						if (http_read_handle(epfd, connection)){
+						if (http_read_handle(epfd, connection) == close_connection){
 							close_connection = 1;
 						}
 					}
 					else if (events[n].events & EPOLLOUT){
-						if (http_write_handle(epfd, connection)){
+						if (http_write_handle(epfd, connection) == close_connection){
 							close_connection = 1;
 						}
 					}
+
 
 					if (close_connection){
 						connection_remove(fd, ctable);

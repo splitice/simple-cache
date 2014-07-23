@@ -124,17 +124,20 @@ Move the write offset
 /*
 Helper to Iterate over circular buffer
 */
-#define RBUF_ITERATE(rb,n,buffer,end,inner) do { \
+#define RBUF_ITERATE(rb,n,buffer,end,ret,inner) do { \
 	end = rbuf_read_to_end(&rb); \
 	n = 0; \
 	if (end != 0){ \
 		buffer = RBUF_READ(rb); \
-		for (; n < rbuf_read_remaining(&rb); n++){ \
+		for (; ret == continue_processing && n < rbuf_read_remaining(&rb); n++){ \
 			if (end == n) { \
 				buffer = RBUF_START(rb); \
 			} \
-			inner; \
+			ret = inner; \
 			buffer++; \
 		} \
+	} \
+	if (ret == continue_processing){ \
+		ret = needs_more; \
 	} \
 } while (0);

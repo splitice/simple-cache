@@ -290,9 +290,102 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 	return continue_processing;
 }
 
+static state_action http_read_header_extraction(int epfd, cache_connection* connection, char* buffer, int n, uint8_t &temporary){
+	if (*buffer == ' ' && !temporary){
+		RBUF_READMOVE(connection->input, 1);
+		n--;
+	}
+	else if (*buffer == '\n' || *buffer == '\r'){
+		//We are going to have to skip another char if \r\n
+		if (*buffer == '\r'){
+			temporary = 2;
+		}
+		else{
+			temporary = 1;
+		}
+
+		switch (connection->state){
+		case HEADER_CONTENTLENGTH:
+			int content_length;
+			if (!rbuf_strntol(&connection->input, &content_length, n)){
+				WARN("Invalid Content-Length value provided");
+
+				//This is an INVALID request
+				RBUF_READMOVE(connection->input, n + temporary);
+				return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+			}
+
+			//Else: We are writing, initalize fd now
+			DEBUG("[#%d] Content-Length of %d found\n", connection->client_sock, content_length);
+			db_target_write_allocate(&connection->target.key, content_length);
+
+			if (IS_SINGLE_FILE(connection->target.key.entry)){
+				connection->target.key.end_position = connection->target.key.entry->data_length;
+			}
+			else{
+				connection->target.key.end_position = connection->target.key.position + connection->target.key.entry->data_length;
+			}
+
+			connection->state = 0;
+			connection->handler = http_handle_headers;
+			RBUF_READMOVE(connection->input, n + temporary);
+			return needs_more;
+
+		case HEADER_XTTL:
+			int ttl;
+			if (!rbuf_strntol(&connection->input, &ttl, n)){
+				WARN("Invalid X-Ttl value provided");
+
+				//This is an INVALID request
+				RBUF_READMOVE(connection->input, n + temporary);
+				return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+			}
+
+			//Else: We are writing, initalize fd now
+			DEBUG("[#%d] X-Ttl of %d found\n", connection->client_sock, ttl);
+
+			if (ttl != 0){
+				connection->target.key.entry->expires = ttl + current_time.tv_sec;
+			}
+
+			connection->state = 0;
+			connection->handler = http_handle_headers;
+			RBUF_READMOVE(connection->input, n + temporary);
+			return needs_more;
+		}
+	}
+	else{
+		temporary = 1;
+	}
+}
+
+static state_action http_read_eol(int epfd, cache_connection* connection, char* buffer, int n){
+	if (*buffer == '\n'){
+		connection->handler = http_respond_writeonly;
+		connection_register_write(epfd, connection->client_sock);
+
+		if (n != 0){
+			RBUF_READMOVE(connection->input, n);
+		}
+		return registered_write;
+	}
+}
+
+
+static state_action http_read_version(int epfd, cache_connection* connection, char* buffer, int n, uint8_t& temporary){
+	if (*buffer == '\n'){
+		//TODO: handle version differences
+		connection->handler = http_handle_headers;
+
+		RBUF_READMOVE(connection->input, n + 1);
+		return needs_more;
+	}
+}
+
 state_action http_handle_method(int epfd, cache_connection* connection){
 	char* buffer;
 	int end,  n;
+	state_action ret = continue_processing;
 
 	DEBUG("[#%d] Handling HTTP method\n", connection->client_sock);
 
@@ -300,57 +393,45 @@ state_action http_handle_method(int epfd, cache_connection* connection){
 	skip_over_newlines(&connection->input);
 
 	//Process request line
-	RBUF_ITERATE(connection->input, n, buffer, end, http_read_requeststartmethod(epfd, connection, buffer, n));
+	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_requeststartmethod(epfd, connection, buffer, n));
+	return ret;
 }
 
 state_action http_handle_url(int epfd, cache_connection* connection){
 	char* buffer;
-	int end, n, temporary;
+	int end, n;
+	state_action ret = continue_processing;
 	DEBUG("[#%d] Handling HTTP url (Stage State: %d)\n", connection->client_sock, connection->state);
 
 	if (connection->state == 0){
-		RBUF_ITERATE(connection->input, n, buffer, end, http_read_requeststarturl1(epfd, connection, buffer, n));
+		RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_requeststarturl1(epfd, connection, buffer, n));
 	}
 	else{
-		RBUF_ITERATE(connection->input, n, buffer, end, http_read_requeststarturl2(epfd, connection, buffer, n));
+		RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_requeststarturl2(epfd, connection, buffer, n));
 	}
+	return ret;
 }
 
 state_action http_handle_httpversion(int epfd, cache_connection* connection){
 	char* buffer;
 	int end, n;
+	state_action ret = continue_processing;
 	DEBUG("[#%d] Handling HTTP version\n", connection->client_sock);
 
-	RBUF_ITERATE(connection->input, n, buffer, end, {
-		if (*buffer == '\n'){
-			//TODO: handle version differences
-			connection->handler = http_handle_headers;
-
-			RBUF_READMOVE(connection->input, n + 1);
-			return needs_more;
-		}
-	});
+	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_version(epfd, connection, buffer, n, connection->state));
 	if (n != 0){
 		RBUF_READMOVE(connection->input, n);
 	}
+	return ret;
 }
 
 state_action http_handle_eolwrite(int epfd, cache_connection* connection){
 	char* buffer;
 	int end, n;
+	state_action ret = continue_processing;
 	DEBUG("[#%d] Handling HTTP EOL Search, then writing state\n", connection->client_sock);
 
-	RBUF_ITERATE(connection->input, n, buffer, end, {
-		if (*buffer == '\n'){
-			connection->handler = http_respond_writeonly;
-			connection_register_write(epfd, connection->client_sock);
-
-			if (n != 0){
-				RBUF_READMOVE(connection->input, n);
-			}
-			return registered_write;
-		}
-	});
+	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_eol(epfd, connection, buffer, n));
 	if (n != 0){
 		RBUF_READMOVE(connection->input, n);
 	}
@@ -361,89 +442,25 @@ state_action http_handle_eolwrite(int epfd, cache_connection* connection){
 state_action http_handle_headers_extract(int epfd, cache_connection* connection){
 	char* buffer;
 	int end, n;
+	state_action ret = continue_processing;
 	DEBUG("[#%d] Handling HTTP Header extraction\n", connection->client_sock);
 	int temporary = 0;
-	RBUF_ITERATE(connection->input, n, buffer, end, {
-		if (*buffer == ' ' && !temporary){
-			RBUF_READMOVE(connection->input, 1);
-			n--;
-		}
-		else if (*buffer == '\n' || *buffer == '\r'){
-			//We are going to have to skip another char if \r\n
-			if (*buffer == '\r'){
-				temporary = 2;
-			}
-			else{
-				temporary = 1;
-			}
-
-			switch (connection->state){
-			case HEADER_CONTENTLENGTH:
-				int content_length;
-				if (!rbuf_strntol(&connection->input, &content_length, n)){
-					WARN("Invalid Content-Length value provided");
-
-					//This is an INVALID request
-					RBUF_READMOVE(connection->input, n + temporary);
-					return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
-				}
-
-				//Else: We are writing, initalize fd now
-				DEBUG("[#%d] Content-Length of %d found\n", connection->client_sock, content_length);
-				db_target_write_allocate(&connection->target.key, content_length);
-
-				if (IS_SINGLE_FILE(connection->target.key.entry)){
-					connection->target.key.end_position = connection->target.key.entry->data_length;
-				}
-				else{
-					connection->target.key.end_position = connection->target.key.position + connection->target.key.entry->data_length;
-				}
-
-				connection->state = 0;
-				connection->handler = http_handle_headers;
-				RBUF_READMOVE(connection->input, n + temporary);
-				return needs_more;
-
-			case HEADER_XTTL:
-				int ttl;
-				if (!rbuf_strntol(&connection->input, &ttl, n)){
-					WARN("Invalid X-Ttl value provided");
-
-					//This is an INVALID request
-					RBUF_READMOVE(connection->input, n + temporary);
-					return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
-				}
-
-				//Else: We are writing, initalize fd now
-				DEBUG("[#%d] X-Ttl of %d found\n", connection->client_sock, ttl);
-
-				if (ttl != 0){
-					connection->target.key.entry->expires = ttl + current_time.tv_sec;
-				}
-
-				connection->state = 0;
-				connection->handler = http_handle_headers;
-				RBUF_READMOVE(connection->input, n + temporary);
-				return needs_more;
-			}
-		}
-		else{
-			temporary = 1;
-		}
-	});
+	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_header_extraction(epfd, connection, buffer, n, connection->state));
 	return needs_more;
 }
 
 state_action http_handle_headers(int epfd, cache_connection* connection){
 	char* buffer;
 	int end, n;
+	state_action ret = continue_processing;
 	DEBUG("[#%d] Handling HTTP headers (initial: %d)\n", connection->client_sock, connection->state);
 
-	RBUF_ITERATE(connection->input, n, buffer, end, return http_read_headers(epfd, connection, buffer, n, connection->state));
+	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_headers(epfd, connection, buffer, n, connection->state));
 
 	if (rbuf_write_remaining(&connection->input) == 0){
 		return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 	}
+	return ret;
 }
 
 state_action http_handle_request_body(int epfd, cache_connection* connection){
