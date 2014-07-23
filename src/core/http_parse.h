@@ -1,0 +1,9 @@
+#include "connection.h"
+
+bool http_handle_method(int epfd, cache_connection* connection);
+bool http_handle_url(int epfd, cache_connection* connection);
+bool http_handle_httpversion(int epfd, cache_connection* connection);
+bool http_handle_eolwrite(int epfd, cache_connection* connection);
+bool http_handle_headers_extract(int epfd, cache_connection* connection);
+bool http_handle_headers(int epfd, cache_connection* connection);
+bool http_handle_request_body(int epfd, cache_connection* connection);

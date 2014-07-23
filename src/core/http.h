@@ -161,9 +161,11 @@ int extern http_templates_length[NUMBER_OF_HTTPTEMPLATE];
 
 /* Parsable headers */
 #define HEADER_CONTENTLENGTH 1
+#define HEADER_XTTL 2
 
 /* Methods */
 bool http_read_handle(int epfd, cache_connection* connection);
 bool http_write_handle(int epfd, cache_connection* connection);
 void http_templates_init();
+void http_connection_handler(cache_connection* connection);
 #endif // !defined(HTTP_H_INCLUDED_F90F71F0_0C8E_44EB_9C1D_60CBA7163EC8)

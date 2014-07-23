@@ -122,7 +122,7 @@ fail:
 	PFATAL("error opening listener (:%d)", settings.bind_port);
 }
 
-static void connection_add(int fd, cache_connection_node* ctable){
+static cache_connection* connection_add(int fd, cache_connection_node* ctable){
 	cache_connection_node* node = &ctable[CONNECTION_HASH_KEY(fd)];
 	if (node->connection.client_sock != -1){
 		while (node->next != NULL) {
@@ -137,6 +137,8 @@ static void connection_add(int fd, cache_connection_node* ctable){
 	node->connection.state = STATE_REQUESTSTARTMETHOD;
 	node->connection.client_sock = fd;
 	node->connection.output_buffer_free = NULL;
+
+	return &node->connection;
 }
 
 static cache_connection* connection_get(int fd, cache_connection_node* ctable){
@@ -184,7 +186,7 @@ static void connection_remove(int fd, cache_connection_node* ctable){
 }
 
 
-void epoll_event_loop(){
+void epoll_event_loop(void (*connection_handler)(cache_connection* connection)){
 	int epfd = epoll_create(MAXCLIENTS);
 
 	struct epoll_event events[5];
@@ -227,7 +229,8 @@ void epoll_event_loop(){
 							PFATAL("epoll_ctl() failed.");
 						}
 
-						connection_add(client_sock, ctable);
+						cache_connection* connection = connection_add(client_sock, ctable);
+						connection_handler(connection);
 					}
 				}
 				else if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP){

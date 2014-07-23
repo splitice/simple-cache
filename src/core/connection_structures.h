@@ -20,6 +20,8 @@ union utarget {
 	struct table_target table;
 };
 
+
+
 struct cache_connection {
 	utarget target;
 	//todo: fill with something
@@ -32,9 +34,11 @@ struct cache_connection {
 	const char* output_buffer;
 	int output_length;
 	char* output_buffer_free;
-	unsigned int state : 16;
+
+	bool (*handler)(int epfd, cache_connection* connection);
+	uint8_t state;
 	unsigned int type : 8;
-	//8 bytes padding
+	//16 bits padding
 };
 
 struct cache_connection_node {

@@ -143,7 +143,9 @@ int main(int argc, char** argv)
 	db_open(settings.db_file_path);
 	connection_open_listener();
 	install_signal_handlers();
-	epoll_event_loop();
+
+	//HTTP handler
+	epoll_event_loop(http_connection_handler);
 
 	connection_close_listener();
 
