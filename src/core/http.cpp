@@ -31,7 +31,7 @@ Handle read data for the connection
 
 return true to signal intent to process more data
 */
-bool http_read_handle_state(int epfd, cache_connection* connection){
+state_action http_read_handle_state(int epfd, cache_connection* connection){
 	return connection->handler(epfd, connection);
 }
 
@@ -40,7 +40,7 @@ Handle the connection (Read Event)
 
 return true to close the connection
 */
-bool http_read_handle(int epfd, cache_connection* connection){
+state_action http_read_handle(int epfd, cache_connection* connection){
 	int num;
 	int fd = connection->client_sock;
 
@@ -51,19 +51,19 @@ bool http_read_handle(int epfd, cache_connection* connection){
 
 	if (num <= 0){
 		DEBUG("A socket error occured while reading: %d", num);
-		return true;
+		return close_connection;
 	}
 
 	RBUF_WRITEMOVE(connection->input, num);
 
-	bool run;
+	state_action run;
 	do {
 		run = http_read_handle_state(epfd, connection);
-	} while (run);
+	} while (run == needs_more && rbuf_read_to_end(&connection->input) != 0);
 
 	//TODO: Handle full buffer condition
 
-	return false;
+	return run;
 }
 
 /*
@@ -71,7 +71,7 @@ Handle the writing of data to the connection
 
 return true to signal intent to send more data
 */
-bool http_write_handle_state(int epfd, cache_connection* connection){
+state_action http_write_handle_state(int epfd, cache_connection* connection){
 	return connection->handler(epfd, connection);
 }
 
@@ -80,13 +80,13 @@ Handle the connection (Write Event)
 
 return true to close the connection
 */
-bool http_write_handle(int epfd, cache_connection* connection){
+state_action http_write_handle(int epfd, cache_connection* connection){
 	if (connection->output_buffer != NULL){
 		//Send data
 		int num = write(connection->client_sock, connection->output_buffer, connection->output_length);
 		if (num < 0){
 			//TODO: handle error
-			return true;
+			return close_connection;
 		}
 		connection->output_length -= num;
 
@@ -103,14 +103,14 @@ bool http_write_handle(int epfd, cache_connection* connection){
 		}
 	}
 
+	state_action run = continue_processing;
 	if (connection->output_buffer == NULL){
-		bool run;
 		do {
 			run = http_write_handle_state(epfd, connection);
-		} while (run);
+		} while (run == needs_more);
 	}
 
-	return false;
+	return run;
 }
 
 /*

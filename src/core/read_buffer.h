@@ -129,15 +129,12 @@ Helper to Iterate over circular buffer
 	n = 0; \
 	if (end != 0){ \
 		buffer = RBUF_READ(rb); \
-		for (; n < end; n++){ \
+		for (; n < rbuf_read_remaining(&rb); n++){ \
+			if (end == n) { \
+				buffer = RBUF_START(rb); \
+			} \
 			inner; \
 			buffer++; \
-		} \
-		end = rbuf_read_remaining(&rb) - end; \
-		for (int i = 0; i < end; i++) { \
-			inner; \
-			buffer++; \
-			n++; \
 		} \
 	} \
 } while (0);

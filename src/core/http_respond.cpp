@@ -25,10 +25,10 @@
 #include "http_parse.h"
 #include "http_respond.h"
 
-bool http_respond_contentlength(int epfd, cache_connection* connection){
+state_action http_respond_contentlength(int epfd, cache_connection* connection){
 	int fd = connection->client_sock;
 	char content_length_buffer[128];
-	DEBUG("[#%d] Handling STATE_RESPONSEHEADER_CONTENTLENGTH\n", fd);
+	DEBUG("[#%d] Responding with Content-Length\n", fd);
 	//Returns the number of chars put into the buffer
 	int temp = snprintf(content_length_buffer, 128, "Content-Length: %d\r\n", connection->target.key.entry->data_length);
 
@@ -37,21 +37,21 @@ bool http_respond_contentlength(int epfd, cache_connection* connection){
 	connection->output_buffer = connection->output_buffer_free;
 	connection->output_length = temp;
 	connection->handler = http_respond_responseend;
-	return false;
+	return continue_processing;
 }
 
-bool http_respond_responseend(int epfd, cache_connection* connection){
+state_action http_respond_responseend(int epfd, cache_connection* connection){
 	int fd = connection->client_sock;
-	DEBUG("[#%d] Handling STATE_RESPONSEEND\n", fd);
+	DEBUG("[#%d] Responding with the newlines\n", fd);
 	connection->output_buffer = http_templates[HTTPTEMPLATE_NEWLINE];
 	connection->output_length = http_templates_length[HTTPTEMPLATE_NEWLINE];
 	connection->handler = http_respond_writeonly;
-	return false;
+	return continue_processing;
 }
 
-bool http_respond_contentbody(int epfd, cache_connection* connection){
+state_action http_respond_contentbody(int epfd, cache_connection* connection){
 	int fd = connection->client_sock;
-	DEBUG("[#%d] Handling STATE_RESPONSEBODY\n", fd);
+	DEBUG("[#%d] Sending response body\n", fd);
 	//The number of bytes to read
 	int temp = connection->target.key.end_position - connection->target.key.position;
 	DEBUG("[#%d] To send %d bytes to the socket (len: %d, pos: %d)\n", fd, temp, connection->target.key.entry->data_length, connection->target.key.position);
@@ -67,21 +67,20 @@ bool http_respond_contentbody(int epfd, cache_connection* connection){
 		DEBUG("[#%d] Position is now %d\n", fd, connection->target.key.position);
 	}
 
-
 	assert(connection->target.key.position <= connection->target.key.end_position);
 	if (connection->target.key.position == connection->target.key.end_position){
 		db_target_close(&connection->target.key);
 		connection->handler = http_handle_method;
 		connection_register_read(epfd, fd);
 	}
-	return false;
+	return continue_processing;
 }
 
-bool http_respond_writeonly(int epfd, cache_connection* connection){
+state_action http_respond_writeonly(int epfd, cache_connection* connection){
 	int fd = connection->client_sock;
-	DEBUG("[#%d] Handling STATE_RESPONSEWRITEONLY\n", fd);
+	DEBUG("[#%d] Sending static response\n", fd);
 	//Static response, after witing, read next request
 	connection->handler = http_handle_method;
 	connection_register_read(epfd, fd);
-	return false;
+	return continue_processing;
 }

@@ -20,7 +20,9 @@ union utarget {
 	struct table_target table;
 };
 
-
+typedef enum {
+	close_connection, registered_write, needs_more, continue_processing
+} state_action;
 
 struct cache_connection {
 	utarget target;
@@ -35,7 +37,7 @@ struct cache_connection {
 	int output_length;
 	char* output_buffer_free;
 
-	bool (*handler)(int epfd, cache_connection* connection);
+	state_action (*handler)(int epfd, cache_connection* connection);
 	uint8_t state;
 	unsigned int type : 8;
 	//16 bits padding
