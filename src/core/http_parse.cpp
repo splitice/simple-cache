@@ -65,7 +65,7 @@ static state_action http_write_response_after_eol(int epfd, cache_connection* co
 	connection->handler = http_handle_eolwrite;
 	connection->output_buffer = http_templates[http_template];
 	connection->output_length = http_templates_length[http_template];
-	return continue_processing;
+	return needs_more;
 }
 
 static state_action http_write_response(int epfd, cache_connection* connection, int http_template){
@@ -118,7 +118,7 @@ static bool http_key_lookup(cache_connection* connection, int n, int epfd){
 	return true;
 }
 
-static inline state_action http_read_requeststartmethod(int epfd, cache_connection* connection, char* &buffer, int &n){
+static inline state_action http_read_requeststartmethod(int epfd, cache_connection* connection, char* buffer, int n){
 	//Check if this is never going to be valid, too long
 	if (n > LONGEST_REQMETHOD){
 		RBUF_READMOVE(connection->input, n + 1);
@@ -161,7 +161,7 @@ static inline state_action http_read_requeststartmethod(int epfd, cache_connecti
 	return continue_processing;
 }
 
-static inline state_action http_read_requeststarturl1(int epfd, cache_connection* connection, char* buffer, int &n){
+static inline state_action http_read_requeststarturl1(int epfd, cache_connection* connection, char* buffer, int n){
 	//Assert: first char is a / (start of URL)
 	assert(n != 0 || *buffer == '/');
 
@@ -211,6 +211,8 @@ static inline state_action http_read_requeststarturl1(int epfd, cache_connection
 			return http_write_response_after_eol(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 		}
 	}
+
+	return continue_processing;
 }
 
 static state_action http_read_requeststarturl2(int epfd, cache_connection* connection, char* buffer, int n)
