@@ -62,14 +62,14 @@ static void skip_over_newlines(struct read_buffer* rb){
 }
 
 static bool http_write_response_after_eol(int epfd, cache_connection* connection, int http_template){
-	connection->state = STATE_HTTPEOLWRITE;
+	connection->handler = http_handle_eolwrite;
 	connection->output_buffer = http_templates[http_template];
 	connection->output_length = http_templates_length[http_template];
 	return false;
 }
 
 static bool http_write_response(int epfd, cache_connection* connection, int http_template){
-	connection->state = STATE_RESPONSEWRITEONLY;
+	connection->handler = http_respond_writeonly;
 	connection->output_buffer = http_templates[http_template];
 	connection->output_length = http_templates_length[http_template];
 	connection_register_write(epfd, connection->client_sock);
@@ -183,7 +183,7 @@ static inline bool http_read_requeststarturl1(int epfd, cache_connection* connec
 		}
 
 		if (connection->target.table.table){
-			connection->state = STATE_REQUESTSTARTURL2;
+			connection->state++;
 		}
 		else{
 			return http_write_response_after_eol(epfd, connection, HTTPTEMPLATE_FULL404);
@@ -217,13 +217,15 @@ static bool http_read_headers(int epfd, cache_connection* connection, char* buff
 			if (bytes == 14 && rbuf_cmpn(&connection->input, "Content-Length", 14) == 0){
 				DEBUG("[#%d] Found Content-Length header\n", connection->client_sock);
 				RBUF_READMOVE(connection->input, n + 1);
-				connection->state = STATE_REQUESTHEADERS_CONTENTLENGTH;
+				connection->state = HEADER_CONTENTLENGTH;
+				connection->handler = http_handle_headers_extract;
 				return true;
 			}
 			if (bytes == 5 && rbuf_cmpn(&connection->input, "X-Ttl", 5) == 0){
 				DEBUG("[#%d] Found X-Ttl header\n", connection->client_sock);
 				RBUF_READMOVE(connection->input, n + 1);
-				connection->state = STATE_REQUESTHEADERS_XTTL;
+				connection->state = HEADER_XTTL;
+				connection->handler = http_handle_headers_extract;
 				return true;
 			}
 		}
@@ -242,7 +244,7 @@ static bool http_read_headers(int epfd, cache_connection* connection, char* buff
 					}
 
 					if (REQUEST_IS(connection->type, REQUEST_HTTPGET)){
-						connection->state = STATE_RESPONSESTART;
+						connection->handler = http_respond_start;
 						connection_register_write(epfd, connection->client_sock);
 						return false;
 					}
@@ -328,7 +330,7 @@ bool http_handle_eolwrite(int epfd, cache_connection* connection){
 
 	RBUF_ITERATE(connection->input, n, buffer, end, {
 		if (*buffer == '\n'){
-			connection->state = STATE_RESPONSEWRITEONLY;
+			connection->handler = http_respond_writeonly;
 			connection_register_write(epfd, connection->client_sock);
 			return false;
 		}
@@ -452,7 +454,7 @@ bool http_handle_request_body(int epfd, cache_connection* connection){
 	if (connection->target.key.end_position == connection->target.key.position){
 		connection->output_buffer = http_templates[HTTPTEMPLATE_FULL200OK];
 		connection->output_length = http_templates_length[HTTPTEMPLATE_FULL200OK];
-		connection->state = STATE_RESPONSEWRITEONLY;
+		connection->handler = http_respond_writeonly;
 		connection_register_write(epfd, connection->client_sock);
 
 		//Decrease refs, done with writing

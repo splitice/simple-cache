@@ -23,6 +23,7 @@
 #include "db.h"
 #include "timer.h"
 #include "http_parse.h"
+#include "http_respond.h"
 
 bool http_respond_contentlength(int epfd, cache_connection* connection){
 	int fd = connection->client_sock;
@@ -35,7 +36,7 @@ bool http_respond_contentlength(int epfd, cache_connection* connection){
 	memcpy(connection->output_buffer_free, content_length_buffer, temp);
 	connection->output_buffer = connection->output_buffer_free;
 	connection->output_length = temp;
-	connection->state = STATE_RESPONSEEND;
+	connection->handler = http_respond_responseend;
 	return false;
 }
 
@@ -44,7 +45,7 @@ bool http_respond_responseend(int epfd, cache_connection* connection){
 	DEBUG("[#%d] Handling STATE_RESPONSEEND\n", fd);
 	connection->output_buffer = http_templates[HTTPTEMPLATE_NEWLINE];
 	connection->output_length = http_templates_length[HTTPTEMPLATE_NEWLINE];
-	connection->state = STATE_RESPONSEBODY;
+	connection->handler = http_respond_writeonly;
 	return false;
 }
 
@@ -70,7 +71,7 @@ bool http_respond_contentbody(int epfd, cache_connection* connection){
 	assert(connection->target.key.position <= connection->target.key.end_position);
 	if (connection->target.key.position == connection->target.key.end_position){
 		db_target_close(&connection->target.key);
-		connection->state = STATE_REQUESTSTARTMETHOD;
+		connection->handler = http_handle_method;
 		connection_register_read(epfd, fd);
 	}
 	return false;
@@ -80,7 +81,7 @@ bool http_respond_writeonly(int epfd, cache_connection* connection){
 	int fd = connection->client_sock;
 	DEBUG("[#%d] Handling STATE_RESPONSEWRITEONLY\n", fd);
 	//Static response, after witing, read next request
-	connection->state = STATE_REQUESTSTARTMETHOD;
+	connection->handler = http_handle_method;
 	connection_register_read(epfd, fd);
 	return false;
 }
