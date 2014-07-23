@@ -292,7 +292,8 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 	return continue_processing;
 }
 
-static state_action http_read_header_extraction(int epfd, cache_connection* connection, char* buffer, int n, uint8_t &temporary){
+static state_action http_read_header_extraction(int epfd, cache_connection* connection, char* buffer, int n){
+	int temporary;
 	if (*buffer == ' ' && !temporary){
 		RBUF_READMOVE(connection->input, 1);
 		n--;
@@ -359,6 +360,7 @@ static state_action http_read_header_extraction(int epfd, cache_connection* conn
 	else{
 		temporary = 1;
 	}
+	return continue_processing;
 }
 
 static state_action http_read_eol(int epfd, cache_connection* connection, char* buffer, int n){
@@ -374,14 +376,16 @@ static state_action http_read_eol(int epfd, cache_connection* connection, char* 
 }
 
 
-static state_action http_read_version(int epfd, cache_connection* connection, char* buffer, int n, uint8_t& temporary){
+static state_action http_read_version(int epfd, cache_connection* connection, char* buffer, int& n){
 	if (*buffer == '\n'){
 		//TODO: handle version differences
 		connection->handler = http_handle_headers;
 
 		RBUF_READMOVE(connection->input, n + 1);
+		n = -1;
 		return needs_more;
 	}
+	return continue_processing;
 }
 
 state_action http_handle_method(int epfd, cache_connection* connection){
@@ -420,7 +424,7 @@ state_action http_handle_httpversion(int epfd, cache_connection* connection){
 	state_action ret = continue_processing;
 	DEBUG("[#%d] Handling HTTP version\n", connection->client_sock);
 
-	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_version(epfd, connection, buffer, n, connection->state));
+	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_version(epfd, connection, buffer, n));
 	if (n != 0){
 		RBUF_READMOVE(connection->input, n);
 	}
@@ -438,7 +442,7 @@ state_action http_handle_eolwrite(int epfd, cache_connection* connection){
 		RBUF_READMOVE(connection->input, n);
 	}
 
-	return needs_more;
+	return ret;
 }
 
 state_action http_handle_headers_extract(int epfd, cache_connection* connection){
@@ -446,9 +450,8 @@ state_action http_handle_headers_extract(int epfd, cache_connection* connection)
 	int end, n;
 	state_action ret = continue_processing;
 	DEBUG("[#%d] Handling HTTP Header extraction\n", connection->client_sock);
-	int temporary = 0;
-	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_header_extraction(epfd, connection, buffer, n, connection->state));
-	return needs_more;
+	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_header_extraction(epfd, connection, buffer, n));
+	return ret;
 }
 
 state_action http_handle_headers(int epfd, cache_connection* connection){
