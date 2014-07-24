@@ -265,13 +265,15 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 					}
 
 					if (REQUEST_IS(connection->type, REQUEST_HTTPGET)){
+						connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200];
+						connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200];
+						connection->state = 0;
+
 						connection->handler = http_respond_start;
 						connection_register_write(epfd, connection->client_sock);
 						return needs_more;
 					}
 					else{
-						connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200];
-						connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200];
 						connection->handler = http_handle_request_body;
 						return needs_more;
 					}
@@ -375,12 +377,14 @@ static state_action http_read_eol(int epfd, cache_connection* connection, char* 
 		}
 		return registered_write;
 	}
+	return continue_processing;
 }
 
 
 static state_action http_read_version(int epfd, cache_connection* connection, char* buffer, int& n){
 	if (*buffer == '\n'){
 		//TODO: handle version differences
+		connection->state = 1;
 		connection->handler = http_handle_headers;
 
 		RBUF_READMOVE(connection->input, n + 1);
@@ -440,7 +444,7 @@ state_action http_handle_eolwrite(int epfd, cache_connection* connection){
 	DEBUG("[#%d] Handling HTTP EOL Search, then writing state\n", connection->client_sock);
 
 	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_eol(epfd, connection, buffer, n));
-	if (n != 0){
+	if (n != 0 && ret == continue_processing){
 		RBUF_READMOVE(connection->input, n);
 	}
 

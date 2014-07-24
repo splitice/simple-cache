@@ -45,7 +45,12 @@ state_action http_respond_responseend(int epfd, cache_connection* connection){
 	DEBUG("[#%d] Responding with the newlines\n", fd);
 	connection->output_buffer = http_templates[HTTPTEMPLATE_NEWLINE];
 	connection->output_length = http_templates_length[HTTPTEMPLATE_NEWLINE];
-	connection->handler = http_respond_writeonly;
+	if (REQUEST_IS(connection->type, REQUEST_HTTPGET)){
+		connection->handler = http_respond_contentbody;
+	}
+	else{
+		connection->handler = http_respond_writeonly;
+	}
 	return continue_processing;
 }
 
