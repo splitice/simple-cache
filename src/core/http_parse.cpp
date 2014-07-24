@@ -276,7 +276,7 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 					else if (REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
 						db_entry_handle_delete(connection->target.key.entry);
 
-						return http_write_response(epfd, connection, HTTPTEMPLATE_FULL200OK);
+						return http_write_response(epfd, connection, HTTPTEMPLATE_FULLHTTP200DELETED);
 					}
 					else{
 						connection->handler = http_handle_request_body;
