@@ -451,7 +451,7 @@ state_action http_handle_eolwrite(int epfd, cache_connection* connection){
 	DEBUG("[#%d] Handling HTTP EOL Search, then writing state\n", connection->client_sock);
 
 	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_eol(epfd, connection, buffer, n));
-	if (n != 0 && ret == continue_processing){
+	if (n != 0 && ret == needs_more){
 		RBUF_READMOVE(connection->input, n);
 	}
 
