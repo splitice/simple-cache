@@ -55,8 +55,9 @@ state_action http_respond_responseend(int epfd, cache_connection* connection){
 }
 
 void http_register_read(int epfd, cache_connection* connection){
+	int extern stop_soon;
 	connection_register_read(epfd, connection->client_sock);
-	if (rbuf_write_remaining(&connection->input)){
+	if (!stop_soon && rbuf_write_remaining(&connection->input)){
 		http_read_handle(epfd, connection);
 	}
 }

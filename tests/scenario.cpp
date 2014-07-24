@@ -171,17 +171,9 @@ bool run_unit(std::string& request, std::string& expect, int port){
 		if (len < to_recv){
 			to_recv = len;
 		}
-		int n = recv(sockfd, recv_buffer, to_recv, 0);
+		int received = recv(sockfd, recv_buffer, to_recv, 0);
 
-		n = remove_cr(recv_buffer, n);
-
-		if (n == 0){
-			printf("Expected: %s\n", buffer);
-			printf("Connection Closed\n", recv_buffer);
-			return false;
-		}
-
-		if (n == -1){
+		if (received == -1){
 			if (errno == EAGAIN || errno == EWOULDBLOCK){
 				printf("A timeout occured waiting for a response\n");
 				return false;
@@ -189,13 +181,22 @@ bool run_unit(std::string& request, std::string& expect, int port){
 			PFATAL("An error occured reading from socket");
 		}
 
+		int n = remove_cr(recv_buffer, received);
+
+		if (n == 0){
+			printf("Expected: %s\n", buffer);
+			printf("Connection Closed\n", recv_buffer);
+			return false;
+		}
+
 		if (strncmp(recv_buffer, buffer, n) != 0){
+			int read_length = buffer - expect.c_str();
 			*(recv_buffer + n) = 0;//Incase we arent comparing it all
-			if (expect.length() < n){
+			if (expect.length() < (n + read_length)){
 				printf("Expected (insufficient bytes): %s\n", expect.c_str());
 			}
 			else{
-				printf("Expected: %s\n", expect.substr(0, n).c_str());
+				printf("Expected: %s\n", expect.substr(read_length, n).c_str());
 			}
 			printf("Got: %s\n", recv_buffer);
 			return false;
@@ -218,8 +219,8 @@ pid_t start_server(const char* binary_path, int port, const char* db){
 		return -1;
 	}
 
-	sprintf(execcmd, "%s --bind-port %d --database-file-path %s --make-pid %s", binary_path, port, db, pidfile);
-	system2(execcmd);
+	sprintf(execcmd, "%s -d --bind-port %d --database-file-path %s --make-pid %s", binary_path, port, db, pidfile);
+	system(execcmd);
 
 	FILE* f;
 	do {
@@ -237,7 +238,8 @@ pid_t start_server(const char* binary_path, int port, const char* db){
 }
 
 void stop_server(pid_t pid){
-	if (kill(pid, SIGTERM) == -1){
+	int res = kill(pid, SIGTERM);
+	if (res != 0){
 		PFATAL("Unable to kill scache service");
 	}
 	sleep(1);

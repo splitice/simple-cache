@@ -76,7 +76,6 @@ static __pid_t fork_off() {
 	if (npid < 0) PFATAL("fork() failed.");
 
 	if (!npid) {
-
 		/* Let's assume all this is fairly unlikely to fail, so we can live
 		with the parent possibly proclaiming success prematurely. */
 
@@ -111,7 +110,7 @@ static __pid_t fork_off() {
 			isatty(2) ? "not kept" : "kept as-is");
 
 		SAYF("\nGood luck, you're on your own now!\n");
-
+		sleep(1);
 		exit(0);
 
 	}
