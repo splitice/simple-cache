@@ -237,14 +237,14 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 			DEBUG("[#%d] Found header of length %d\n", connection->client_sock, bytes);
 			if (bytes == 14 && rbuf_cmpn(&connection->input, "Content-Length", 14) == 0){
 				DEBUG("[#%d] Found Content-Length header\n", connection->client_sock);
-				RBUF_READMOVE(connection->input, n + 1);
+				RBUF_READMOVE(connection->input, bytes + 1);
 				connection->state = HEADER_CONTENTLENGTH;
 				connection->handler = http_handle_headers_extract;
 				return needs_more;
 			}
 			if (bytes == 5 && rbuf_cmpn(&connection->input, "X-Ttl", 5) == 0){
 				DEBUG("[#%d] Found X-Ttl header\n", connection->client_sock);
-				RBUF_READMOVE(connection->input, n + 1);
+				RBUF_READMOVE(connection->input, bytes + 1);
 				connection->state = HEADER_XTTL;
 				connection->handler = http_handle_headers_extract;
 				return needs_more;
@@ -294,7 +294,8 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 
 		//Move pointers to next record
 		RBUF_READMOVE(connection->input, n + 1);
-		n = -1;
+		//n = -1;
+		//return 
 	}
 	else if (*buffer != '\r'){
 		temporary = 0;

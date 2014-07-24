@@ -137,6 +137,7 @@ static cache_connection* connection_add(int fd, cache_connection_node* ctable){
 	node->connection.state = STATE_REQUESTSTARTMETHOD;
 	node->connection.client_sock = fd;
 	node->connection.output_buffer_free = NULL;
+	node->connection.writing = false;
 
 	return &node->connection;
 }
@@ -259,6 +260,7 @@ void epoll_event_loop(void (*connection_handler)(cache_connection* connection)){
 
 
 					if (close_connection){
+						http_cleanup(connection);
 						connection_remove(fd, ctable);
 						close(fd);
 					}

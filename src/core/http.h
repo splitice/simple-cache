@@ -168,4 +168,5 @@ state_action http_read_handle(int epfd, cache_connection* connection);
 state_action http_write_handle(int epfd, cache_connection* connection);
 void http_templates_init();
 void http_connection_handler(cache_connection* connection);
+void http_cleanup(cache_connection* connection);
 #endif // !defined(HTTP_H_INCLUDED_F90F71F0_0C8E_44EB_9C1D_60CBA7163EC8)

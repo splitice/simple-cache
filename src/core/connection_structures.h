@@ -40,6 +40,7 @@ struct cache_connection {
 	state_action (*handler)(int epfd, cache_connection* connection);
 	uint8_t state;
 	unsigned int type : 8;
+	bool writing;
 	//16 bits padding
 };
 

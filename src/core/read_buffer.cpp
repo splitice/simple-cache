@@ -150,12 +150,19 @@ int rbuf_read_to_end(struct read_buffer* buffer) {
 	return buffer->write_position - buffer->read_position;
 }
 int rbuf_write_remaining(struct read_buffer* buffer) {
+	if (buffer->write_position == BUFFER_SIZE){
+		return buffer->read_position;
+	}
 	if (buffer->write_position >= buffer->read_position){
 		return buffer->read_position + (BUFFER_SIZE - buffer->write_position);
 	}
 	return buffer->read_position - buffer->write_position;
 }
 int rbuf_write_to_end(struct read_buffer* buffer) {
+	if (buffer->write_position == BUFFER_SIZE){
+		return buffer->read_position;
+	}
+
 	//to either the end of the buffer, or to the read position whichever is first
 	if (buffer->read_position <= buffer->write_position){
 		return BUFFER_SIZE - buffer->write_position;

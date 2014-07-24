@@ -46,22 +46,27 @@ state_action http_read_handle(int epfd, cache_connection* connection){
 
 	//Read from socket
 	num = rbuf_write_to_end(&connection->input);
-	assert(num > 0);
-	num = read(fd, RBUF_WRITE(connection->input), num);
+	if (num > 0){
+		num = read(fd, RBUF_WRITE(connection->input), num);
 
-	if (num <= 0 && errno != EAGAIN && errno != EWOULDBLOCK){
-		DEBUG("A socket error occured while reading: %d", num);
-		return close_connection;
+		if (num <= 0 && errno != EAGAIN && errno != EWOULDBLOCK){
+			DEBUG("A socket error occured while reading: %d", num);
+			return close_connection;
+		}
+
+		RBUF_WRITEMOVE(connection->input, num);
 	}
-
-	RBUF_WRITEMOVE(connection->input, num);
 
 	state_action run;
 	do {
 		run = http_read_handle_state(epfd, connection);
 	} while (run == needs_more && rbuf_read_to_end(&connection->input) != 0);
 
-	//TODO: Handle full buffer condition
+	//Handle buffer is full, not being processed
+	if (num == 0 && rbuf_write_remaining(&connection->input) == 0){
+		WARN("Buffer full, not processed, disconnecting.");
+		return close_connection;
+	}
 
 	return run;
 }
@@ -111,6 +116,19 @@ state_action http_write_handle(int epfd, cache_connection* connection){
 	}
 
 	return run;
+}
+
+void http_cleanup(cache_connection* connection){
+	if (REQUEST_IS(connection->type, REQUEST_LEVELKEY)){
+		if (connection->writing){
+			cache_entry* entry = connection->target.key.entry;
+			entry->writing = false;
+			db_entry_handle_delete(entry);
+		}
+		if (connection->target.key.entry != NULL){
+			db_target_close(&connection->target.key);
+		}
+	}
 }
 
 /*

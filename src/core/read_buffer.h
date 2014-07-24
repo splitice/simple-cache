@@ -79,12 +79,12 @@ Get a pointer to the buffer at the start (idx:0)
 /*
 Get a pointer to the buffer at the current write offset
 */
-#define RBUF_WRITE(x) (x.buffer + x.write_position)
+#define RBUF_WRITE(x) (x.buffer + (x.write_position%BUFFER_SIZE))
 
 /*
 Move the read offset
 */
-#define RBUF_READMOVE(x, by) rb_debug_read_check(&x, by); x.read_position = ((x.read_position + by) % BUFFER_SIZE)
+#define RBUF_READMOVE(x, by) rb_debug_read_check(&x, by); x.read_position = ((x.read_position + by) % (BUFFER_SIZE ))
 
 /*
 Move the write offset
@@ -114,12 +114,12 @@ Get a pointer to the buffer at the current write offset
 /*
 Move the read offset
 */
-#define RBUF_READMOVEPTR(x, by)  rb_debug_read_check(x, by); x->read_position = ((x->read_position + by) % BUFFER_SIZE)
+#define RBUF_READMOVEPTR(x, by)  rb_debug_read_check(x, by); x->read_position = ((x->read_position + by) % (BUFFER_SIZE))
 
 /*
 Move the write offset
 */
-#define RBUF_WRITEMOVEPTR(x, by) rb_debug_write_incr(x, by); x->write_position = ((x->write_position + by) % BUFFER_SIZE)
+#define RBUF_WRITEMOVEPTR(x, by) rb_debug_write_incr(x, by); x->write_position = ((x->write_position + by) % (BUFFER_SIZE + 1))
 
 /*
 Helper to Iterate over circular buffer

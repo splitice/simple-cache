@@ -261,25 +261,29 @@ void db_target_setup(struct cache_target* target, struct cache_entry* entry, boo
 	}
 }
 
+void db_entry_actually_delete(cache_entry* entry){
+	DEBUG("Cleaning up reference due to refcount == 0\n");
+	//If is a block, can now free it
+	if (!IS_SINGLE_FILE(entry)){
+		db_block_free(entry->block);
+	}
+
+	uint32_t hash = hash_string(entry->key, entry->key_length);
+	khiter_t k = kh_get(entry, entry->table->cache_hash_set, hash);
+	//Clear entry - file has already been deleted.
+	//At this stage entry has already been removed from LRU and hash table
+	//exists only to complete files being served.
+	kh_del(entry, entry->table->cache_hash_set, k);
+	free(entry);
+}
+
 void db_entry_deref(cache_entry* entry){
 	DEBUG("Decrementing refcount - was: %d\n", entry->refs);
 	entry->refs--;
 
 	//Actually clean up the entry
 	if (entry->refs == 0 && entry->deleted){
-		DEBUG("Cleaning up reference due to refcount == 0\n");
-		//If is a block, can now free it
-		if (!IS_SINGLE_FILE(entry)){
-			db_block_free(entry->block);
-		}
-
-		uint32_t hash = hash_string(entry->key, entry->key_length);
-		khiter_t k = kh_get(entry, entry->table->cache_hash_set, hash);
-		//Clear entry - file has already been deleted.
-		//At this stage entry has already been removed from LRU and hash table
-		//exists only to complete files being served.
-		kh_del(entry, entry->table->cache_hash_set, k);
-		free(entry);
+		db_entry_actually_delete(entry);
 	}
 }
 
@@ -550,6 +554,11 @@ void db_entry_handle_delete(cache_entry* entry, khiter_t k){
 	//Dont need the key any more, deleted
 	free(entry->key);
 	entry->deleted = true;
+
+	//There are already no references - delete
+	if (entry->refs == 0){
+		db_entry_actually_delete(entry);
+	}
 }
 
 void db_target_write_allocate(struct cache_target* target, uint32_t data_length){
