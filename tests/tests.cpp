@@ -19,7 +19,7 @@ final_result |= (result != 0);
 
 int main(int argc, char *argv[])
 {
-	if (argc >= 3){
+	if (argc <= 3){
 		printf("Usage: tests [server binary] [test case path] [optional: use existing server - port]\n");
 		return 2;
 	}

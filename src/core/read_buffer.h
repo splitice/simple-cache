@@ -89,7 +89,7 @@ Move the read offset
 /*
 Move the write offset
 */
-#define RBUF_WRITEMOVE(x, by) rb_debug_write_incr(&x, by); x.write_position = ((x.write_position + by) % BUFFER_SIZE)
+#define RBUF_WRITEMOVE(x, by) rb_debug_write_incr(&x, by); x.write_position = ((x.write_position + by) % (BUFFER_SIZE + 1))
 
 /*
 Get a pointer to the buffer at the current read position
