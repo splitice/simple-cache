@@ -49,7 +49,7 @@ state_action http_read_handle(int epfd, cache_connection* connection){
 	assert(num > 0);
 	num = read(fd, RBUF_WRITE(connection->input), num);
 
-	if (num <= 0){
+	if (num <= 0 && errno != EAGAIN && errno != EWOULDBLOCK){
 		DEBUG("A socket error occured while reading: %d", num);
 		return close_connection;
 	}

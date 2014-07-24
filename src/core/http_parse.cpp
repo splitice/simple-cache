@@ -124,7 +124,7 @@ static inline state_action http_read_requeststartmethod(int epfd, cache_connecti
 	//Check if this is never going to be valid, too long
 	if (n > LONGEST_REQMETHOD){
 		RBUF_READMOVE(connection->input, n + 1);
-		return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+		return http_write_response_after_eol(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 	}
 
 	//A space signifies the end of the method

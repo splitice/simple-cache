@@ -54,6 +54,13 @@ state_action http_respond_responseend(int epfd, cache_connection* connection){
 	return continue_processing;
 }
 
+void http_register_read(int epfd, cache_connection* connection){
+	connection_register_read(epfd, connection->client_sock);
+	if (rbuf_write_remaining(&connection->input)){
+		http_read_handle(epfd, connection);
+	}
+}
+
 state_action http_respond_contentbody(int epfd, cache_connection* connection){
 	int fd = connection->client_sock;
 	DEBUG("[#%d] Sending response body\n", fd);
@@ -76,16 +83,15 @@ state_action http_respond_contentbody(int epfd, cache_connection* connection){
 	if (connection->target.key.position == connection->target.key.end_position){
 		db_target_close(&connection->target.key);
 		connection->handler = http_handle_method;
-		connection_register_read(epfd, fd);
+		http_register_read(epfd, connection);
 	}
 	return continue_processing;
 }
 
 state_action http_respond_writeonly(int epfd, cache_connection* connection){
-	int fd = connection->client_sock;
-	DEBUG("[#%d] Sending static response\n", fd);
+	DEBUG("[#%d] Sending static response\n", connection->client_sock);
 	//Static response, after witing, read next request
 	connection->handler = http_handle_method;
-	connection_register_read(epfd, fd);
+	http_register_read(epfd, connection);
 	return continue_processing;
 }
