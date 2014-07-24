@@ -56,6 +56,7 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect){
 			if (read == UNIT_SEPERATOR_LEN){
 				if (strncmp(line, UNIT_REQUEST, 5) == 0){
 					fseek(f, last_pos, SEEK_SET);
+					free(line);
 					return true;
 				}
 			}
@@ -65,6 +66,7 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect){
 		}
 	}
 
+	free(line);
 	if (state == 1){
 		printf("Error parsing scenario (possibly incomplete)\n");
 		request.clear();
