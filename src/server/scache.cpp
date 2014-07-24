@@ -76,28 +76,30 @@ static __pid_t fork_off() {
 	if (npid < 0) PFATAL("fork() failed.");
 
 	if (!npid) {
-		/* Let's assume all this is fairly unlikely to fail, so we can live
-		with the parent possibly proclaiming success prematurely. */
+		if (!settings.daemon_output){
+			/* Let's assume all this is fairly unlikely to fail, so we can live
+			with the parent possibly proclaiming success prematurely. */
 
-		if (dup2(null_fd, 0) < 0) PFATAL("dup2() failed.");
+			if (dup2(null_fd, 0) < 0) PFATAL("dup2() failed.");
 
-		/* If stderr is redirected to a file, keep that fd and use it for
-		normal output. */
+			/* If stderr is redirected to a file, keep that fd and use it for
+			normal output. */
 
-		if (isatty(2)) {
+			if (isatty(2)) {
 
-			if (dup2(null_fd, 1) < 0 || dup2(null_fd, 2) < 0)
-				PFATAL("dup2() failed.");
+				if (dup2(null_fd, 1) < 0 || dup2(null_fd, 2) < 0)
+					PFATAL("dup2() failed.");
 
+			}
+			else {
+
+				if (dup2(2, 1) < 0) PFATAL("dup2() failed.");
+
+			}
+
+			close(null_fd);
+			null_fd = -1;
 		}
-		else {
-
-			if (dup2(2, 1) < 0) PFATAL("dup2() failed.");
-
-		}
-
-		close(null_fd);
-		null_fd = -1;
 
 		if (chdir("/")) PFATAL("chdir('/') failed.");
 

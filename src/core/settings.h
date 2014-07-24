@@ -12,6 +12,7 @@ struct scache_settings {
     int bind_port;
 	char* pidfile;
 	bool daemon_mode;
+	bool daemon_output;
 };
 extern struct scache_settings settings;
 void parse_arguments(int argc, char** argv);

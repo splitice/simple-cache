@@ -219,7 +219,7 @@ pid_t start_server(const char* binary_path, int port, const char* db){
 		return -1;
 	}
 
-	sprintf(execcmd, "%s -d --bind-port %d --database-file-path %s --make-pid %s", binary_path, port, db, pidfile);
+	sprintf(execcmd, "%s -d -o --bind-port %d --database-file-path %s --make-pid %s", binary_path, port, db, pidfile);
 	system(execcmd);
 
 	FILE* f;

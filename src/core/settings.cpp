@@ -13,7 +13,8 @@ struct scache_settings settings {
 	.bind_addr = { 0 },
 	.bind_port = 8000,
 	.pidfile = NULL,
-	.daemon_mode = false
+	.daemon_mode = false,
+	.daemon_output = false
 };
 
 static void print_usage(){
@@ -36,6 +37,7 @@ static void print_usage(){
 "\n"
 "  -m file  --make-pid file                 - output a PID file (default: no)\n"
 "  -d                                       - daemonize (default: no)\n"
+"  -o                                       - redirecto output to /dev/null if daemonized (default: yes)\n"
 "\n"
 "Problems? You can reach the author at <admin@x4b.net>.\n");
 }
@@ -60,7 +62,7 @@ void parse_arguments(int argc, char** argv){
 	memset(settings.bind_addr, sizeof(settings.bind_addr), sizeof(char));//INADDR_ANY
 
 	int r = 0, option_index = 0;
-	while ((r = getopt_long(argc, argv, "46dm:s:r:l:b:p:", long_options, &option_index)) != -1) {
+	while ((r = getopt_long(argc, argv, "46dom:s:r:l:b:p:", long_options, &option_index)) != -1) {
 		switch (r) {
 		case 0:
 			if (long_options[option_index].flag != 0)
@@ -72,6 +74,9 @@ void parse_arguments(int argc, char** argv){
 			break;
 		case 'd':
 			settings.daemon_mode = true;
+			break;
+		case 'o':
+			settings.daemon_output = true;
 			break;
 		case 'm':
 			settings.pidfile = optarg; 

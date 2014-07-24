@@ -302,11 +302,10 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 	return continue_processing;
 }
 
-static state_action http_read_header_extraction(int epfd, cache_connection* connection, char* buffer, int &n){
+static state_action http_read_header_extraction(int epfd, cache_connection* connection, char* buffer, int n){
 	int temporary = 0;
 	if (*buffer == ' ' && !temporary){
 		RBUF_READMOVE(connection->input, 1);
-		n--;
 	}
 	else if (*buffer == '\n' || *buffer == '\r'){
 		//We are going to have to skip another char if \r\n
@@ -317,14 +316,16 @@ static state_action http_read_header_extraction(int epfd, cache_connection* conn
 			temporary = 1;
 		}
 
+		int length = buffer - RBUF_READ(connection->input);
+
 		switch (connection->state){
 		case HEADER_CONTENTLENGTH:
 			int content_length;
-			if (!rbuf_strntol(&connection->input, &content_length, n)){
+			if (!rbuf_strntol(&connection->input, &content_length, length)){
 				WARN("Invalid Content-Length value provided");
 
 				//This is an INVALID request
-				RBUF_READMOVE(connection->input, n + temporary);
+				RBUF_READMOVE(connection->input, length + temporary);
 				return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 			}
 
@@ -341,16 +342,16 @@ static state_action http_read_header_extraction(int epfd, cache_connection* conn
 
 			connection->state = 1;
 			connection->handler = http_handle_headers;
-			RBUF_READMOVE(connection->input, n + temporary);
+			RBUF_READMOVE(connection->input, length + temporary);
 			return needs_more;
 
 		case HEADER_XTTL:
 			int ttl;
-			if (!rbuf_strntol(&connection->input, &ttl, n)){
+			if (!rbuf_strntol(&connection->input, &ttl, length)){
 				WARN("Invalid X-Ttl value provided");
 
 				//This is an INVALID request
-				RBUF_READMOVE(connection->input, n + temporary);
+				RBUF_READMOVE(connection->input, length + temporary);
 				return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 			}
 
@@ -363,7 +364,7 @@ static state_action http_read_header_extraction(int epfd, cache_connection* conn
 
 			connection->state = 1;
 			connection->handler = http_handle_headers;
-			RBUF_READMOVE(connection->input, n + temporary);
+			RBUF_READMOVE(connection->input, length + temporary);
 			return needs_more;
 		}
 	}
