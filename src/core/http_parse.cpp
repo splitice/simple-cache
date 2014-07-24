@@ -271,7 +271,7 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 
 						connection->handler = http_respond_start;
 						connection_register_write(epfd, connection->client_sock);
-						return needs_more;
+						return registered_write;
 					}
 					else{
 						connection->handler = http_handle_request_body;
