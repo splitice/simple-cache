@@ -1,4 +1,4 @@
-Desciption: Repeat operations multiple times
+Desciption: PUT and GET a large load of data (6kb)
 
 >>>>>
 PUT /t/k HTTP/1.1

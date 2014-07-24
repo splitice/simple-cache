@@ -2,6 +2,7 @@
 #include "minunit.h"
 #include "tests_rbuffer.cpp"
 #include "tests_system_simple.cpp"
+#include <stdlib.h>     /* atoi */
 
 int tests_run = 0;
 
@@ -18,14 +19,18 @@ final_result |= (result != 0);
 
 int main(int argc, char *argv[])
 {
-	if (argc != 3){
-		printf("Usage: tests [server binary] [test case path]\n");
+	if (argc >= 3){
+		printf("Usage: tests [server binary] [test case path] [optional: use existing server - port]\n");
 		return 2;
 	}
 
 	int final_result = 0;
 	const char *result;
 	TESTSET("read_buffer", test_rbuffer());
-	TESTSET("system_simple", test_simple(argv[1],argv[2]));
+	int port = 0;
+	if (argc >= 4){
+		port = atoi(argv[3]);
+	}
+	TESTSET("system_simple", test_simple(argv[1], argv[2], port));
 	return final_result != 0;
 }

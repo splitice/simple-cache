@@ -161,7 +161,7 @@ bool run_unit(std::string& request, std::string& expect, int port){
 
 	struct timeval tv;
 
-	tv.tv_sec = 1;  /* 1 Sec Timeout */
+	tv.tv_sec = 3;  /* 1 Sec Timeout */
 	tv.tv_usec = 0;  // Not init'ing this can cause strange errors
 
 	setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(struct timeval));
@@ -296,7 +296,7 @@ bool execute_file(const char* filename, int port){
 	return true;
 }
 
-bool run_scenario(const char* binary, const char* testcases, const char* filename, int port){
+bool run_scenario(const char* binary, const char* testcases, const char* filename, int port, bool run_server){
 	char testcase_path[1024];
 	sprintf(testcase_path,"%s/%s", testcases, filename);
 	char* db = tempnam(NULL, NULL);
@@ -304,14 +304,19 @@ bool run_scenario(const char* binary, const char* testcases, const char* filenam
 	if (res < 0){
 		PFATAL("Failed to create temporary directory: %s", db);
 	}
-	pid_t pid = start_server(binary, port, db);
-	if (pid < 0){
-		WARN("Failed to start simple-cache server");
-		stop_server(pid);
-		return true;
+	pid_t pid;
+	if (run_server){
+		pid = start_server(binary, port, db);
+		if (pid < 0){
+			WARN("Failed to start simple-cache server");
+			stop_server(pid);
+			return true;
+		}
 	}
 	bool result = execute_file(testcase_path, port);
-	stop_server(pid);
+	if (run_server){
+		stop_server(pid);
+	}
 
 	//Cleanup temporary directory
 	sprintf(testcase_path, "rm -Rf \"%s\"", db);
@@ -320,7 +325,7 @@ bool run_scenario(const char* binary, const char* testcases, const char* filenam
 	return result;
 }
 
-bool run_scenarios(const char* binary, const char* testcases, const char* directory_path, int port){
+bool run_scenarios(const char* binary, const char* testcases, const char* directory_path, int port, bool run_server){
 	bool full_result = true;
 	char directory_buffer[MAX_PATH];
 	sprintf(directory_buffer, "%s/%s", directory_path, testcases);
@@ -334,7 +339,7 @@ bool run_scenarios(const char* binary, const char* testcases, const char* direct
 		if (*(next_file->d_name) == '.')
 			continue;
 		// build the full path for each file in the folder
-		bool result = run_scenario(binary, directory_buffer, next_file->d_name, port);
+		bool result = run_scenario(binary, directory_buffer, next_file->d_name, port, run_server);
 		if (!result){
 			SAYF("Scenario %s failed\n", next_file->d_name);
 			full_result &= result;
