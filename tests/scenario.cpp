@@ -113,7 +113,7 @@ int remove_cr(char* buffer, int n){
 bool run_unit(std::string& request, std::string& expect, int port){
 	int sockfd, n;
 	struct sockaddr_in servaddr, cliaddr;
-	char recv_buffer[1024];
+	char recv_buffer[1025];
 
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -165,7 +165,7 @@ bool run_unit(std::string& request, std::string& expect, int port){
 	setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(struct timeval));
 
 	while (len != 0){
-		int to_recv = 1024;
+		int to_recv = sizeof(recv_buffer)-1;
 		if (len < to_recv){
 			to_recv = len;
 		}
@@ -188,8 +188,8 @@ bool run_unit(std::string& request, std::string& expect, int port){
 		}
 
 		if (strncmp(recv_buffer, buffer, n) != 0){
-			*(buffer + n) == 0;//Incase we arent comparing it all
-			*(recv_buffer + n) == 0;//Incase we arent comparing it all
+			*(buffer + n) = 0;//Incase we arent comparing it all
+			*(recv_buffer + n) = 0;//Incase we arent comparing it all
 			printf("Expected: %s\n", buffer);
 			printf("Got: %s\n", recv_buffer);
 			return false;
