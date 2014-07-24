@@ -273,15 +273,21 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 						connection_register_write(epfd, connection->client_sock);
 						return registered_write;
 					}
+					else if (REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
+						db_entry_handle_delete(connection->target.key.entry);
+
+						return http_write_response(epfd, connection, HTTPTEMPLATE_FULL200OK);
+					}
 					else{
 						connection->handler = http_handle_request_body;
 						return needs_more;
 					}
 				}
 				else{
-					connection->output_buffer = http_templates[HTTPTEMPLATE_FULL404];
+					/*connection->output_buffer = http_templates[HTTPTEMPLATE_FULL404];
 					connection->output_length = http_templates_length[HTTPTEMPLATE_FULL404];
-					return needs_more;
+					return needs_more;*/
+					return http_write_response(epfd, connection, HTTPTEMPLATE_FULL404);
 				}
 			}
 		}
