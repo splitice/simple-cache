@@ -65,6 +65,7 @@ static state_action http_write_response_after_eol(int epfd, cache_connection* co
 	connection->handler = http_handle_eolwrite;
 	connection->output_buffer = http_templates[http_template];
 	connection->output_length = http_templates_length[http_template];
+	connection->state = 0;
 	return needs_more;
 }
 
@@ -72,6 +73,7 @@ static state_action http_write_response(int epfd, cache_connection* connection, 
 	connection->handler = http_respond_writeonly;
 	connection->output_buffer = http_templates[http_template];
 	connection->output_length = http_templates_length[http_template];
+	connection->state = 0;
 	connection_register_write(epfd, connection->client_sock);
 	return registered_write;
 }
@@ -292,8 +294,8 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 	return continue_processing;
 }
 
-static state_action http_read_header_extraction(int epfd, cache_connection* connection, char* buffer, int n){
-	int temporary;
+static state_action http_read_header_extraction(int epfd, cache_connection* connection, char* buffer, int &n){
+	int temporary = 0;
 	if (*buffer == ' ' && !temporary){
 		RBUF_READMOVE(connection->input, 1);
 		n--;
@@ -329,7 +331,7 @@ static state_action http_read_header_extraction(int epfd, cache_connection* conn
 				connection->target.key.end_position = connection->target.key.position + connection->target.key.entry->data_length;
 			}
 
-			connection->state = 0;
+			connection->state = 1;
 			connection->handler = http_handle_headers;
 			RBUF_READMOVE(connection->input, n + temporary);
 			return needs_more;
@@ -351,7 +353,7 @@ static state_action http_read_header_extraction(int epfd, cache_connection* conn
 				connection->target.key.entry->expires = ttl + current_time.tv_sec;
 			}
 
-			connection->state = 0;
+			connection->state = 1;
 			connection->handler = http_handle_headers;
 			RBUF_READMOVE(connection->input, n + temporary);
 			return needs_more;
@@ -495,13 +497,10 @@ state_action http_handle_request_body(int epfd, cache_connection* connection){
 	//Check if done
 	assert((connection->target.key.end_position - connection->target.key.position) >= 0);
 	if (connection->target.key.end_position == connection->target.key.position){
-		connection->output_buffer = http_templates[HTTPTEMPLATE_FULL200OK];
-		connection->output_length = http_templates_length[HTTPTEMPLATE_FULL200OK];
-		connection->handler = http_respond_writeonly;
-		connection_register_write(epfd, connection->client_sock);
-
 		//Decrease refs, done with writing
 		connection->target.key.entry->writing = false;
 		db_target_close(&connection->target.key);
+
+		return http_write_response(epfd, connection, HTTPTEMPLATE_FULL200OK);
 	}
 }
