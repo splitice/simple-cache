@@ -188,9 +188,13 @@ bool run_unit(std::string& request, std::string& expect, int port){
 		}
 
 		if (strncmp(recv_buffer, buffer, n) != 0){
-			*(buffer + n) = 0;//Incase we arent comparing it all
 			*(recv_buffer + n) = 0;//Incase we arent comparing it all
-			printf("Expected: %s\n", buffer);
+			if (expect.length() < n){
+				printf("Expected (insufficient bytes): %s\n", expect.c_str());
+			}
+			else{
+				printf("Expected: %s\n", expect.substr(0, n).c_str());
+			}
 			printf("Got: %s\n", recv_buffer);
 			return false;
 		}
