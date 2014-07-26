@@ -96,6 +96,9 @@ static bool http_key_lookup(cache_connection* connection, int n, int epfd){
 	else if (REQUEST_IS(connection->type, REQUEST_HTTPPUT)){
 		//It is the responsibility of db_entry_get_write to free key if necessary
 		entry = db_entry_get_write(connection->target.table.table, key, n);
+		if (entry){
+			connection->writing = true;
+		}
 	}
 	else if (REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
 		//It is the responsibility of db_entry_get_write to free key if necessary
@@ -512,6 +515,7 @@ state_action http_handle_request_body(int epfd, cache_connection* connection){
 		//Decrease refs, done with writing
 		connection->target.key.entry->writing = false;
 		db_target_close(&connection->target.key);
+		connection->writing = false;
 
 		return http_write_response(epfd, connection, HTTPTEMPLATE_FULL200OK);
 	}

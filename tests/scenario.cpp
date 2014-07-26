@@ -198,7 +198,7 @@ bool run_unit(std::string& request, std::string& expect, int port){
 			else{
 				printf("Expected: %s\n", expect.substr(read_length, n).c_str());
 			}
-			printf("Got: %s\n", recv_buffer);
+			printf("Got (length: %d): %s\n", n, recv_buffer);
 			return false;
 		}
 
