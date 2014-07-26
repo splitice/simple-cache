@@ -31,6 +31,6 @@ int main(int argc, char *argv[])
 	if (argc >= 4){
 		port = atoi(argv[3]);
 	}
-	//TESTSET("system_simple", test_simple(argv[1], argv[2], port));
+	TESTSET("system_simple", test_simple(argv[1], argv[2], port));
 	return final_result != 0;
 }
