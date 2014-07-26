@@ -456,9 +456,10 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	}
 	else{
 		entry = db_entry_new(table);
-		entry->block = db_block_get_write();
-		entry->data_length = 0;
 	}
+
+	entry->block = db_block_get_write();
+	entry->data_length = 0;
 
 	//Store entry
 	int ret;
