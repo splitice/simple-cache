@@ -63,9 +63,12 @@ state_action http_read_handle(int epfd, cache_connection* connection){
 	}
 
 	state_action run;
+	int to_end = -1, to_end_old;
 	do {
 		run = http_read_handle_state(epfd, connection);
-	} while (run == needs_more && rbuf_read_to_end(&connection->input) != 0);
+		to_end_old = to_end;
+		to_end = rbuf_read_to_end(&connection->input);
+	} while (run == needs_more && to_end != 0 && to_end != to_end_old);
 
 	//Handle buffer is full, not being processed
 	if (num == 0 && rbuf_write_remaining(&connection->input) == 0){

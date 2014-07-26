@@ -27,7 +27,7 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 	size_t len = 0;
 	ssize_t read;
 	int state = 0;
-	long last_pos;
+	long last_pos = -1;
 	connection = 0;
 	while ((read = getline(&line, &len, f)) != -1) {
 		if (read >= 2){
@@ -62,6 +62,7 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 			}
 			break;
 		case 1:
+			last_pos = ftell(f);
 			if (read == UNIT_SEPERATOR_LEN){
 				if (strncmp(line, UNIT_RESPONSE, 5) == 0){
 					state++;
@@ -309,7 +310,7 @@ bool execute_file(const char* filename, int port){
 	do {
 		more = extract_unit(f, request, expect, connection);
 
-		if (request.empty() || expect.empty()){
+		if (request.empty() && expect.empty()){
 			fclose(f);
 			return false;
 		}
