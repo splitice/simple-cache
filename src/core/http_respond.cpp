@@ -83,6 +83,7 @@ state_action http_respond_contentbody(int epfd, cache_connection* connection){
 	assert(connection->target.key.position <= connection->target.key.end_position);
 	if (connection->target.key.position == connection->target.key.end_position){
 		db_target_close(&connection->target.key);
+		connection->type = 0;
 		connection->handler = http_handle_method;
 		http_register_read(epfd, connection);
 	}
