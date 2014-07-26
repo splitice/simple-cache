@@ -15,18 +15,20 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
+#include <map>
 #include "debug.h"
 
 #define UNIT_REQUEST ">>>>>"
 #define UNIT_RESPONSE "-----"
 #define UNIT_SEPERATOR_LEN 6
 
-bool extract_unit(FILE* f, std::string& request, std::string& expect){
+bool extract_unit(FILE* f, std::string& request, std::string& expect, int& connection){
 	char * line = NULL;
 	size_t len = 0;
 	ssize_t read;
 	int state = 0;
 	long last_pos;
+	connection = 0;
 	while ((read = getline(&line, &len, f)) != -1) {
 		if (read >= 2){
 			if (line[read - 2] == '\r'){
@@ -40,6 +42,24 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect){
 			if (read == UNIT_SEPERATOR_LEN){
 				if (strncmp(line, UNIT_REQUEST, 5) == 0){
 					state++;
+				}
+			}
+			else{
+				char* buf = line;
+				int remlen = read;
+				while (isdigit(*buf)){
+					remlen--;
+
+					if (remlen == UNIT_SEPERATOR_LEN){
+						if (strncmp(buf, UNIT_REQUEST, 5) == 0){
+							*buf = 0;
+							connection = atoi(line);
+							state++;
+						}
+					}
+					else if (remlen < UNIT_SEPERATOR_LEN){
+						break;
+					}
 				}
 			}
 			break;
@@ -112,10 +132,9 @@ int remove_cr(char* buffer, int n){
 	return ret;
 }
 
-bool run_unit(std::string& request, std::string& expect, int port){
-	int sockfd, n;
+int unit_connect(int port){
+	int sockfd;
 	struct sockaddr_in servaddr, cliaddr;
-	char recv_buffer[1025];
 
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -128,7 +147,7 @@ bool run_unit(std::string& request, std::string& expect, int port){
 
 	struct timeval start_time;
 	int err = gettimeofday(&start_time, NULL);
-	
+
 	struct timeval current_time;
 	do {
 		res = connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
@@ -145,6 +164,19 @@ bool run_unit(std::string& request, std::string& expect, int port){
 		PFATAL("Failed to connect to scache server\n");
 	}
 
+	struct timeval tv;
+
+	tv.tv_sec = 3;  /* 1 Sec Timeout */
+	tv.tv_usec = 0;  // Not init'ing this can cause strange errors
+
+	setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(struct timeval));
+
+	return sockfd;
+}
+
+bool run_unit(std::string& request, std::string& expect, int sockfd){
+	char recv_buffer[1025];
+
 	//Send request
 	int len = request.length();
 	const char* buffer = request.c_str();
@@ -159,12 +191,7 @@ bool run_unit(std::string& request, std::string& expect, int port){
 	buffer = expect.c_str();
 	len = expect.length();
 
-	struct timeval tv;
-
-	tv.tv_sec = 3;  /* 1 Sec Timeout */
-	tv.tv_usec = 0;  // Not init'ing this can cause strange errors
-
-	setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(struct timeval));
+	
 
 	while (len != 0){
 		int to_recv = sizeof(recv_buffer)-1;
@@ -263,10 +290,12 @@ bool execute_file(const char* filename, int port){
 	bool more;
 	std::string request;
 	std::string expect;
+	int connection;
+	std::map<int, int> connections;
 
 	int step = 1;
 	do {
-		more = extract_unit(f, request, expect);
+		more = extract_unit(f, request, expect, connection);
 
 		if (request.empty() || expect.empty()){
 			fclose(f);
@@ -277,7 +306,13 @@ bool execute_file(const char* filename, int port){
 		trim_last_nl(&request);
 		trim_last_nl(&expect);
 
-		bool result = run_unit(request, expect, port);
+		if (connections.find(connection) == connections.end()){
+			connections[connection] = unit_connect(port);
+		}
+
+		int sockfd = connections[connection];
+
+		bool result = run_unit(request, expect, sockfd);
 		if (!result){
 			fclose(f);
 			printf("Failed to run step %d of file %s\n", step, filename);
