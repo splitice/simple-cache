@@ -47,8 +47,9 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 			else{
 				char* buf = line;
 				int remlen = read;
-				while (isdigit(*buf)){
+				while (remlen >= UNIT_SEPERATOR_LEN && isdigit(*buf)){
 					remlen--;
+					buf++;
 
 					if (remlen == UNIT_SEPERATOR_LEN){
 						if (strncmp(buf, UNIT_REQUEST, 5) == 0){
@@ -56,9 +57,6 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 							connection = atoi(line);
 							state++;
 						}
-					}
-					else if (remlen < UNIT_SEPERATOR_LEN){
-						break;
 					}
 				}
 			}
@@ -78,6 +76,22 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 					fseek(f, last_pos, SEEK_SET);
 					free(line);
 					return true;
+				}
+			}
+			else{
+				char* buf = line;
+				int remlen = read;
+				while (remlen >= UNIT_SEPERATOR_LEN && isdigit(*buf)){
+					remlen--;
+					buf++;
+
+					if (remlen == UNIT_SEPERATOR_LEN){
+						if (strncmp(buf, UNIT_REQUEST, 5) == 0){
+							fseek(f, last_pos, SEEK_SET);
+							free(line);
+							return true;
+						}
+					}
 				}
 			}
 			last_pos = ftell(f);
