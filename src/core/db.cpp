@@ -142,7 +142,7 @@ int db_block_allocate_new(){
 	uint32_t block_num = db.blocks_exist;
 	db.blocks_exist++;
 	if (ftruncate(db.fd_blockfile, db.blocks_exist*BLOCK_LENGTH) < 0){
-	    PWARN("File truncation failed");
+		PWARN("File truncation failed (length: %d)", db.blocks_exist);
 	}
 	return block_num;
 }
