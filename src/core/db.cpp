@@ -569,7 +569,7 @@ void db_target_write_allocate(struct cache_target* target, uint32_t data_length)
 		if (data_length > BLOCK_LENGTH){
 			//Shorten or lengthen file to appropriate size
 			if(ftruncate(target->fd, data_length)<0){
-			    PWARN("File truncation failed (%d)", data_length);
+				PWARN("File truncation failed  (fd: %d, length: %d)", target->fd, data_length);
 			}
 		}
 		else{
@@ -581,7 +581,7 @@ void db_target_write_allocate(struct cache_target* target, uint32_t data_length)
 		if (IS_SINGLE_FILE(entry)){
 			//Shorten or lengthen file to appropriate size
 			if (ftruncate(target->fd, data_length)<0){
-			    PWARN("File truncation failed (%d)", data_length);
+				PWARN("File truncation failed (fd: %d, length: %d)", target->fd, data_length;
 			}
 		}
 		else{
@@ -593,7 +593,7 @@ void db_target_write_allocate(struct cache_target* target, uint32_t data_length)
 
 			//Lengthen file to required size
 			if (ftruncate(target->fd, data_length)<0){
-				PWARN("File truncation failed (%d)", data_length);
+				PWARN("File truncation failed (fd: %d, length: %d)", target->fd, data_length);
 			}
 		}
 	}
