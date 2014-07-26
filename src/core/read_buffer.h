@@ -13,6 +13,8 @@ struct read_buffer {
 #endif
 };
 
+void rb_debug_check(struct read_buffer* buffer);
+
 /*
 Initialize the read and write position of a read_buffer
 */
@@ -80,12 +82,12 @@ Get a pointer to the buffer at the current write offset
 /*
 Move the read offset
 */
-#define RBUF_READMOVE(x, by) rb_debug_read_check(&x, by); x.read_position+=by
+#define RBUF_READMOVE(x, by) rb_debug_read_check(&x, by); x.read_position+=by; rb_debug_check(&x);
 
 /*
 Move the write offset
 */
-#define RBUF_WRITEMOVE(x, by) rb_debug_write_incr(&x, by); x.write_position+=by
+#define RBUF_WRITEMOVE(x, by) rb_debug_write_incr(&x, by); x.write_position+=by; rb_debug_check(&x);
 
 
 #define RBUF_EMPTY(x) x->write_position == x->read_position
@@ -113,12 +115,12 @@ Get a pointer to the buffer at the current write offset
 /*
 Move the read offset
 */
-#define RBUF_READMOVEPTR(x, by)  rb_debug_read_check(x, by); x->read_position+=by
+#define RBUF_READMOVEPTR(x, by)  rb_debug_read_check(x, by); x->read_position+=by; rb_debug_check(&x);
 
 /*
 Move the write offset
 */
-#define RBUF_WRITEMOVEPTR(x, by) rb_debug_write_incr(x, by); x->write_position+=by
+#define RBUF_WRITEMOVEPTR(x, by) rb_debug_write_incr(x, by); x->write_position+=by; rb_debug_check(x);
 
 
 #define RBUF_READLENPTR(x) ((decltype( x->write_position ))(( x->write_position ) - ( x->read_position )))

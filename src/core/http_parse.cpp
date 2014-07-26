@@ -44,6 +44,7 @@ static void skip_over_newlines(struct read_buffer* rb){
 		rb_debug_read_check(rb, 1);
 #endif
 		rb->read_position++;
+		rb_debug_check(rb);
 		buffer++;
 	}
 
@@ -57,6 +58,7 @@ static void skip_over_newlines(struct read_buffer* rb){
 		rb_debug_read_check(rb, 1);
 #endif
 		rb->read_position++;
+		rb_debug_check(rb);
 		buffer++;
 	}
 }
