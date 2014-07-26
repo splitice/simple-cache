@@ -136,19 +136,27 @@ int rbuf_read_remaining(struct read_buffer* buffer) {
 	return RBUF_READLENPTR(buffer);
 }
 int rbuf_read_to_end(struct read_buffer* buffer) {
-	uint16_t t = BUFFER_SIZE - (buffer->read_position % BUFFER_SIZE);
+	/*uint16_t t = BUFFER_SIZE - (buffer->read_position % BUFFER_SIZE);
 	uint16_t y = buffer->write_position - buffer->read_position;
 	if (t < y){
 		return t;
 	}
-	return y;
+	return y;*/
+
+	uint16_t to_end = (buffer->read_position & (BUFFER_SIZE - 1));
+	if (to_end <= (buffer->write_position & (BUFFER_SIZE - 1))){
+		return buffer->write_position - buffer->read_position;
+	}
+	else{
+		return BUFFER_SIZE - to_end;
+	}
 }
 int rbuf_write_remaining(struct read_buffer* buffer) {
 	return RBUF_WRITELENPTR(buffer);
 }
 int rbuf_write_to_end(struct read_buffer* buffer) {
 	uint16_t to_end = (buffer->write_position & (BUFFER_SIZE - 1));
-	if (to_end == 0){
+	if (to_end <= (buffer->read_position & (BUFFER_SIZE - 1))){
 		return (BUFFER_SIZE - buffer->write_position) + buffer->read_position;
 	}
 	else{

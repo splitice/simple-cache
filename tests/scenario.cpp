@@ -191,8 +191,6 @@ bool run_unit(std::string& request, std::string& expect, int sockfd){
 	buffer = expect.c_str();
 	len = expect.length();
 
-	
-
 	while (len != 0){
 		int to_recv = sizeof(recv_buffer)-1;
 		if (len < to_recv){
@@ -212,7 +210,7 @@ bool run_unit(std::string& request, std::string& expect, int sockfd){
 
 		if (n == 0){
 			printf("Expected: %s\n", buffer);
-			printf("Connection Closed\n", recv_buffer);
+			printf("Connection Closed\n");
 			return false;
 		}
 
