@@ -9,7 +9,7 @@ static int port;
 static const char * test_simple_put_get() {
 	bool result = false;
 
-	//result |= !run_scenarios(binary_path, "simple", testcases_path, port ? port : 8001, port == 0);
+	result |= !run_scenarios(binary_path, "simple", testcases_path, port ? port : 8001, port == 0);
 	result |= !run_scenarios(binary_path, "multiple-connections", testcases_path, port ? port : 8001, port == 0);
 
 	return result ? "System Tests failed" : 0;
