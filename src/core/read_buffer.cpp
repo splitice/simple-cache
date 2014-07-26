@@ -175,13 +175,9 @@ int rbuf_write_remaining(struct read_buffer* buffer) {
 }
 uint16_t rbuf_write_to_end(struct read_buffer* buffer) {
 	rb_debug_check(buffer);
-	if (buffer->write_position == buffer->read_position){
-		rb_debug_check_write(buffer, BUFFER_SIZE);
-		return BUFFER_SIZE;
-	}
 	uint16_t to_end = (buffer->write_position & (BUFFER_SIZE - 1));
 	uint16_t read_pos = (buffer->read_position & (BUFFER_SIZE - 1));
-	if (to_end <= read_pos){
+	if (to_end <= read_pos && buffer->read_position != buffer->write_position){
 		rb_debug_check_write(buffer, read_pos - to_end);
 		return read_pos - to_end;
 	}

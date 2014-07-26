@@ -44,6 +44,11 @@ state_action http_read_handle(int epfd, cache_connection* connection){
 	int num;
 	int fd = connection->client_sock;
 
+	//Optimization
+	if (connection->input.write_position == connection->input.read_position){
+		connection->input.write_position = connection->input.read_position = 0;
+	}
+
 	//Read from socket
 	num = rbuf_write_to_end(&connection->input);
 	if (num > 0){
