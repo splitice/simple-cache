@@ -566,35 +566,18 @@ void db_target_write_allocate(struct cache_target* target, uint32_t data_length)
 	DEBUG("[#] Allocating space for entry, block is currently: %d and is single file: %d (was: %d)\n", entry->block, data_length > BLOCK_LENGTH, IS_SINGLE_FILE(entry));
 	if (entry->block == -2){
 		//if this is a new entry, with nothing previously allocated.
-		if (data_length > BLOCK_LENGTH){
-			//Shorten or lengthen file to appropriate size
-			if(ftruncate(target->fd, data_length)<0){
-				PWARN("File truncation failed  (fd: %d, length: %d)", target->fd, data_length);
-			}
-		}
-		else{
+		if (data_length <= BLOCK_LENGTH){
 			entry->block = db_block_get_write();
 		}
 	}
 	else if (data_length > BLOCK_LENGTH){
 		//If this is to be an entry stored in a file
-		if (IS_SINGLE_FILE(entry)){
-			//Shorten or lengthen file to appropriate size
-			if (ftruncate(target->fd, data_length)<0){
-				PWARN("File truncation failed (fd: %d, length: %d)", target->fd, data_length);
-			}
-		}
-		else{
+		if (!IS_SINGLE_FILE(entry)){
 			//We are going to use a file, and the entry is currently a block
 			db_block_free(entry->block);
 
 			//No longer using a block
 			entry->block = -1;
-
-			//Lengthen file to required size
-			if (ftruncate(target->fd, data_length)<0){
-				PWARN("File truncation failed (fd: %d, length: %d)", target->fd, data_length);
-			}
 		}
 	}
 	else{
@@ -617,4 +600,11 @@ void db_target_write_allocate(struct cache_target* target, uint32_t data_length)
 	entry->data_length = data_length;
 
 	db_target_open(target);
+
+	if (IS_SINGLE_FILE(entry)){
+		//Lengthen file to required size
+		if (ftruncate(target->fd, data_length)<0){
+			PWARN("File truncation failed (fd: %d, length: %d)", target->fd, data_length);
+		}
+	}
 }
