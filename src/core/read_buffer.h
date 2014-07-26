@@ -58,7 +58,7 @@ int rbuf_write_remaining(struct read_buffer* buffer);
 /*
 Get the number of contiguous bytes that can be written
 */
-int rbuf_write_to_end(struct read_buffer* buffer);
+uint16_t rbuf_write_to_end(struct read_buffer* buffer);
 
 void rb_debug_read_check(struct read_buffer* buffer, int by);
 

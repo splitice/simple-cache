@@ -255,7 +255,6 @@ void db_target_open(struct cache_target* target){
 }
 
 void db_target_setup(struct cache_target* target, struct cache_entry* entry, bool write){
-	target->entry = entry;
 	if (!write){
 		db_target_open(target);
 	}
@@ -268,8 +267,7 @@ void db_entry_actually_delete(cache_entry* entry){
 		db_block_free(entry->block);
 	}
 
-	uint32_t hash = hash_string(entry->key, entry->key_length);
-	khiter_t k = kh_get(entry, entry->table->cache_hash_set, hash);
+	khiter_t k = kh_get(entry, entry->table->cache_hash_set, entry->hash);
 	//Clear entry - file has already been deleted.
 	//At this stage entry has already been removed from LRU and hash table
 	//exists only to complete files being served.
@@ -458,7 +456,8 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	}
 	else{
 		entry = db_entry_new(table);
-		entry->block = db_block_allocate_new();
+		entry->block = db_block_get_write();
+		entry->data_length = 0;
 	}
 
 	//Store entry
@@ -563,11 +562,11 @@ void db_entry_handle_delete(cache_entry* entry, khiter_t k){
 
 void db_target_write_allocate(struct cache_target* target, uint32_t data_length){
 	cache_entry* entry = target->entry;
-	DEBUG("[#] Allocating space for entry, block is currently: %d and is single file: %d (was: %d)\n", entry->block, data_length > BLOCK_LENGTH, IS_SINGLE_FILE(entry));
+	//DEBUG("[#] Allocating space for entry, block is currently: %d and is single file: %d (was: %d)\n", entry->block, data_length > BLOCK_LENGTH, IS_SINGLE_FILE(entry));
 	if (entry->block == -2){
 		//if this is a new entry, with nothing previously allocated.
 		if (data_length <= BLOCK_LENGTH){
-			entry->block = db_block_get_write();
+			entry->block = db_block_allocate_new();
 		}
 	}
 	else if (data_length > BLOCK_LENGTH){
@@ -590,7 +589,7 @@ void db_target_write_allocate(struct cache_target* target, uint32_t data_length)
 			unlink(filename_buffer);
 
 			//Allocate a block
-			entry->block = db_block_get_write();
+			entry->block = db_block_allocate_new();
 		}
 		//Else: We are going to use a block, and the entry is currently a block
 	}

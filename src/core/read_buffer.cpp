@@ -143,6 +143,15 @@ int rbuf_read_remaining(struct read_buffer* buffer) {
 	rb_debug_check(buffer);
 	return RBUF_READLENPTR(buffer);
 }
+void rb_debug_check_write(struct read_buffer* buffer, uint16_t to){
+#ifdef DEBUG_BUILD
+	assert(to <= BUFFER_SIZE);
+	struct read_buffer rb;
+	rb.read_position = buffer->read_position;
+	rb.write_position = buffer->write_position + to;
+	rb_debug_check(&rb);
+#endif
+}
 int rbuf_read_to_end(struct read_buffer* buffer) {
 	rb_debug_check(buffer);
 	/*uint16_t t = BUFFER_SIZE - (buffer->read_position % BUFFER_SIZE);
@@ -164,19 +173,20 @@ int rbuf_write_remaining(struct read_buffer* buffer) {
 	rb_debug_check(buffer);
 	return RBUF_WRITELENPTR(buffer);
 }
-int rbuf_write_to_end(struct read_buffer* buffer) {
+uint16_t rbuf_write_to_end(struct read_buffer* buffer) {
 	rb_debug_check(buffer);
 	if (buffer->write_position == buffer->read_position){
+		rb_debug_check_write(buffer, BUFFER_SIZE);
 		return BUFFER_SIZE;
 	}
 	uint16_t to_end = (buffer->write_position & (BUFFER_SIZE - 1));
 	uint16_t read_pos = (buffer->read_position & (BUFFER_SIZE - 1));
 	if (to_end <= read_pos){
-		assert(read_pos - to_end <= BUFFER_SIZE);
+		rb_debug_check_write(buffer, read_pos - to_end);
 		return read_pos - to_end;
 	}
 
-	assert(BUFFER_SIZE - to_end <= BUFFER_SIZE);
+	rb_debug_check_write(buffer, BUFFER_SIZE - to_end);
 	return BUFFER_SIZE - to_end;
 }
 
@@ -189,6 +199,7 @@ void rbuf_init(struct read_buffer* buf){
 }
 
 void rb_debug_read_check(struct read_buffer* buffer, int by){
+	assert(buffer->write_remaining <= BUFFER_SIZE);
 	assert(by >= 0);
 #ifdef DEBUG_BUILD
 	buffer->write_remaining -= by;

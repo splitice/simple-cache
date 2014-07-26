@@ -93,7 +93,7 @@ static bool http_key_lookup(cache_connection* connection, int n, int epfd){
 	//Copy the key from the buffer
 	char* key = (char*)malloc(sizeof(char)* (n + 1));
 	rbuf_copyn(&connection->input, key, n);
-	*(key + n + 1) = 0;//Null terminate the key
+	*(key + n) = 0;//Null terminate the key
 
 	DEBUG("[#%d] Request key: \"%s\" (%d)\n", connection->client_sock, key, n);
 
@@ -124,7 +124,10 @@ static bool http_key_lookup(cache_connection* connection, int n, int epfd){
 	connection->handler = http_handle_httpversion;
 
 	if (entry){
-		db_target_setup(&connection->target.key, entry, REQUEST_IS(connection->type, REQUEST_HTTPPUT));
+		connection->target.key.entry = entry;
+		if (!REQUEST_IS(connection->type, REQUEST_HTTPPUT)){
+			db_target_setup(&connection->target.key, entry, REQUEST_IS(connection->type, REQUEST_HTTPPUT));
+		}
 	}
 	else{
 		connection->target.key.entry = NULL;
@@ -188,7 +191,7 @@ static inline state_action http_read_requeststarturl1(int epfd, cache_connection
 		RBUF_READMOVE(connection->input, 1);
 		char* key = (char*)malloc(sizeof(char)* (n));
 		rbuf_copyn(&connection->input, key, n - 1);
-		*(key + n) = 0;//Null terminate the key
+		*(key + (n - 1)) = 0;//Null terminate the key
 
 		DEBUG("[#%d] Request table: \"%s\" (%d)\n", connection->client_sock, key, n);
 

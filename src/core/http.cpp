@@ -47,6 +47,7 @@ state_action http_read_handle(int epfd, cache_connection* connection){
 	//Read from socket
 	num = rbuf_write_to_end(&connection->input);
 	if (num > 0){
+		DEBUG("[#%d] reading %d bytes from socket (write pos: %d, read pos: %d)\n", fd, num, connection->input.write_position, connection->input.read_position);
 		num = read(fd, RBUF_WRITE(connection->input), num);
 
 		if (num <= 0){
@@ -59,7 +60,7 @@ state_action http_read_handle(int epfd, cache_connection* connection){
 			}
 		}
 
-		RBUF_WRITEMOVE(connection->input, num);
+		RBUF_WRITEMOVE(connection->input, (uint16_t)num);
 	}
 
 	state_action run;
