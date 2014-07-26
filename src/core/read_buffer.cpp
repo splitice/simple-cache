@@ -189,6 +189,7 @@ void rbuf_init(struct read_buffer* buf){
 }
 
 void rb_debug_read_check(struct read_buffer* buffer, int by){
+	assert(by >= 0);
 #ifdef DEBUG_BUILD
 	buffer->write_remaining -= by;
 	assert(buffer->write_remaining >= 0);
@@ -197,6 +198,7 @@ void rb_debug_read_check(struct read_buffer* buffer, int by){
 }
 
 void rb_debug_write_incr(struct read_buffer* buffer, int by){
+	assert(by >= 0);
 #ifdef DEBUG_BUILD
 	buffer->write_remaining += by;
 	rb_debug_check(buffer);
