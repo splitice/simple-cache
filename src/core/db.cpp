@@ -453,7 +453,9 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 		}
 
 		//We have clients reading this key, cant write currently
+		db_entry_incref(entry);
 		db_entry_handle_delete(entry, k);
+		db_entry_deref(entry);
 
 		entry = db_entry_new(table);
 	}
