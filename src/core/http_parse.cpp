@@ -340,24 +340,26 @@ static state_action http_read_header_extraction(int epfd, cache_connection* conn
 
 		switch (connection->state){
 		case HEADER_CONTENTLENGTH:
-			int content_length;
-			if (!rbuf_strntol(&connection->input, &content_length, length)){
-				WARN("Invalid Content-Length value provided");
+			if (connection->target.key.entry != NULL){
+				int content_length;
+				if (!rbuf_strntol(&connection->input, &content_length, length)){
+					WARN("Invalid Content-Length value provided");
 
-				//This is an INVALID request
-				RBUF_READMOVE(connection->input, length + temporary);
-				return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
-			}
+					//This is an INVALID request
+					RBUF_READMOVE(connection->input, length + temporary);
+					return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+				}
 
-			//Else: We are writing, initalize fd now
-			DEBUG("[#%d] Content-Length of %d found\n", connection->client_sock, content_length);
-			db_target_write_allocate(&connection->target.key, content_length);
+				//Else: We are writing, initalize fd now
+				DEBUG("[#%d] Content-Length of %d found\n", connection->client_sock, content_length);
+				db_target_write_allocate(&connection->target.key, content_length);
 
-			if (IS_SINGLE_FILE(connection->target.key.entry)){
-				connection->target.key.end_position = connection->target.key.entry->data_length;
-			}
-			else{
-				connection->target.key.end_position = connection->target.key.position + connection->target.key.entry->data_length;
+				if (IS_SINGLE_FILE(connection->target.key.entry)){
+					connection->target.key.end_position = connection->target.key.entry->data_length;
+				}
+				else{
+					connection->target.key.end_position = connection->target.key.position + connection->target.key.entry->data_length;
+				}
 			}
 
 			connection->state = 1;
@@ -366,20 +368,22 @@ static state_action http_read_header_extraction(int epfd, cache_connection* conn
 			return needs_more;
 
 		case HEADER_XTTL:
-			int ttl;
-			if (!rbuf_strntol(&connection->input, &ttl, length)){
-				WARN("Invalid X-Ttl value provided");
+			if (connection->target.key.entry != NULL){
+				int ttl;
+				if (!rbuf_strntol(&connection->input, &ttl, length)){
+					WARN("Invalid X-Ttl value provided");
 
-				//This is an INVALID request
-				RBUF_READMOVE(connection->input, length + temporary);
-				return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
-			}
+					//This is an INVALID request
+					RBUF_READMOVE(connection->input, length + temporary);
+					return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+				}
 
-			//Else: We are writing, initalize fd now
-			DEBUG("[#%d] X-Ttl of %d found\n", connection->client_sock, ttl);
+				//Else: We are writing, initalize fd now
+				DEBUG("[#%d] X-Ttl of %d found\n", connection->client_sock, ttl);
 
-			if (ttl != 0){
-				connection->target.key.entry->expires = ttl + current_time.tv_sec;
+				if (ttl != 0){
+					connection->target.key.entry->expires = ttl + current_time.tv_sec;
+				}
 			}
 
 			connection->state = 1;
@@ -523,7 +527,6 @@ state_action http_handle_request_body(int epfd, cache_connection* connection){
 		to_write = max_write;
 	}
 
-
 	if (to_write != 0){
 		if (connection->writing){
 			// Write data
@@ -540,8 +543,6 @@ state_action http_handle_request_body(int epfd, cache_connection* connection){
 			connection->target.key.position += to_write;
 		}
 	}
-
-
 
 	//Check if done
 	assert((connection->target.key.end_position - connection->target.key.position) >= 0);
