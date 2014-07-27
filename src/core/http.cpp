@@ -138,6 +138,7 @@ void http_cleanup(cache_connection* connection){
 			cache_entry* entry = connection->target.key.entry;
 			entry->writing = false;
 			db_entry_handle_delete(entry);
+			connection->writing = false;
 		}
 		if (connection->target.key.entry != NULL){
 			db_target_close(&connection->target.key);

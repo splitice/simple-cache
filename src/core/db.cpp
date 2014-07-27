@@ -342,6 +342,8 @@ cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length)
 		return NULL;
 	}
 
+	assert(!entry->deleted);
+
 	if (entry->key_length != length || strncmp(key, entry->key, length)){
 		DEBUG("[#] Unable to look up key: ");
 
@@ -479,6 +481,8 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	db_entry_incref(entry);
 	entry->writing = true;
 
+	assert(!entry->deleted);
+
 	//LRU
 	if ((db.db_stats_inserts % DB_LRU_EVERY) == 0){
 		DEBUG("[#] Do LRU GC check.\n");
@@ -517,6 +521,8 @@ cache_entry* db_entry_get_delete(struct db_table* table, char* key, size_t lengt
 	//Free key text, not needed.
 	free(key);
 
+	assert(!entry->deleted);
+
 	//Stats
 	db.db_stats_deletes++;
 	db.db_stats_operations++;
@@ -528,8 +534,7 @@ cache_entry* db_entry_get_delete(struct db_table* table, char* key, size_t lengt
 }
 
 void db_entry_handle_delete(cache_entry* entry){
-	uint32_t hash = hash_string(entry->key, entry->key_length);
-	khiter_t k = kh_get(entry, entry->table->cache_hash_set, hash);
+	khiter_t k = kh_get(entry, entry->table->cache_hash_set, entry->hash);
 
 	db_entry_handle_delete(entry, k);
 }
@@ -557,9 +562,7 @@ void db_entry_handle_delete(cache_entry* entry, khiter_t k){
 	entry->deleted = true;
 
 	//There are already no references - delete
-	if (entry->refs == 0){
-		db_entry_actually_delete(entry);
-	}
+	assert(entry->refs != 0);
 }
 
 void db_target_write_allocate(struct cache_target* target, uint32_t data_length){

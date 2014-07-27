@@ -82,7 +82,7 @@ state_action http_respond_contentbody(int epfd, cache_connection* connection){
 
 	assert(connection->target.key.position <= connection->target.key.end_position);
 	if (connection->target.key.position == connection->target.key.end_position){
-		db_target_close(&connection->target.key);
+		http_cleanup(connection);
 		connection->type = 0;
 		connection->handler = http_handle_method;
 		http_register_read(epfd, connection);
@@ -93,6 +93,7 @@ state_action http_respond_contentbody(int epfd, cache_connection* connection){
 state_action http_respond_writeonly(int epfd, cache_connection* connection){
 	DEBUG("[#%d] Sending static response\n", connection->client_sock);
 	//Static response, after witing, read next request
+	http_cleanup(connection);
 	connection->handler = http_handle_method;
 	http_register_read(epfd, connection);
 	return continue_processing;

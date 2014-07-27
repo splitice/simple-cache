@@ -156,15 +156,18 @@ static inline state_action http_read_requeststartmethod(int epfd, cache_connecti
 			//This is a GET request
 			connection->type = REQUEST_HTTPGET;
 			RBUF_READMOVE(connection->input, n + 1);
+			DEBUG("[#%d] HTTP GET Request\n", connection->client_sock, n);
 			return needs_more;
 		}
 		else if (n == 3 && rbuf_cmpn(&connection->input, "PUT", 3) == 0){
 			//This is a PUT request
 			connection->type = REQUEST_HTTPPUT;
 			RBUF_READMOVE(connection->input, n + 1);
+			DEBUG("[#%d] HTTP PUT Request\n", connection->client_sock, n);
 			return needs_more;
 		}
 		else if (n == 6 && rbuf_cmpn(&connection->input, "DELETE", 6) == 0){
+			DEBUG("[#%d] HTTP DELETE Request\n", connection->client_sock, n);
 			//This is a DELETE request
 			connection->type = REQUEST_HTTPDELETE;
 			RBUF_READMOVE(connection->input, n + 1);
