@@ -1,5 +1,5 @@
-#include <stdio.h>
 #include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/epoll.h>
 #include <sys/types.h>
@@ -131,6 +131,7 @@ static cache_connection* connection_add(int fd, cache_connection_node* ctable){
 
 		cache_connection_node* newNode = (cache_connection_node*)malloc(sizeof(cache_connection_node));
 		node->next = newNode;
+		newNode->next = NULL;
 		node = newNode;
 	}
 	rbuf_init(&node->connection.input);

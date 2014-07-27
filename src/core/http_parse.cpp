@@ -341,18 +341,19 @@ static state_action http_read_header_extraction(int epfd, cache_connection* conn
 
 		switch (connection->state){
 		case HEADER_CONTENTLENGTH:
+			int content_length;
+			if (!rbuf_strntol(&connection->input, &content_length, length)){
+				WARN("Invalid Content-Length value provided");
+
+				//This is an INVALID request
+				RBUF_READMOVE(connection->input, length + temporary);
+				return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+			}
+
+			//Else: We are writing, initalize fd now
+			DEBUG("[#%d] Content-Length of %d found\n", connection->client_sock, content_length);
+
 			if (connection->target.key.entry != NULL){
-				int content_length;
-				if (!rbuf_strntol(&connection->input, &content_length, length)){
-					WARN("Invalid Content-Length value provided");
-
-					//This is an INVALID request
-					RBUF_READMOVE(connection->input, length + temporary);
-					return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
-				}
-
-				//Else: We are writing, initalize fd now
-				DEBUG("[#%d] Content-Length of %d found\n", connection->client_sock, content_length);
 				db_target_write_allocate(&connection->target.key, content_length);
 
 				if (IS_SINGLE_FILE(connection->target.key.entry)){
@@ -361,6 +362,10 @@ static state_action http_read_header_extraction(int epfd, cache_connection* conn
 				else{
 					connection->target.key.end_position = connection->target.key.position + connection->target.key.entry->data_length;
 				}
+			}
+			else{
+				connection->target.key.position = 0;
+				connection->target.key.end_position = content_length;
 			}
 
 			connection->state = 1;
