@@ -432,7 +432,7 @@ static state_action http_read_version(int epfd, cache_connection* connection, ch
 
 state_action http_handle_method(int epfd, cache_connection* connection){
 	char* buffer;
-	int end,  n;
+	int end, n;
 	state_action ret = continue_processing;
 
 	DEBUG("[#%d] Handling HTTP method\n", connection->client_sock);
@@ -523,8 +523,9 @@ state_action http_handle_request_body(int epfd, cache_connection* connection){
 		to_write = max_write;
 	}
 
-	if (connection->writing){
-		if (to_write != 0){
+
+	if (to_write != 0){
+		if (connection->writing){
 			// Write data
 			lseek(connection->target.key.fd, connection->target.key.position, SEEK_SET);
 			int read_bytes = write(connection->target.key.fd, RBUF_READ(connection->input), to_write);
@@ -534,13 +535,13 @@ state_action http_handle_request_body(int epfd, cache_connection* connection){
 			RBUF_READMOVE(connection->input, read_bytes);
 			connection->target.key.position += read_bytes;
 		}
-	}
-	else{
-		RBUF_READMOVE(connection->input, to_write);
-		connection->target.key.position += to_write;
+		else{
+			RBUF_READMOVE(connection->input, to_write);
+			connection->target.key.position += to_write;
+		}
 	}
 
-	
+
 
 	//Check if done
 	assert((connection->target.key.end_position - connection->target.key.position) >= 0);
