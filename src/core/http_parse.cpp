@@ -156,18 +156,18 @@ static inline state_action http_read_requeststartmethod(int epfd, cache_connecti
 			//This is a GET request
 			connection->type = REQUEST_HTTPGET;
 			RBUF_READMOVE(connection->input, n + 1);
-			DEBUG("[#%d] HTTP GET Request\n", connection->client_sock, n);
+			DEBUG("[#%d] HTTP GET Request\n", connection->client_sock);
 			return needs_more;
 		}
 		else if (n == 3 && rbuf_cmpn(&connection->input, "PUT", 3) == 0){
 			//This is a PUT request
 			connection->type = REQUEST_HTTPPUT;
 			RBUF_READMOVE(connection->input, n + 1);
-			DEBUG("[#%d] HTTP PUT Request\n", connection->client_sock, n);
+			DEBUG("[#%d] HTTP PUT Request\n", connection->client_sock);
 			return needs_more;
 		}
 		else if (n == 6 && rbuf_cmpn(&connection->input, "DELETE", 6) == 0){
-			DEBUG("[#%d] HTTP DELETE Request\n", connection->client_sock, n);
+			DEBUG("[#%d] HTTP DELETE Request\n", connection->client_sock);
 			//This is a DELETE request
 			connection->type = REQUEST_HTTPDELETE;
 			RBUF_READMOVE(connection->input, n + 1);
@@ -221,11 +221,10 @@ static inline state_action http_read_requeststarturl1(int epfd, cache_connection
 		//URL: table
 		connection->state = 0;
 
-		if (REQUEST_IS(connection->type, REQUEST_HTTPGET)){
-
-		}
-		else if (REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
-
+		if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
+			connection->handler = http_handle_headers;
+			connection->state = 0;
+			return needs_more;
 		}
 		else
 		{
@@ -249,7 +248,7 @@ static state_action http_read_requeststarturl2(int epfd, cache_connection* conne
 	return continue_processing;
 }
 
-static state_action http_read_headers(int epfd, cache_connection* connection, char* buffer, int n, uint8_t& temporary){
+static state_action http_read_headers(int epfd, cache_connection* connection, char* buffer, int n, uint32_t& temporary){
 	if (*buffer == ':'){
 		if (REQUEST_IS(connection->type, REQUEST_HTTPPUT)){
 			int bytes = buffer - RBUF_READ(connection->input);
@@ -312,6 +311,15 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 			}
 			else{
 				//Not implemented: Table level
+				if (REQUEST_IS(connection->type, REQUEST_HTTPGET)){
+					connection->state = 0;
+					connection->handler = http_respond_listing;
+					connection_register_write(epfd, connection->client_sock);
+					return registered_write;
+				}
+				else if (REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
+
+				}
 			}
 		}
 

@@ -98,3 +98,34 @@ state_action http_respond_writeonly(int epfd, cache_connection* connection){
 	http_register_read(epfd, connection);
 	return continue_processing;
 }
+
+state_action http_respond_listing(int epfd, cache_connection* connection){
+	DEBUG("[#%d] Sending listing response\n", connection->client_sock);
+
+	if (connection->state > kh_end(connection->target.table.table->cache_hash_set)){
+		connection->state = kh_end(connection->target.table.table->cache_hash_set);
+	}
+
+	cache_entry* entry;
+	while ((entry = kh_val(connection->target.table.table->cache_hash_set, connection->state)) == NULL){
+		if (connection->state == 0){
+			break;
+		}
+		connection->state--;
+	}
+	
+	if (entry != NULL){
+		//Returns the number of chars put into the buffer
+		connection->output_buffer = entry->key;
+		connection->output_length = entry->key_length;
+
+		return continue_processing;
+	}
+
+	if (connection->state == 0){
+		http_cleanup(connection);
+		connection->handler = http_handle_method;
+		http_register_read(epfd, connection);
+		return close_connection;
+	}
+}

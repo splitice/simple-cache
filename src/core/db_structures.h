@@ -32,6 +32,8 @@ struct db_table {
 
 	uint32_t entries;
 	khash_t(entry) *cache_hash_set;
+	uint16_t refs;
+	bool deleted : 1;
 };
 
 

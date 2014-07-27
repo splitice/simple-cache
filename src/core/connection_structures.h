@@ -37,11 +37,11 @@ struct cache_connection {
 	int output_length;
 	char* output_buffer_free;
 
-	state_action (*handler)(int epfd, cache_connection* connection);
-	uint8_t state;
+
+	state_action(*handler)(int epfd, cache_connection* connection);
+	uint32_t state;
 	unsigned int type : 8;
 	bool writing;
-	//16 bits padding
 };
 
 struct cache_connection_node {

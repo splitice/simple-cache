@@ -249,7 +249,7 @@ bool run_unit(std::string& request, std::string& expect, int sockfd){
 	return true;
 }
 
-pid_t start_server(const char* binary_path, int port, const char* db){
+pid_t start_server(const char* binary_path, int port, const char* db, const char* options){
 	char execcmd[512];
 
 	char* pidfile = tempnam(NULL, NULL);
@@ -259,7 +259,7 @@ pid_t start_server(const char* binary_path, int port, const char* db){
 		return -1;
 	}
 
-	sprintf(execcmd, "%s -d -o --bind-port %d --database-file-path %s --make-pid %s", binary_path, port, db, pidfile);
+	sprintf(execcmd, "%s -d -o --bind-port %d --database-file-path %s --make-pid %s %s", binary_path, port, db, pidfile, options);
 	system(execcmd);
 
 	FILE* f;
@@ -344,7 +344,7 @@ bool execute_file(const char* filename, int port){
 	return true;
 }
 
-bool run_scenario(const char* binary, const char* testcases, const char* filename, int port, bool run_server){
+bool run_scenario(const char* binary, const char* testcases, const char* filename, int port, bool run_server, const char* options){
 	char testcase_path[1024];
 	sprintf(testcase_path,"%s/%s", testcases, filename);
 	char* db = tempnam(NULL, NULL);
@@ -354,7 +354,7 @@ bool run_scenario(const char* binary, const char* testcases, const char* filenam
 	}
 	pid_t pid;
 	if (run_server){
-		pid = start_server(binary, port, db);
+		pid = start_server(binary, port, db, options);
 		if (pid < 0){
 			WARN("Failed to start simple-cache server");
 			stop_server(pid);
@@ -373,7 +373,7 @@ bool run_scenario(const char* binary, const char* testcases, const char* filenam
 	return result;
 }
 
-bool run_scenarios(const char* binary, const char* testcases, const char* directory_path, int port, bool run_server){
+bool run_scenarios(const char* binary, const char* testcases, const char* directory_path, int port, bool run_server, const char* options){
 	bool full_result = true;
 	char directory_buffer[MAX_PATH];
 	sprintf(directory_buffer, "%s/%s", directory_path, testcases);
@@ -387,7 +387,7 @@ bool run_scenarios(const char* binary, const char* testcases, const char* direct
 		if (*(next_file->d_name) == '.')
 			continue;
 		// build the full path for each file in the folder
-		bool result = run_scenario(binary, directory_buffer, next_file->d_name, port, run_server);
+		bool result = run_scenario(binary, directory_buffer, next_file->d_name, port, run_server, options);
 		if (!result){
 			SAYF("Scenario %s failed\n", next_file->d_name);
 			full_result &= result;

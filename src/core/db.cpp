@@ -58,9 +58,6 @@ struct db_details db {
 //Buffers
 char filename_buffer[MAX_PATH];
 
-/* Methods */
-void db_entry_delete(struct cache_entry* e);
-
 void db_lru_remove_node(cache_entry* entry){
 	if (entry->lru_prev != NULL){
 		entry->lru_prev->lru_next = entry->lru_next;
@@ -114,7 +111,7 @@ void db_lru_cleanup(int bytes_to_remove){
 
 		bytes_to_remove -= l->data_length;
 
-		db_entry_delete(l);
+		db_entry_handle_delete(l);
 	}
 
 	//null the tail as well
@@ -267,6 +264,9 @@ void db_entry_actually_delete(cache_entry* entry){
 		db_block_free(entry->block);
 	}
 
+	//Free key
+	free(entry->key);
+
 	khiter_t k = kh_get(entry, entry->table->cache_hash_set, entry->hash);
 	//Clear entry - file has already been deleted.
 	//At this stage entry has already been removed from LRU and hash table
@@ -286,6 +286,21 @@ void db_entry_deref(cache_entry* entry){
 }
 
 void db_entry_incref(cache_entry* entry){
+	DEBUG("Incrementing entry refcount - was: %d\n", entry->refs);
+	entry->refs++;
+}
+
+void db_table_deref(db_table* entry){
+	DEBUG("Decrementing table refcount - was: %d\n", entry->refs);
+	entry->refs--;
+
+	//Actually clean up the entry
+	if (entry->refs == 0 && entry->deleted){
+		//TODO
+	}
+}
+
+void db_table_incref(db_table* entry){
 	DEBUG("Incrementing refcount - was: %d\n", entry->refs);
 	entry->refs++;
 }
@@ -298,30 +313,6 @@ void db_target_close(cache_target* target){
 		db_entry_deref(target->entry);
 	}
 	target->position = 0;
-}
-
-void db_entry_delete(cache_entry* e){
-	if (IS_SINGLE_FILE(e)){
-		get_key_path(e, filename_buffer);
-		unlink(filename_buffer);
-	}
-	else{
-		db_block_free(e->block);
-	}
-
-	//Clear key
-	free(e->key);
-	e->key = NULL;//Important: mark entry as empty
-
-	//Debug only?
-	e->key_length = 0;
-
-	//Update LRU
-	db_lru_delete_node(e);
-
-	//Stats
-	db.db_stats_deletes++;
-	db.db_stats_operations++;
 }
 
 cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length){
@@ -419,6 +410,8 @@ struct db_table* db_table_get_write(char* name, int length){
 		table->hash = hash;
 		table->key = name;
 		table->entries = 0;
+		table->refs = 0;
+		table->deleted = false;
 		table->cache_hash_set = kh_init(entry);
 
 		int ret;
@@ -560,7 +553,6 @@ void db_entry_handle_delete(cache_entry* entry, khiter_t k){
 	kh_del(entry, entry->table->cache_hash_set, k);
 
 	//Dont need the key any more, deleted
-	free(entry->key);
 	entry->deleted = true;
 
 	//There are already no references - delete

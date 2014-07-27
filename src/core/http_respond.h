@@ -5,3 +5,4 @@ state_action http_respond_contentlength(int epfd, cache_connection* connection);
 state_action http_respond_responseend(int epfd, cache_connection* connection);
 state_action http_respond_contentbody(int epfd, cache_connection* connection);
 state_action http_respond_writeonly(int epfd, cache_connection* connection);
+state_action http_respond_listing(int epfd, cache_connection* connection);
