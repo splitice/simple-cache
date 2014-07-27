@@ -273,13 +273,15 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 			RBUF_READMOVE(connection->input, n + 1);
 
 			if (REQUEST_IS(connection->type, REQUEST_LEVELKEY)) {
-				if (connection->target.key.entry != NULL){
-					if (REQUEST_IS(connection->type, REQUEST_HTTPPUT)){
-						if (connection->target.key.entry->data_length == 0){
-							return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
-						}
+				if (REQUEST_IS(connection->type, REQUEST_HTTPPUT)){
+					if (connection->target.key.entry != NULL && connection->target.key.entry->data_length == 0){
+						return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 					}
 
+					connection->handler = http_handle_request_body;
+					return needs_more;
+				}
+				else if (connection->target.key.entry != NULL){
 					if (REQUEST_IS(connection->type, REQUEST_HTTPGET)){
 						connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200];
 						connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200];
@@ -295,8 +297,7 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 						return http_write_response(epfd, connection, HTTPTEMPLATE_FULLHTTP200DELETED);
 					}
 					else{
-						connection->handler = http_handle_request_body;
-						return needs_more;
+						FATAL("Unknown request type");
 					}
 				}
 				else{
@@ -548,9 +549,11 @@ state_action http_handle_request_body(int epfd, cache_connection* connection){
 	assert((connection->target.key.end_position - connection->target.key.position) >= 0);
 	if (connection->target.key.end_position == connection->target.key.position){
 		//Decrease refs, done with writing
-		connection->target.key.entry->writing = false;
+		if (connection->writing){
+			connection->target.key.entry->writing = false;
+			connection->writing = false;
+		}
 		db_target_close(&connection->target.key);
-		connection->writing = false;
 		connection->target.key.entry = NULL;
 		connection->type = 0;
 
