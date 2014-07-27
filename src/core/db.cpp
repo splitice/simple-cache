@@ -291,11 +291,12 @@ void db_entry_incref(cache_entry* entry){
 }
 
 void db_target_close(cache_target* target){
-	cache_entry* entry = target->entry;
 	if (target->fd != db.fd_blockfile){
 		close(target->fd);
 	}
-	db_entry_deref(target->entry);
+	if (target->entry != NULL){
+		db_entry_deref(target->entry);
+	}
 	target->position = 0;
 }
 

@@ -523,16 +523,24 @@ state_action http_handle_request_body(int epfd, cache_connection* connection){
 		to_write = max_write;
 	}
 
-	if (to_write != 0){
-		// Write data
-		lseek(connection->target.key.fd, connection->target.key.position, SEEK_SET);
-		int read_bytes = write(connection->target.key.fd, RBUF_READ(connection->input), to_write);
+	if (connection->writing){
+		if (to_write != 0){
+			// Write data
+			lseek(connection->target.key.fd, connection->target.key.position, SEEK_SET);
+			int read_bytes = write(connection->target.key.fd, RBUF_READ(connection->input), to_write);
 
-		//Handle the bytes written
-		DEBUG("[#%d] %d bytes to fd %d\n", connection->client_sock, read_bytes, connection->target.key.fd);
-		RBUF_READMOVE(connection->input, read_bytes);
-		connection->target.key.position += read_bytes;
+			//Handle the bytes written
+			DEBUG("[#%d] %d bytes to fd %d\n", connection->client_sock, read_bytes, connection->target.key.fd);
+			RBUF_READMOVE(connection->input, read_bytes);
+			connection->target.key.position += read_bytes;
+		}
 	}
+	else{
+		RBUF_READMOVE(connection->input, to_write);
+		connection->target.key.position += to_write;
+	}
+
+	
 
 	//Check if done
 	assert((connection->target.key.end_position - connection->target.key.position) >= 0);
