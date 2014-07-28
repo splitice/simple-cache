@@ -216,6 +216,10 @@ bool run_unit(std::string& request, std::string& expect, int sockfd){
 		if (received == -1){
 			if (errno == EAGAIN || errno == EWOULDBLOCK){
 				printf("A timeout occured waiting for a response\n");
+				printf("Request:\n");
+				printf("=========================================\n");
+				printf("%s",request.c_str());
+				printf("=========================================\n");
 				return false;
 			}
 			PFATAL("An error occured reading from socket");
