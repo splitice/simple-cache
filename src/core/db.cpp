@@ -258,7 +258,7 @@ void db_target_setup(struct cache_target* target, struct cache_entry* entry, boo
 }
 
 void db_entry_actually_delete(cache_entry* entry){
-	DEBUG("Cleaning up reference due to refcount == 0\n");
+	DEBUG("Cleaning key up reference due to refcount == 0\n");
 	//If is a block, can now free it
 	if (!IS_SINGLE_FILE(entry)){
 		db_block_free(entry->block);
@@ -266,12 +266,14 @@ void db_entry_actually_delete(cache_entry* entry){
 
 	//Free key
 	free(entry->key);
+	free(entry);
+}
 
-	khiter_t k = kh_get(entry, entry->table->cache_hash_set, entry->hash);
-	//Clear entry - file has already been deleted.
-	//At this stage entry has already been removed from LRU and hash table
-	//exists only to complete files being served.
-	kh_del(entry, entry->table->cache_hash_set, k);
+void db_table_actually_delete(db_table* entry){
+	DEBUG("Cleaning table up reference due to refcount == 0\n");
+
+	//Free key
+	free(entry->key);
 	free(entry);
 }
 
@@ -292,6 +294,7 @@ void db_entry_incref(cache_entry* entry){
 
 void db_table_deref(db_table* entry){
 	DEBUG("Decrementing table refcount - was: %d\n", entry->refs);
+	assert(entry->refs > 0);
 	entry->refs--;
 
 	//Actually clean up the entry
@@ -419,7 +422,6 @@ struct db_table* db_table_get_write(char* name, int length){
 		db_table* table = (db_table*)malloc(sizeof(db_table));
 		table->hash = hash;
 		table->key = name;
-		table->entries = 0;
 		table->refs = 0;
 		table->deleted = false;
 		table->cache_hash_set = kh_init(entry);
@@ -457,16 +459,11 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 			return NULL;
 		}
 
-		//We have clients reading this key, cant write currently
-		db_entry_incref(entry);
-		db_entry_handle_delete(entry, k);
-		db_entry_deref(entry);
-
-		entry = db_entry_new(table);
+		//We might have clients reading this key
+		db_entry_handle_replace(entry, k);
 	}
-	else{
-		entry = db_entry_new(table);
-	}
+	
+	entry = db_entry_new(table);
 
 	entry->block = db_block_get_write();
 	entry->data_length = 0;
@@ -474,6 +471,12 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	//Store entry
 	int ret;
 
+	//Take a reference if this is the first entry (released when size == 0)
+	if (kh_size(table->cache_hash_set) == 0){
+		db_table_incref(table);
+	}
+
+	//Store into hash table
 	k = kh_put(entry, table->cache_hash_set, hash, &ret);
 	kh_value(table->cache_hash_set, k) = entry;
 
@@ -546,6 +549,31 @@ void db_entry_handle_delete(cache_entry* entry){
 	db_entry_handle_delete(entry, k);
 }
 
+void db_entry_handle_replace(cache_entry* entry, khiter_t k){
+	assert(!entry->deleted);
+
+	if (IS_SINGLE_FILE(entry)){
+		//Unlink
+		get_key_path(entry, filename_buffer);
+		unlink(filename_buffer);
+	}
+
+	//Counters
+	db.db_size_bytes -= entry->data_length;
+
+	//Remove from LRU
+	db_lru_delete_node(entry);
+
+	//Dont need the key any more, deleted
+	entry->deleted = true;
+
+	//Assertion check
+	if (entry->refs == 0){
+		DEBUG("[#] Entry can be immediately cleaned up\n");
+		db_entry_actually_delete(entry);
+	}
+}
+
 void db_entry_handle_delete(cache_entry* entry, khiter_t k){
 	assert(!entry->deleted);
 
@@ -567,8 +595,13 @@ void db_entry_handle_delete(cache_entry* entry, khiter_t k){
 	//Dont need the key any more, deleted
 	entry->deleted = true;
 
-	//There are already no references - delete
+	//Assertion check
 	assert(entry->refs != 0);
+
+	//If table entry, cleanup table
+	if (kh_size(entry->table->cache_hash_set) == 0){
+		db_table_deref(entry->table);
+	}
 }
 
 void db_target_write_allocate(struct cache_target* target, uint32_t data_length){
