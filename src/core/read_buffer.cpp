@@ -154,12 +154,6 @@ void rb_debug_check_write(struct read_buffer* buffer, uint16_t to){
 }
 int rbuf_read_to_end(struct read_buffer* buffer) {
 	rb_debug_check(buffer);
-	/*uint16_t t = BUFFER_SIZE - (buffer->read_position % BUFFER_SIZE);
-	uint16_t y = buffer->write_position - buffer->read_position;
-	if (t < y){
-		return t;
-	}
-	return y;*/
 
 	uint16_t to_end = (buffer->read_position & (BUFFER_SIZE - 1));
 	if (to_end <= (buffer->write_position & (BUFFER_SIZE - 1))){

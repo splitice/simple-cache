@@ -187,48 +187,55 @@ static inline state_action http_read_requeststarturl1(int epfd, cache_connection
 	assert(n != 0 || *buffer == '/');
 
 
-	if (n != 0 && *buffer == '/'){
-		//Key command
-		//URL: table/key
+	if (n != 0){
+		if (*buffer != '/' && *buffer != ' ') {
+			return continue_processing;//continue
+		}
+
 
 		RBUF_READMOVE(connection->input, 1);
 		char* key = (char*)malloc(sizeof(char)* (n));
 		rbuf_copyn(&connection->input, key, n - 1);
 		*(key + (n - 1)) = 0;//Null terminate the key
-
 		DEBUG("[#%d] Request table: \"%s\" (%d)\n", connection->client_sock, key, n);
 
-		if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
-			connection->target.table.table = db_table_get_read(key, n - 1);
-		}
-		else{
-			connection->target.table.table = db_table_get_write(key, n - 1);
-		}
+		if (*buffer == '/'){
+			//Key command
+			//URL: table/key
 
-		if (connection->target.table.table){
-			connection->state++;
-		}
-		else{
-			connection->state = 0;
-			return http_headers_response_after_eol(epfd, connection, HTTPTEMPLATE_FULL404);
-		}
 
-		RBUF_READMOVE(connection->input, n);
-		return needs_more;
-	}
-	else if (*buffer == ' '){
-		//Table command
-		//URL: table
-		connection->state = 0;
+			if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
+				connection->target.table.table = db_table_get_read(key, n - 1);
+			}
+			else{
+				connection->target.table.table = db_table_get_write(key, n - 1);
+			}
 
-		if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
-			connection->handler = http_handle_headers;
-			connection->state = 0;
+			if (connection->target.table.table){
+				connection->state++;
+			}
+			else{
+				connection->state = 0;
+				return http_headers_response_after_eol(epfd, connection, HTTPTEMPLATE_FULL404);
+			}
+
+			RBUF_READMOVE(connection->input, n);
 			return needs_more;
 		}
-		else
-		{
-			return http_write_response_after_eol(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+		else if (*buffer == ' '){
+			//Table command
+			//URL: table
+			connection->target.table.table = db_table_get_read(key, n - 1);
+
+			if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
+				connection->handler = http_handle_headers;
+				connection->state = 0;
+				return needs_more;
+			}
+			else
+			{
+				return http_write_response_after_eol(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+			}
 		}
 	}
 
@@ -238,7 +245,7 @@ static inline state_action http_read_requeststarturl1(int epfd, cache_connection
 static state_action http_read_requeststarturl2(int epfd, cache_connection* connection, char* buffer, int n)
 {
 	if (*buffer == ' '){
-		int temporary = http_key_lookup(connection, n, epfd);
+		bool temporary = http_key_lookup(connection, n, epfd);
 		RBUF_READMOVE(connection->input, n + 1);
 		connection->state = 0;
 
@@ -287,7 +294,7 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 					if (REQUEST_IS(connection->type, REQUEST_HTTPGET)){
 						connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200];
 						connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200];
-						connection->state = 0;
+						connection->state = 0;//n to send
 
 						connection->handler = http_respond_start;
 						connection_register_write(epfd, connection->client_sock);
@@ -312,10 +319,19 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 			else{
 				//Not implemented: Table level
 				if (REQUEST_IS(connection->type, REQUEST_HTTPGET)){
-					connection->state = 0;
-					connection->handler = http_respond_listing;
-					connection_register_write(epfd, connection->client_sock);
-					return registered_write;
+					if (connection->target.table.table){
+						connection->state = 1000;
+						connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200_CONCLOSE];
+						connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200_CONCLOSE];
+						connection->handler = http_respond_listing;
+						connection_register_write(epfd, connection->client_sock);
+						return registered_write;
+					}
+					else{
+						//TODO: deref table?
+						return http_write_response(epfd, connection, HTTPTEMPLATE_FULL404);
+					}
+					
 				}
 				else if (REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
 

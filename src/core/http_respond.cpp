@@ -99,6 +99,14 @@ state_action http_respond_writeonly(int epfd, cache_connection* connection){
 	return continue_processing;
 }
 
+state_action http_respond_listing_separator(int epfd, cache_connection* connection){
+	connection->output_buffer = "\r\n";
+	connection->output_length = 2;
+	connection->handler = http_respond_listing;
+
+	return continue_processing;
+}
+
 state_action http_respond_listing(int epfd, cache_connection* connection){
 	DEBUG("[#%d] Sending listing response\n", connection->client_sock);
 
@@ -109,23 +117,38 @@ state_action http_respond_listing(int epfd, cache_connection* connection){
 	cache_entry* entry;
 	while ((entry = kh_val(connection->target.table.table->cache_hash_set, connection->state)) == NULL){
 		if (connection->state == 0){
-			break;
+			http_cleanup(connection);
+			return close_connection;
 		}
 		connection->state--;
 	}
-	
+
+	bool cleanup = false;
+	if (connection->state){
+		connection->state--;
+	}
+	else{
+		cleanup = true;
+	}
+
 	if (entry != NULL){
 		//Returns the number of chars put into the buffer
 		connection->output_buffer = entry->key;
 		connection->output_length = entry->key_length;
+		connection->handler = http_respond_listing_separator;
+
+		if (cleanup){
+			goto cleanup;
+		}
 
 		return continue_processing;
 	}
 
+cleanup:
 	if (connection->state == 0){
 		http_cleanup(connection);
-		connection->handler = http_handle_method;
-		http_register_read(epfd, connection);
+//		connection->handler = http_handle_method;
+//		http_register_read(epfd, connection);
 		return close_connection;
 	}
 }
