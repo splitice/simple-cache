@@ -442,6 +442,32 @@ struct db_table* db_table_get_write(char* name, int length){
 	return entry;
 }
 
+void db_entry_handle_replace(cache_entry* entry, khiter_t k){
+	assert(!entry->deleted);
+
+	if (IS_SINGLE_FILE(entry)){
+		//Unlink
+		get_key_path(entry, filename_buffer);
+		unlink(filename_buffer);
+	}
+
+	//Counters
+	db.db_size_bytes -= entry->data_length;
+
+	//Remove from LRU
+	db_lru_delete_node(entry);
+
+	//Dont need the key any more, deleted
+	entry->deleted = true;
+
+	//Assertion check
+	if (entry->refs == 0){
+		DEBUG("[#] Entry can be immediately cleaned up\n");
+		db_entry_actually_delete(entry);
+	}
+}
+
+
 cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length){
 	uint32_t hash = hash_string(key, length);
 	khiter_t k = kh_get(entry, table->cache_hash_set, hash);
@@ -549,30 +575,6 @@ void db_entry_handle_delete(cache_entry* entry){
 	db_entry_handle_delete(entry, k);
 }
 
-void db_entry_handle_replace(cache_entry* entry, khiter_t k){
-	assert(!entry->deleted);
-
-	if (IS_SINGLE_FILE(entry)){
-		//Unlink
-		get_key_path(entry, filename_buffer);
-		unlink(filename_buffer);
-	}
-
-	//Counters
-	db.db_size_bytes -= entry->data_length;
-
-	//Remove from LRU
-	db_lru_delete_node(entry);
-
-	//Dont need the key any more, deleted
-	entry->deleted = true;
-
-	//Assertion check
-	if (entry->refs == 0){
-		DEBUG("[#] Entry can be immediately cleaned up\n");
-		db_entry_actually_delete(entry);
-	}
-}
 
 void db_entry_handle_delete(cache_entry* entry, khiter_t k){
 	assert(!entry->deleted);
