@@ -451,7 +451,7 @@ struct db_table* db_table_get_write(char* name, int length){
 	return table;
 }
 
-void db_entry_handle_replace(cache_entry* entry, khiter_t k){
+void db_entry_handle_softdelete(cache_entry* entry, khiter_t k){
 	assert(!entry->deleted);
 
 	if (IS_SINGLE_FILE(entry)){
@@ -495,7 +495,7 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 		}
 
 		//We might have clients reading this key
-		db_entry_handle_replace(entry, k);
+		db_entry_handle_softdelete(entry, k);
 	}
 	
 	entry = db_entry_new(table);
@@ -592,6 +592,16 @@ void db_table_handle_delete(db_table* table, khiter_t k){
 
 	//Remove reference holding table open
 	db_table_deref(table);
+
+	//Delete keys from table
+	for (khiter_t ke = kh_begin(h); ke != kh_end(table->cache_hash_set); ++ke){
+		if (kh_exist(table->cache_hash_set, ke)) {
+			cache_entry* ce = kh_val(table->cache_hash_set, ke);
+			if (!ce->deleted){
+				db_entry_handle_softdelete(ce, ke);
+			}
+		}
+	}
 
 	//If not fully de-refed remove now, not later
 	if (table->refs != 0){
