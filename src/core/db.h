@@ -72,6 +72,8 @@ void db_table_close(db_table* table);
 void db_target_close(struct cache_target* target);
 void db_target_setup(struct cache_target* target, struct cache_entry* entry, bool write);
 
+void db_table_handle_delete(db_table* table);
+
 #define IS_SINGLE_FILE(x) x->data_length>BLOCK_LENGTH
 
 #endif // !defined(DB_H_INCLUDED_1FA53FD2_BB5F_432E_9E57_761594DEBEC7)

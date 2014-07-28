@@ -327,14 +327,22 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 						connection_register_write(epfd, connection->client_sock);
 						return registered_write;
 					}
-					else{
-						//TODO: deref table?
+					else
+					{
 						return http_write_response(epfd, connection, HTTPTEMPLATE_FULL404);
 					}
 					
 				}
 				else if (REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
 
+					if (connection->target.table.table){
+						db_table_handle_delete(connection->target.table.table);
+						return http_write_response(epfd, connection, HTTPTEMPLATE_FULLHTTP200DELETED);
+					}
+					else
+					{
+						return http_write_response(epfd, connection, HTTPTEMPLATE_FULL404);
+					}
 				}
 			}
 		}
