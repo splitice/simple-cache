@@ -553,7 +553,8 @@ state_action http_handle_headers(int epfd, cache_connection* connection){
 
 	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_headers(epfd, connection, buffer, n, connection->state));
 
-	if (rbuf_write_remaining(&connection->input) == 0){
+	//make sure we dont 100% fill up
+	if (connection->handler == http_handle_headers && (&connection->input) == 0){
 		return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 	}
 	return ret;
