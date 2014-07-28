@@ -227,6 +227,7 @@ static inline state_action http_read_requeststarturl1(int epfd, cache_connection
 			//URL: table
 			connection->target.table.table = db_table_get_read(key, n - 1);
 
+			RBUF_READMOVE(connection->input, n + 1);
 			if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
 				connection->handler = http_handle_headers;
 				connection->state = 0;
@@ -439,16 +440,20 @@ static state_action http_read_header_extraction(int epfd, cache_connection* conn
 	return continue_processing;
 }
 
-static state_action http_read_eol(int epfd, cache_connection* connection, char* buffer, int n, int& temporary){
+static state_action http_read_eol(int epfd, cache_connection* connection, char* buffer, int n, uint32_t& temporary){
+	uint16_t target = temporary & 0x0000FFFF;
+	uint16_t current = (temporary >> 16);
 	if (*buffer == '\n')
 	{
-		temporary++;
+		current++;
+		temporary = target | (current << 16);
 	}
-	else if (*buffer != '\r')
+	else if (*buffer != '\r' && current != 0)
 	{
-		temporary = 0;
+		current = 0;
+		temporary = target | (current << 16);
 	}
-	if (temporary == connection->state){
+	if (target == current){
 		connection->state = 0;
 		connection->handler = http_respond_writeonly;
 		connection_register_write(epfd, connection->client_sock);
@@ -520,11 +525,11 @@ state_action http_handle_httpversion(int epfd, cache_connection* connection){
 
 state_action http_handle_eolwrite(int epfd, cache_connection* connection){
 	char* buffer;
-	int end, n, temporary = 0;
+	int end, n;
 	state_action ret = continue_processing;
 	DEBUG("[#%d] Handling HTTP EOL Search, then writing state\n", connection->client_sock);
 
-	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_eol(epfd, connection, buffer, n, temporary));
+	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_eol(epfd, connection, buffer, n, connection->state));
 	if (n != 0 && ret == needs_more){
 		RBUF_READMOVE(connection->input, n);
 	}
