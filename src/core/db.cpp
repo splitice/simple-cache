@@ -272,6 +272,12 @@ void db_entry_actually_delete(cache_entry* entry){
 void db_table_actually_delete(db_table* entry){
 	DEBUG("Cleaning table up reference due to refcount == 0\n");
 
+	//Remove table from database
+	khiter_t k = kh_get(table, db.tables, entry->hash);
+	if (k != kh_end(db.tables)){
+		kh_del(table, db.tables, k);
+	}
+
 	//Free key
 	free(entry->key);
 	free(entry);
@@ -299,7 +305,8 @@ void db_table_deref(db_table* entry){
 
 	//Actually clean up the entry
 	if (entry->refs == 0 && entry->deleted){
-		//TODO
+		//Remove table from hash set
+		db_table_actually_delete(entry);
 	}
 }
 
@@ -575,6 +582,29 @@ void db_entry_handle_delete(cache_entry* entry){
 	khiter_t k = kh_get(entry, entry->table->cache_hash_set, entry->hash);
 
 	db_entry_handle_delete(entry, k);
+}
+
+
+void db_table_handle_delete(db_table* table, khiter_t k){
+	//Set deleted
+	assert(!table->deleted);
+	table->deleted = true;
+
+	//Remove reference holding table open
+	db_table_deref(table);
+
+	//If not fully de-refed remove now, not later
+	if (table->refs != 0){
+		assert(k != kh_end(db.tables));
+		kh_del(table, db.tables, k);
+	}
+}
+
+
+void db_table_handle_delete(db_table* table){
+	khiter_t k = kh_get(table, db.tables, table->hash);
+
+	db_table_handle_delete(table, k);
 }
 
 
