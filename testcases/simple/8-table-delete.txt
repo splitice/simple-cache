@@ -1,0 +1,75 @@
+Desciption: PUT content, then delete table, test listing
+
+>>>>>
+PUT /new/k HTTP/1.1
+Connection: Keep-Alive
+Content-Length: 2
+
+12
+-----
+HTTP/1.1 200 OK
+Connection: Keep-Alive
+Content-Length: 4
+
+OK
+
+>>>>>
+GET /new/k HTTP/1.1
+Connection: Keep-Alive
+
+
+-----
+HTTP/1.1 200 OK
+Connection: Keep-Alive
+Content-Length: 2
+
+12
+>>>>>
+PUT /new/k HTTP/1.1
+Connection: Keep-Alive
+Content-Length: 2
+
+12
+-----
+HTTP/1.1 200 OK
+Connection: Keep-Alive
+Content-Length: 4
+
+OK
+
+>>>>>
+DELETE /new HTTP/1.1
+Connection: Keep-Alive
+
+
+-----
+HTTP/1.1 200 OK
+Connection: Keep-Alive
+Content-Length: 9
+
+DELETED
+>>>>>
+GET /new/a HTTP/1.1
+Connection: Keep-Alive
+
+
+-----
+HTTP/1.1 404 File Not Found
+Connection: Keep-Alive
+Content-Length: 15
+
+Key not Found
+
+>>>>>
+GET /new HTTP/1.1
+Connection: Keep-Alive
+
+
+-----
+HTTP/1.1 404 File Not Found
+Connection: Keep-Alive
+Content-Length: 15
+
+Key not Found
+
+
