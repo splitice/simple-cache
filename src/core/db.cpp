@@ -417,9 +417,10 @@ struct db_table* db_table_get_write(char* name, int length){
 	uint32_t hash = hash_string(name, length);
 
 	khiter_t k = kh_get(table, db.tables, hash);
+	db_table* table;
 
 	if (k == kh_end(db.tables)){
-		db_table* table = (db_table*)malloc(sizeof(db_table));
+		table = (db_table*)malloc(sizeof(db_table));
 		table->hash = hash;
 		table->key = name;
 		table->refs = 0;
@@ -429,17 +430,18 @@ struct db_table* db_table_get_write(char* name, int length){
 		int ret;
 		k = kh_put(table, db.tables, hash, &ret);
 		kh_value(db.tables, k) = table;
+		db_table_incref(table);
 		return table;
 	}
 
-	db_table* entry = kh_value(db.tables, k);
+	table = kh_value(db.tables, k);
 
 	free(name);
-	assert(entry != NULL);
+	assert(table != NULL);
 
-	db_table_incref(entry);
+	db_table_incref(table);
 
-	return entry;
+	return table;
 }
 
 void db_entry_handle_replace(cache_entry* entry, khiter_t k){
