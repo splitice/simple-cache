@@ -156,7 +156,7 @@ static const char http_templates[NUMBER_OF_HTTPTEMPLATE][100] = {
 	"\r\n\r\n",
 	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 14\r\nInvalid Method\r\n\r\n",
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\nContent-Length: 9\r\n\r\nDELETED\r\n",
-	"HTTP/1.1 200 OK\r\nConnection: Close\r\n"
+	"HTTP/1.1 200 OK\r\nConnection: Close\r\n\r\n"
 };
 
 int extern http_templates_length[NUMBER_OF_HTTPTEMPLATE];

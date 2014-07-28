@@ -107,6 +107,10 @@ state_action http_respond_listing_separator(int epfd, cache_connection* connecti
 	return continue_processing;
 }
 
+state_action http_respond_close_connection(int epfd, cache_connection* connection){
+	return close_connection;
+}
+
 state_action http_respond_listing(int epfd, cache_connection* connection){
 	DEBUG("[#%d] Sending listing response\n", connection->client_sock);
 
@@ -117,7 +121,6 @@ state_action http_respond_listing(int epfd, cache_connection* connection){
 	cache_entry* entry;
 	while ((entry = kh_val(connection->target.table.table->cache_hash_set, connection->state)) == NULL){
 		if (connection->state == 0){
-			http_cleanup(connection);
 			return close_connection;
 		}
 		connection->state--;
@@ -138,17 +141,12 @@ state_action http_respond_listing(int epfd, cache_connection* connection){
 		connection->handler = http_respond_listing_separator;
 
 		if (cleanup){
-			goto cleanup;
+			connection->handler = http_respond_close_connection;
 		}
 
 		return continue_processing;
 	}
 
-cleanup:
-	if (connection->state == 0){
-		http_cleanup(connection);
-//		connection->handler = http_handle_method;
-//		http_register_read(epfd, connection);
-		return close_connection;
-	}
+	return close_connection;
 }
+
