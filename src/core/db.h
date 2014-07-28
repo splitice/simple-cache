@@ -68,6 +68,7 @@ void db_entry_handle_delete(struct cache_entry* entry, khiter_t k);
 void db_entry_handle_delete(struct cache_entry* entry);
 
 /* Close entry, close fd, deref etc */
+void db_table_close(db_table* table);
 void db_target_close(struct cache_target* target);
 void db_target_setup(struct cache_target* target, struct cache_entry* entry, bool write);
 

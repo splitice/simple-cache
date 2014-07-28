@@ -311,8 +311,16 @@ void db_target_close(cache_target* target){
 	}
 	if (target->entry != NULL){
 		db_entry_deref(target->entry);
+
+		if (target->entry->table != NULL){
+			db_table_close(target->entry->table);
+		}
 	}
 	target->position = 0;
+}
+
+void db_table_close(db_table* table){
+	db_table_deref(table);
 }
 
 cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length){
@@ -398,6 +406,8 @@ struct db_table* db_table_get_read(char* name, int length){
 	free(name);
 	assert(entry != NULL);
 
+	db_table_incref(entry);
+
 	return entry;
 }
 struct db_table* db_table_get_write(char* name, int length){
@@ -424,6 +434,8 @@ struct db_table* db_table_get_write(char* name, int length){
 
 	free(name);
 	assert(entry != NULL);
+
+	db_table_incref(entry);
 
 	return entry;
 }

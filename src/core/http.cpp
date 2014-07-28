@@ -148,6 +148,13 @@ void http_cleanup(cache_connection* connection){
 			connection->target.key.entry = NULL;
 		}
 	}
+	else if(REQUEST_IS(connection->type, REQUEST_LEVELTABLE)){
+		db_table* table = connection->target.table.table;
+		if (table != NULL){
+			db_table_close(table);
+			connection->target.table.table = NULL;
+		}
+	}
 }
 
 /*
