@@ -215,7 +215,6 @@ static inline state_action http_read_requeststarturl1(int epfd, cache_connection
 				connection->state++;
 			}
 			else{
-				connection->state = 0;
 				return http_headers_response_after_eol(epfd, connection, HTTPTEMPLATE_FULL404);
 			}
 
