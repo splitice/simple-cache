@@ -23,3 +23,27 @@ HTTP/1.1 200 OK
 Connection: Close
 
 k
+1>>>>>
+PUT /new/a HTTP/1.1
+Connection: Keep-Alive
+Content-Length: 2
+
+12
+-----
+HTTP/1.1 200 OK
+Connection: Keep-Alive
+Content-Length: 4
+
+OK
+
+1>>>>>
+GET /new HTTP/1.1
+Connection: Keep-Alive
+
+
+-----
+HTTP/1.1 200 OK
+Connection: Close
+
+a
+k
