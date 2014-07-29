@@ -186,6 +186,7 @@ void db_init_folders(){
 					sprintf(file_buffer, "%s/%s", filename_buffer, next_file->d_name);
 					remove(file_buffer);
 				}
+				free(theFolder);
 			}
 		}
 	}
@@ -579,6 +580,7 @@ cache_entry* db_entry_get_delete(struct db_table* table, char* key, size_t lengt
 }
 
 void db_close(){
+	//tables and key space
 	for (khiter_t ke = kh_begin(h); ke != kh_end(db.tables); ++ke){
 		if (kh_exist(db.tables, ke)) {
 			db_table* t = kh_val(db.tables, ke);
@@ -587,6 +589,15 @@ void db_close(){
 			}
 		}
 	}
+
+	//blocks
+	block_free_node* bf = db.free_blocks;
+	while (bf != NULL){
+		block_free_node* bf2 = bf;
+		bf = bf->next;
+		free(bf2);
+	}
+	db.free_blocks = NULL;
 }
 
 void db_entry_handle_delete(cache_entry* entry){

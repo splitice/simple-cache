@@ -282,8 +282,11 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 }
 
 void connection_cleanup_http(cache_connection_node* connection, bool toFree = false){
-	http_cleanup(&connection->connection);
-	close(connection->connection.client_sock);
+	if (connection->connection.client_sock != -1){
+		http_cleanup(&connection->connection);
+		close(connection->connection.client_sock);
+		connection->connection.client_sock = -1;
+	}
 	if (connection->next != NULL){
 		connection_cleanup_http(connection->next, true);
 	}
