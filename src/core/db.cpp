@@ -316,16 +316,17 @@ void db_table_incref(db_table* entry){
 	entry->refs++;
 }
 
-void db_target_close(cache_target* target){
+void db_target_entry_close(cache_target* target){
 	if (target->fd != db.fd_blockfile){
 		close(target->fd);
 	}
 	if (target->entry != NULL){
-		db_entry_deref(target->entry);
-
 		if (target->entry->table != NULL){
 			db_table_close(target->entry->table);
 		}
+
+		db_entry_deref(target->entry);
+		target->entry = NULL;
 	}
 	target->position = 0;
 }

@@ -121,6 +121,7 @@ static bool http_key_lookup(cache_connection* connection, int n, int epfd){
 		return http_write_response_after_eol(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 	}
 	connection->type |= REQUEST_LEVELKEY;
+	connection->type &= ~REQUEST_LEVELTABLE;
 	connection->handler = http_handle_httpversion;
 
 	if (entry){
@@ -130,6 +131,7 @@ static bool http_key_lookup(cache_connection* connection, int n, int epfd){
 		}
 	}
 	else{
+		db_table_close(connection->target.table.table);
 		connection->target.key.entry = NULL;
 	}
 
@@ -198,6 +200,7 @@ static inline state_action http_read_requeststarturl1(int epfd, cache_connection
 		rbuf_copyn(&connection->input, key, n - 1);
 		*(key + (n - 1)) = 0;//Null terminate the key
 		DEBUG("[#%d] Request table: \"%s\" (%d)\n", connection->client_sock, key, n);
+		connection->type |= REQUEST_LEVELTABLE;
 
 		if (*buffer == '/'){
 			//Key command
@@ -489,6 +492,8 @@ state_action http_handle_method(int epfd, cache_connection* connection){
 	//Skip newlines at begining of request (bad clients)
 	skip_over_newlines(&connection->input);
 
+	connection->type = 0;
+
 	//Process request line
 	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_requeststartmethod(epfd, connection, buffer, n));
 	return ret;
@@ -598,9 +603,8 @@ state_action http_handle_request_body(int epfd, cache_connection* connection){
 			connection->target.key.entry->writing = false;
 			connection->writing = false;
 		}
-		db_target_close(&connection->target.key);
+		db_target_entry_close(&connection->target.key);
 		connection->target.key.entry = NULL;
-		connection->type = 0;
 
 		return http_write_response(epfd, connection, HTTPTEMPLATE_FULL200OK);
 	}

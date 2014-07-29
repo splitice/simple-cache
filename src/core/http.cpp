@@ -144,7 +144,7 @@ void http_cleanup(cache_connection* connection){
 			connection->writing = false;
 		}
 		if (connection->target.key.entry != NULL){
-			db_target_close(&connection->target.key);
+			db_target_entry_close(&connection->target.key);
 			connection->target.key.entry = NULL;
 		}
 	}
