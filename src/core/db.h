@@ -50,6 +50,7 @@ extern struct db_details db;
 
 /* Open a database (from path) */
 bool db_open(const char* path);
+void db_close();
 
 /* Lookup Table in Database */
 struct db_table* db_table_get_read(char* name, int length);
@@ -68,11 +69,11 @@ void db_entry_handle_delete(struct cache_entry* entry, khiter_t k);
 void db_entry_handle_delete(struct cache_entry* entry);
 
 /* Close entry, close fd, deref etc */
-void db_table_close(db_table* table);
+void db_table_close(struct db_table* table);
 void db_target_close(struct cache_target* target);
 void db_target_setup(struct cache_target* target, struct cache_entry* entry, bool write);
 
-void db_table_handle_delete(db_table* table);
+void db_table_handle_delete(struct db_table* table);
 
 #define IS_SINGLE_FILE(x) x->data_length>BLOCK_LENGTH
 

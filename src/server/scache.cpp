@@ -123,9 +123,14 @@ static __pid_t fork_off() {
 int main(int argc, char** argv)
 {
 	int pidfd;
-	timer_setup();
-	parse_arguments(argc, argv);
 
+	//Timer (Getting time)
+	timer_setup();
+
+	//Settings
+	settings_parse_arguments(argc, argv);
+
+	//PID file
 	__pid_t pid;
 	if (settings.daemon_mode) {
 		null_fd = open("/dev/null", O_RDONLY);
@@ -140,16 +145,21 @@ int main(int argc, char** argv)
 		pidfd = write_pid(settings.pidfile, pid);
 	}
 
+	//Setup
 	http_templates_init();
 	db_open(settings.db_file_path);
-	connection_open_listener();
+	connection_setup();
 	install_signal_handlers();
 
-	//HTTP handler
-	epoll_event_loop(http_connection_handler);
+	//Connection handling
+	connection_event_loop(http_connection_handler);
 
-	connection_close_listener();
+	//Cleanup
+	settings_cleanup();
+	db_close();
+	connection_cleanup();
 
+	//PID file cleanup
 	if (settings.pidfile){
 		close(pidfd);
 		unlink(settings.pidfile);

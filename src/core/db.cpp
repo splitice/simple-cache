@@ -578,6 +578,17 @@ cache_entry* db_entry_get_delete(struct db_table* table, char* key, size_t lengt
 	return entry;
 }
 
+void db_close(){
+	for (khiter_t ke = kh_begin(h); ke != kh_end(db.tables); ++ke){
+		if (kh_exist(db.tables, ke)) {
+			db_table* t = kh_val(db.tables, ke);
+			if (!t->deleted){
+				db_table_handle_delete(t);
+			}
+		}
+	}
+}
+
 void db_entry_handle_delete(cache_entry* entry){
 	khiter_t k = kh_get(entry, entry->table->cache_hash_set, entry->hash);
 

@@ -22,9 +22,9 @@
 #include "settings.h"
 
 /* Globals */
-int listenfd;
+int listenfd = -1;
 struct epoll_event ev;
-
+struct cache_connection_node ctable[CONNECTION_HASH_ENTRIES] = { 0 };
 
 //Misc
 int stop_soon = 0;
@@ -48,6 +48,13 @@ void connection_register_read(int epfd, int fd){
 	}
 }
 
+void connection_setup(){
+	for (int i = 0; i < CONNECTION_HASH_ENTRIES; i++){
+		ctable[i].connection.client_sock = -1;
+	}
+	connection_open_listener();
+}
+
 /*----------------------------------------------------------------------
 Portable function to set a socket into nonblocking mode.
 Calling this on a socket causes all future read() and write() calls on
@@ -57,7 +64,7 @@ If no data can be read or written, they return -1 and set errno
 to EAGAIN (or EWOULDBLOCK).
 Thanks to Bjorn Reese for this code.
 ----------------------------------------------------------------------*/
-int setNonblocking(int fd)
+int connection_non_blocking(int fd)
 {
 	int flags;
 
@@ -77,6 +84,7 @@ int setNonblocking(int fd)
 
 void connection_close_listener(){
 	close(listenfd);
+	listenfd = -1;
 }
 
 void connection_open_listener(){
@@ -104,10 +112,10 @@ void connection_open_listener(){
 		goto fail;
 	}
 	/* Force the network socket into nonblocking mode */
-	//res = setNonblocking(listenfd);
-	//if (res < 0){
-	//		goto fail;
-	//}
+	res = connection_non_blocking(listenfd);
+	if (res < 0){
+			goto fail;
+	}
 
 
 	res = listen(listenfd, 10);
@@ -188,7 +196,7 @@ static void connection_remove(int fd, cache_connection_node* ctable){
 }
 
 
-void epoll_event_loop(void (*connection_handler)(cache_connection* connection)){
+void connection_event_loop(void (*connection_handler)(cache_connection* connection)){
 	int epfd = epoll_create(MAXCLIENTS);
 
 	struct epoll_event events[5];
@@ -198,11 +206,6 @@ void epoll_event_loop(void (*connection_handler)(cache_connection* connection)){
 	int res = epoll_ctl(epfd, EPOLL_CTL_ADD, listenfd, &ev);
 	if (res != 0){
 		PFATAL("epoll_ctl() failed.");
-	}
-
-	struct cache_connection_node ctable[CONNECTION_HASH_ENTRIES] = { 0 };
-	for (int i = 0; i < CONNECTION_HASH_ENTRIES; i++){
-		ctable[i].connection.client_sock = -1;
 	}
 
 	while (!stop_soon) {
@@ -221,8 +224,8 @@ void epoll_event_loop(void (*connection_handler)(cache_connection* connection)){
 					else {
 						DEBUG("[#] Accepted connection %d\n", client_sock);
 
-						if (fcntl(client_sock, F_SETFL, O_NONBLOCK))
-							PFATAL("fcntl() to set O_NONBLOCK on API connection fails.");
+						if (connection_non_blocking(client_sock) < 0)
+							PFATAL("Setting connection to non blocking failed.");
 
 						ev.events = EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLRDHUP;
 						ev.data.fd = client_sock;
@@ -276,4 +279,25 @@ void epoll_event_loop(void (*connection_handler)(cache_connection* connection)){
 	}
 
 	close(epfd);
+}
+
+void connection_cleanup_http(cache_connection_node* connection, bool toFree = false){
+	http_cleanup(&connection->connection);
+	close(connection->connection.client_sock);
+	if (connection->next != NULL){
+		connection_cleanup_http(connection->next, true);
+	}
+	if (toFree){
+		free(connection);
+	}
+}
+
+void connection_cleanup(){
+	if (listenfd != -1){
+		connection_close_listener();
+	}
+
+	for (int i = 0; i < CONNECTION_HASH_ENTRIES; i++){
+		connection_cleanup_http(&ctable[i]);
+	}
 }

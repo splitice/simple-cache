@@ -15,4 +15,5 @@ struct scache_settings {
 	bool daemon_output;
 };
 extern struct scache_settings settings;
-void parse_arguments(int argc, char** argv);
+void settings_parse_arguments(int argc, char** argv);
+void settings_cleanup();

@@ -42,7 +42,14 @@ static void print_usage(){
 "Problems? You can reach the author at <admin@x4b.net>.\n");
 }
 
-void parse_arguments(int argc, char** argv){
+char* string_allocate(const char* s)
+{
+	char* c = (char*)malloc(strlen(s) + 1);
+	strcpy(c, s);
+	return c;
+}
+
+void settings_parse_arguments(int argc, char** argv){
 	static struct option long_options[] =
 	{
 		/* These options set a flag. */
@@ -57,7 +64,7 @@ void parse_arguments(int argc, char** argv){
 	};
 
 	//Defaults
-	settings.db_file_path = "/var/lib/scache/";
+	settings.db_file_path = NULL;
 	//By default bind to any IPv4
 	memset(settings.bind_addr, sizeof(settings.bind_addr), sizeof(char));//INADDR_ANY
 
@@ -108,4 +115,12 @@ void parse_arguments(int argc, char** argv){
 			exit(EXIT_FAILURE);
 		}
     }
+
+	if (settings.db_file_path == NULL){
+		settings.db_file_path = string_allocate("/var/lib/scache/");
+	}
+}
+
+void settings_cleanup(){
+	free(settings.db_file_path);
 }
