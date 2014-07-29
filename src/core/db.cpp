@@ -279,6 +279,9 @@ void db_table_actually_delete(db_table* entry){
 		kh_del(table, db.tables, k);
 	}
 
+	//Clear keyspace
+	kh_destroy(entry, entry->cache_hash_set);
+
 	//Free key
 	free(entry->key);
 	free(entry);
@@ -589,6 +592,7 @@ void db_close(){
 			}
 		}
 	}
+	kh_destroy(table, db.tables);
 
 	//blocks
 	block_free_node* bf = db.free_blocks;
