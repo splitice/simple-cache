@@ -156,8 +156,8 @@ int main(int argc, char** argv)
 
 	//Cleanup
 	settings_cleanup();
-	db_close();
 	connection_cleanup();
+	db_close();
 
 	//PID file cleanup
 	if (settings.pidfile){

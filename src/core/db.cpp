@@ -279,9 +279,6 @@ void db_table_actually_delete(db_table* entry){
 		kh_del(table, db.tables, k);
 	}
 
-	//Clear keyspace
-	kh_destroy(entry, entry->cache_hash_set);
-
 	//Free key
 	free(entry->key);
 	free(entry);
@@ -584,12 +581,19 @@ cache_entry* db_entry_get_delete(struct db_table* table, char* key, size_t lengt
 
 void db_close(){
 	//tables and key space
-	for (khiter_t ke = kh_begin(h); ke != kh_end(db.tables); ++ke){
+	for (khiter_t ke = kh_begin(db.tables); ke != kh_end(db.tables); ++ke){
 		if (kh_exist(db.tables, ke)) {
 			db_table* t = kh_val(db.tables, ke);
-			if (!t->deleted){
-				db_table_handle_delete(t);
-			}
+
+			//All other refernces should have been de-refed before db_close is called
+			//and hence anything pending deletion will have been cleaned up already
+			assert(!t->deleted);
+
+			//Check reference count (should be 1)
+			assert(t->refs == 1);
+
+			//Actually delete
+			db_table_handle_delete(t);
 		}
 	}
 	kh_destroy(table, db.tables);
@@ -616,11 +620,8 @@ void db_table_handle_delete(db_table* table, khiter_t k){
 	assert(!table->deleted);
 	table->deleted = true;
 
-	//Remove reference holding table open
-	db_table_deref(table);
-
 	//Delete keys from table
-	for (khiter_t ke = kh_begin(h); ke != kh_end(table->cache_hash_set); ++ke){
+	for (khiter_t ke = kh_begin(table->cache_hash_set); ke != kh_end(table->cache_hash_set); ++ke){
 		if (kh_exist(table->cache_hash_set, ke)) {
 			cache_entry* ce = kh_val(table->cache_hash_set, ke);
 			if (!ce->deleted){
@@ -628,12 +629,16 @@ void db_table_handle_delete(db_table* table, khiter_t k){
 			}
 		}
 	}
+	kh_destroy(entry, table->cache_hash_set);
 
 	//If not fully de-refed remove now, not later
 	if (table->refs != 0){
 		assert(k != kh_end(db.tables));
 		kh_del(table, db.tables, k);
 	}
+
+	//Remove reference holding table open
+	db_table_deref(table);
 }
 
 

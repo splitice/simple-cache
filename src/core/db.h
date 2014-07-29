@@ -50,6 +50,9 @@ extern struct db_details db;
 
 /* Open a database (from path) */
 bool db_open(const char* path);
+
+/* Close the dabase, cleaning up all memory allocations */
+/* Only call after all other references (connections etc) are cleaned up */
 void db_close();
 
 /* Lookup Table in Database */
