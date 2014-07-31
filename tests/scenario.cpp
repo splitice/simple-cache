@@ -73,6 +73,8 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 			request += line;
 			break;
 		case 2:
+
+			printf("TravisCI (%d): %s\n", read, line);
 			if (read == UNIT_SEPERATOR_LEN){
 				if (strncmp(line, UNIT_REQUEST, 5) == 0){
 					fseek(f, last_pos, SEEK_SET);
@@ -93,7 +95,6 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 							free(line);
 							return true;
 						}
-						printf("TravisCI (test): %s\n", buf);
 						if (strncmp(buf, UNIT_DELAY, 5) == 0){
 							*buf = 0;
 							printf("Sleeping for %s seconds\n", line);
