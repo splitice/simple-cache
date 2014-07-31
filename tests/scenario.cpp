@@ -31,6 +31,7 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 	long last_pos = -1;
 	connection = 0;
 	while ((read = getline(&line, &len, f)) != -1) {
+		int expect_len = UNIT_SEPERATOR_LEN;
 		if (read >= 2){
 			if (line[read - 2] == '\r'){
 				line[read - 2] = '\n';
@@ -38,9 +39,12 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 				read--;
 			}
 		}
+		if (read >= 1 && line[read - 1] != '\n'){
+			expect_len--;
+		}
 		switch (state){
 		case 0:
-			if (read == UNIT_SEPERATOR_LEN){
+			if (read == expect_len){
 				if (strncmp(line, UNIT_REQUEST, 5) == 0){
 					state++;
 				}
@@ -48,11 +52,11 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 			else{
 				char* buf = line;
 				int remlen = read;
-				while (remlen >= UNIT_SEPERATOR_LEN && isdigit(*buf)){
+				while (remlen >= expect_len && isdigit(*buf)){
 					remlen--;
 					buf++;
 
-					if (remlen == UNIT_SEPERATOR_LEN){
+					if (remlen == expect_len){
 						if (strncmp(buf, UNIT_REQUEST, 5) == 0){
 							*buf = 0;
 							connection = atoi(line);
@@ -73,9 +77,8 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 			request += line;
 			break;
 		case 2:
-
-			printf("TravisCI (%d): %s\n", read, line);
-			if (read == UNIT_SEPERATOR_LEN){
+			//printf("TravisCI (%d): %s\n", read, line);
+			if (read == expect_len){
 				if (strncmp(line, UNIT_REQUEST, 5) == 0){
 					fseek(f, last_pos, SEEK_SET);
 					free(line);
@@ -85,11 +88,11 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 			else{
 				char* buf = line;
 				int remlen = read;
-				while (remlen >= UNIT_SEPERATOR_LEN && isdigit(*buf)){
+				while (remlen >= expect_len && isdigit(*buf)){
 					remlen--;
 					buf++;
 
-					if (remlen == UNIT_SEPERATOR_LEN){
+					if (remlen == expect_len){
 						if (strncmp(buf, UNIT_REQUEST, 5) == 0){
 							fseek(f, last_pos, SEEK_SET);
 							free(line);
