@@ -368,6 +368,10 @@ cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length)
 		return NULL;
 	}
 
+	if (entry->expires != 0){
+		DEBUG("[#] Key has ttl: %d (%d from now)\n", entry->expires, entry->expires - current_time.tv_sec);
+	}
+
 	if (entry->expires != 0 && entry->expires < current_time.tv_sec){
 		DEBUG("[#] Key expired\n");
 		free(key);
