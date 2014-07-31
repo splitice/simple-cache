@@ -425,7 +425,7 @@ static state_action http_read_header_extraction(int epfd, cache_connection* conn
 				DEBUG("[#%d] X-Ttl of %d found\n", connection->client_sock, ttl);
 
 				if (ttl != 0){
-					connection->target.key.entry->expires = ttl + current_time.tv_sec;
+					connection->target.key.entry->expires = ttl + time_seconds;
 				}
 			}
 

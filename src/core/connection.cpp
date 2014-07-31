@@ -27,7 +27,7 @@ struct epoll_event ev;
 struct cache_connection_node ctable[CONNECTION_HASH_ENTRIES] = { 0 };
 
 //Misc
-int stop_soon = 0;
+volatile sig_atomic_t stop_soon = 0;
 
 /* Methods */
 void connection_register_write(int epfd, int fd){

@@ -52,7 +52,7 @@ int write_pid(char* pidFile, __pid_t pid){
 }
 
 /* Handler for Ctrl-C and related signals */
-int extern stop_soon;
+volatile extern sig_atomic_t stop_soon;
 static void abort_handler(int sig) {
 	if (stop_soon) exit(1);
 	stop_soon = 1;

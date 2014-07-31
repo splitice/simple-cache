@@ -2,16 +2,19 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/time.h>
+#include <atomic>
 #include "debug.h"
 
-struct timeval current_time;
+volatile std::atomic<time_t> time_seconds;
 
 static void timer_store_current_time()
 {
+	timeval current_time;
 	int err = gettimeofday(&current_time, NULL);
 	if (err == -1){
 		PFATAL("Failed to get system time");
 	}
+	time_seconds = current_time.tv_sec;
 }
 
 static void timer_handler(int signum)
