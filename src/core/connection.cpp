@@ -209,7 +209,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 	}
 
 	while (!stop_soon) {
-		int nfds = epoll_wait(epfd, events, 5, -1);
+		int nfds = epoll_wait(epfd, events, 5, 500);
 		int n = 0;
 		while (n < nfds) {
 			int fd = events[n].data.fd;
