@@ -1,7 +1,7 @@
 Desciption: Try to GET and DELETE non existing entries
 
 >>>>>
-PUT /t/k HTTP/1.1
+PUT /e/k HTTP/1.1
 Connection: Keep-Alive
 Content-Length: 2
 X-Ttl: 1
@@ -15,7 +15,7 @@ Content-Length: 4
 OK
 
 >>>>>
-GET /t/a HTTP/1.1
+GET /e/k HTTP/1.1
 Connection: Keep-Alive
 
 
