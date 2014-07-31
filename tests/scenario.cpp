@@ -93,6 +93,7 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 							free(line);
 							return true;
 						}
+						printf("TravisCI (test): %s\n", buf);
 						if (strncmp(buf, UNIT_DELAY, 5) == 0){
 							*buf = 0;
 							printf("Sleeping for %s seconds\n", line);
@@ -103,8 +104,8 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 
 				}
 			}
+			last_pos = ftell(f);
 			if (line){
-				last_pos = ftell(f);
 				expect += line;
 			}
 			break;
