@@ -113,7 +113,7 @@ void db_block_free(uint32_t block){
 }
 
 void db_entry_actually_delete(cache_entry* entry){
-	DEBUG("Cleaning key up reference due to refcount == 0\n");
+	DEBUG("[#] Cleaning key up reference due to refcount == 0\n");
 	//If is a block, can now free it
 	if (!IS_SINGLE_FILE(entry)){
 		db_block_free(entry->block);
@@ -125,7 +125,7 @@ void db_entry_actually_delete(cache_entry* entry){
 }
 
 void db_table_actually_delete(db_table* entry){
-	DEBUG("Cleaning table up reference due to refcount == 0\n");
+	DEBUG("[#] Cleaning table up reference due to refcount == 0\n");
 
 	//Remove table from database
 	khiter_t k = kh_get(table, db.tables, entry->hash);
@@ -139,7 +139,7 @@ void db_table_actually_delete(db_table* entry){
 }
 
 void db_entry_deref(cache_entry* entry){
-	DEBUG("Decrementing refcount - was: %d\n", entry->refs);
+	DEBUG("[#] Decrementing refcount - was: %d\n", entry->refs);
 	entry->refs--;
 
 	//Actually clean up the entry
@@ -149,7 +149,7 @@ void db_entry_deref(cache_entry* entry){
 }
 
 void db_entry_incref(cache_entry* entry){
-	DEBUG("Incrementing entry refcount - was: %d\n", entry->refs);
+	DEBUG("[#] Incrementing entry refcount - was: %d\n", entry->refs);
 	entry->refs++;
 }
 
@@ -321,7 +321,7 @@ void db_target_setup(struct cache_target* target, struct cache_entry* entry, boo
 }
 
 void db_table_deref(db_table* entry){
-	DEBUG("Decrementing table refcount - was: %d\n", entry->refs);
+	DEBUG("[#] Decrementing table refcount - was: %d\n", entry->refs);
 	assert(entry->refs > 0);
 	entry->refs--;
 
@@ -333,7 +333,7 @@ void db_table_deref(db_table* entry){
 }
 
 void db_table_incref(db_table* entry){
-	DEBUG("Incrementing refcount - was: %d\n", entry->refs);
+	DEBUG("[#] Incrementing refcount - was: %d\n", entry->refs);
 	entry->refs++;
 }
 
