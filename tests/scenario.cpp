@@ -95,6 +95,7 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 						}
 						if (strncmp(buf, UNIT_DELAY, 5) == 0){
 							*buf = 0;
+							printf("Sleeping for %s seconds\n", line);
 							sleep(atoi(line));
 							line = NULL;
 						}
