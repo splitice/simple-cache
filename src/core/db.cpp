@@ -375,7 +375,9 @@ cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length)
 	if (entry->expires != 0 && entry->expires < time_seconds){
 		DEBUG("[#] Key expired\n");
 		free(key);
+		db_entry_incref(entry);
 		db_entry_handle_delete(entry);
+		db_entry_deref(entry);
 		return NULL;
 	}
 
