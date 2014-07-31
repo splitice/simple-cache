@@ -1,0 +1,29 @@
+Desciption: Try to GET and DELETE non existing entries
+
+>>>>>
+PUT /t/k HTTP/1.1
+Connection: Keep-Alive
+Content-Length: 2
+X-Ttl: 1
+
+12
+-----
+HTTP/1.1 200 OK
+Connection: Keep-Alive
+Content-Length: 4
+
+OK
+
+>>>>>
+GET /t/a HTTP/1.1
+Connection: Keep-Alive
+
+
+-----
+HTTP/1.1 404 File Not Found
+Connection: Keep-Alive
+Content-Length: 15
+
+Key not Found
+
+2*****

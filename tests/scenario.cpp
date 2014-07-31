@@ -20,6 +20,7 @@
 
 #define UNIT_REQUEST ">>>>>"
 #define UNIT_RESPONSE "-----"
+#define UNIT_DELAY "*****"
 #define UNIT_SEPERATOR_LEN 6
 
 bool extract_unit(FILE* f, std::string& request, std::string& expect, int& connection){
@@ -92,11 +93,19 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 							free(line);
 							return true;
 						}
+						if (strncmp(buf, UNIT_DELAY, 5) == 0){
+							*buf = 0;
+							sleep(atoi(line));
+							line = NULL;
+						}
 					}
+
 				}
 			}
-			last_pos = ftell(f);
-			expect += line;
+			if (line){
+				last_pos = ftell(f);
+				expect += line;
+			}
 			break;
 		}
 	}
