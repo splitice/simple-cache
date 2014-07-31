@@ -101,18 +101,83 @@ void db_lru_insert(cache_entry* entry){
 	entry->lru_prev = NULL;
 	entry->lru_next = db.lru_tail;
 	db.lru_tail = entry;
+	if (db.lru_head == NULL){
+		db.lru_head = entry;
+	}
+}
+
+void db_block_free(uint32_t block){
+	block_free_node* old = db.free_blocks;
+	db.free_blocks = (block_free_node*)malloc(sizeof(block_free_node));
+	db.free_blocks->block_number = block;
+	db.free_blocks->next = old;
+}
+
+void db_entry_actually_delete(cache_entry* entry){
+	DEBUG("Cleaning key up reference due to refcount == 0\n");
+	//If is a block, can now free it
+	if (!IS_SINGLE_FILE(entry)){
+		db_block_free(entry->block);
+	}
+
+	//Free key
+	free(entry->key);
+	free(entry);
+}
+
+void db_table_actually_delete(db_table* entry){
+	DEBUG("Cleaning table up reference due to refcount == 0\n");
+
+	//Remove table from database
+	khiter_t k = kh_get(table, db.tables, entry->hash);
+	if (k != kh_end(db.tables)){
+		kh_del(table, db.tables, k);
+	}
+
+	//Free key
+	free(entry->key);
+	free(entry);
+}
+
+void db_entry_deref(cache_entry* entry){
+	DEBUG("Decrementing refcount - was: %d\n", entry->refs);
+	entry->refs--;
+
+	//Actually clean up the entry
+	if (entry->refs == 0 && entry->deleted){
+		db_entry_actually_delete(entry);
+	}
+}
+
+void db_entry_incref(cache_entry* entry){
+	DEBUG("Incrementing entry refcount - was: %d\n", entry->refs);
+	entry->refs++;
 }
 
 void db_lru_cleanup(int bytes_to_remove){
 	while (bytes_to_remove > 0 && db.lru_head != NULL){
 		cache_entry* l = db.lru_head;
-		db.lru_head = db.lru_head->lru_next;
-		db.lru_head->lru_prev = NULL;
+
+		//Skip if currently deleting
+		if (l->deleted) continue;
+
+		db.lru_head = l->lru_next;
 
 		bytes_to_remove -= l->data_length;
 
-		db_entry_handle_delete(l);
+		if (l->refs == 0){
+			db_entry_incref(l);
+			db_entry_handle_delete(l);
+			db_entry_deref(l);
+		}
+		else{
+			db_entry_handle_delete(l);
+		}
 	}
+
+	//Update the head's prev pointer
+	if (db.lru_head != NULL)
+		db.lru_head->lru_prev = NULL;
 
 	//null the tail as well
 	if (db.lru_head == NULL){
@@ -122,17 +187,10 @@ void db_lru_cleanup(int bytes_to_remove){
 
 void db_lru_gc(){
 	if (settings.max_size > 0 && settings.max_size < db.db_size_bytes){
-		int bytes_to_remove = (db.db_size_bytes - settings.max_size) + (settings.max_size * settings.db_lru_clear);
+		double bytes_to_remove = (((double)db.db_size_bytes / settings.max_size) - 1.) * db.db_keys;
 		
-        db_lru_cleanup(bytes_to_remove);
+        db_lru_cleanup((int)bytes_to_remove);
     }
-}
-
-void db_block_free(uint32_t block){
-	block_free_node* old = db.free_blocks;
-	db.free_blocks = (block_free_node*)malloc(sizeof(block_free_node));
-	db.free_blocks->block_number = block;
-	db.free_blocks->next = old;
 }
 
 int db_block_allocate_new(){
@@ -256,47 +314,6 @@ void db_target_setup(struct cache_target* target, struct cache_entry* entry, boo
 	if (!write){
 		db_target_open(target);
 	}
-}
-
-void db_entry_actually_delete(cache_entry* entry){
-	DEBUG("Cleaning key up reference due to refcount == 0\n");
-	//If is a block, can now free it
-	if (!IS_SINGLE_FILE(entry)){
-		db_block_free(entry->block);
-	}
-
-	//Free key
-	free(entry->key);
-	free(entry);
-}
-
-void db_table_actually_delete(db_table* entry){
-	DEBUG("Cleaning table up reference due to refcount == 0\n");
-
-	//Remove table from database
-	khiter_t k = kh_get(table, db.tables, entry->hash);
-	if (k != kh_end(db.tables)){
-		kh_del(table, db.tables, k);
-	}
-
-	//Free key
-	free(entry->key);
-	free(entry);
-}
-
-void db_entry_deref(cache_entry* entry){
-	DEBUG("Decrementing refcount - was: %d\n", entry->refs);
-	entry->refs--;
-
-	//Actually clean up the entry
-	if (entry->refs == 0 && entry->deleted){
-		db_entry_actually_delete(entry);
-	}
-}
-
-void db_entry_incref(cache_entry* entry){
-	DEBUG("Incrementing entry refcount - was: %d\n", entry->refs);
-	entry->refs++;
 }
 
 void db_table_deref(db_table* entry){
@@ -499,6 +516,9 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 		//We might have clients reading this key
 		db_entry_handle_softdelete(entry, k);
 	}
+	else{
+		db.db_keys++;
+	}
 	
 	entry = db_entry_new(table);
 
@@ -661,6 +681,7 @@ void db_entry_handle_delete(cache_entry* entry, khiter_t k){
 
 	//Counters
 	db.db_size_bytes -= entry->data_length;
+	db.db_keys--;
 
 	//Remove from LRU
 	db_lru_delete_node(entry);

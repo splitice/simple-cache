@@ -6,13 +6,15 @@
 
 struct cache_target {
 	struct cache_entry* entry;
-	int position;
-	int end_position;
+	uint32_t position;
+	uint32_t end_position;
 	int fd;
 };
 
 struct table_target {
 	struct db_table* table;
+	uint32_t start;
+	uint32_t limit;
 };
 
 union utarget {

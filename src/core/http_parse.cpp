@@ -228,6 +228,8 @@ static inline state_action http_read_requeststarturl1(int epfd, cache_connection
 			//Table command
 			//URL: table
 			connection->target.table.table = db_table_get_read(key, n - 1);
+			connection->target.table.start = 0;
+			connection->target.table.limit = DEFAULT_LISTING_LIMIT;
 
 			RBUF_READMOVE(connection->input, n + 1);
 			if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
@@ -313,14 +315,11 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 					}
 				}
 				else{
-					/*connection->output_buffer = http_templates[HTTPTEMPLATE_FULL404];
-					connection->output_length = http_templates_length[HTTPTEMPLATE_FULL404];
-					return needs_more;*/
 					return http_write_response(epfd, connection, HTTPTEMPLATE_FULL404);
 				}
 			}
 			else{
-				//Not implemented: Table level
+				//Table level
 				if (REQUEST_IS(connection->type, REQUEST_HTTPGET)){
 					if (connection->target.table.table){
 						connection->state = 1000;

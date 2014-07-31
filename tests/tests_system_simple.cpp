@@ -11,6 +11,7 @@ static const char * test_simple_put_get() {
 
 	result |= !run_scenarios(binary_path, "simple", testcases_path, port ? port : 8001, port == 0, "");
 	result |= !run_scenarios(binary_path, "multiple-connections", testcases_path, port ? port : 8001, port == 0, "");
+	result |= !run_scenarios(binary_path, "lru", testcases_path, port ? port : 8002, port == 0, "--database-max-size 5000");
 
 	return result ? "System Tests failed" : 0;
 }
