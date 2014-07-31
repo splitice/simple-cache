@@ -15,6 +15,7 @@ static void timer_store_current_time()
 		PFATAL("Failed to get system time");
 	}
 	time_seconds = current_time.tv_sec;
+	DEBUG("[#] Time is now %d\n", current_time.tv_sec);
 }
 
 static void timer_handler(int signum)
@@ -30,7 +31,7 @@ void timer_setup()
 	/* Store current time */
 	timer_store_current_time();
 
-	/* Install timer_handler as the signal handler for SIGVTALRM. */
+	/* Install timer_handler as the signal handler for SIGALRM. */
 	memset(&sa, 0, sizeof (sa));
 	sa.sa_handler = &timer_handler;
 	sigaction(SIGALRM, &sa, NULL);
