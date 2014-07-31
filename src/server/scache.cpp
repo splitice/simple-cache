@@ -124,9 +124,6 @@ int main(int argc, char** argv)
 {
 	int pidfd;
 
-	//Timer (Getting time)
-	timer_setup();
-
 	//Settings
 	settings_parse_arguments(argc, argv);
 
@@ -144,6 +141,9 @@ int main(int argc, char** argv)
 	if (settings.pidfile){
 		pidfd = write_pid(settings.pidfile, pid);
 	}
+
+	//Timer (Getting time)
+	timer_setup();
 
 	//Setup
 	http_templates_init();
