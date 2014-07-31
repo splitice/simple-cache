@@ -14,9 +14,9 @@ LRU
  Least Recently Used <------------------------> Most Recently Used
 
 -------------------------------------------------------------------
-| Entry #0    | Entry #2     |      | Entry #10    | Entry #11    |
-| next: NULL  | next: #0     |  ... | next: #9     | next: NULL   |
-| prev: #1    | prev: #2     |      | prev: #11    | prev: #10    |
+| Entry #0    | Entry #1     |      | Entry #10    | Entry #11    |
+| next: #1    | next: #0     |  ... | next: #9     | next: NULL   |
+| prev: NULL  | prev: #2     |      | prev: #11    | prev: #10    |
 -------------------------------------------------------------------
 
         Head <-----------------------------------------> Tail
@@ -64,7 +64,7 @@ void db_lru_remove_node(cache_entry* entry){
 	}
 	else{
 		//This node is the tail
-		db.lru_tail = entry->lru_next;
+		db.lru_head = entry->lru_next;
 	}
 
 	if (entry->lru_next != NULL){
@@ -72,38 +72,37 @@ void db_lru_remove_node(cache_entry* entry){
 	}
 	else{
 		//Is head
-		db.lru_head = entry->lru_prev;
+		db.lru_tail = entry->lru_prev;
 	}
+	entry->lru_next = NULL;
+	entry->lru_prev = NULL;
 }
 
-void db_lru_delete_node(cache_entry* entry){
-	db_lru_remove_node(entry);
-	if (entry == db.lru_head){
-		db.lru_head = entry->lru_prev;
-	}
-	if (entry == db.lru_tail){
-		db.lru_tail = entry->lru_next;
-	}
-}
-
-void db_lru_hit(cache_entry* entry){
-	//Remove from current position
-	db_lru_remove_node(entry);
-
-	//Re-insert @ tail
-	entry->lru_prev = NULL;	
-	entry->lru_next = db.lru_tail;
-	db.lru_tail = entry;
-}
 
 void db_lru_insert(cache_entry* entry){
 	//insert @ tail
-	entry->lru_prev = NULL;
-	entry->lru_next = db.lru_tail;
+	entry->lru_prev = db.lru_tail;
+	if (db.lru_tail != NULL){
+		db.lru_tail->lru_next = entry;
+	}
+	entry->lru_next = NULL;
 	db.lru_tail = entry;
 	if (db.lru_head == NULL){
 		db.lru_head = entry;
 	}
+}
+
+void db_lru_hit(cache_entry* entry){
+	//Check if has already been removed
+	if (entry->lru_next == NULL && entry->lru_prev == NULL){
+		return;
+	}
+
+	//Remove from current position
+	db_lru_remove_node(entry);
+
+	//Re-insert @ tail
+	db_lru_insert(entry);
 }
 
 void db_block_free(uint32_t block){
@@ -159,9 +158,7 @@ void db_lru_cleanup(int bytes_to_remove){
 		cache_entry* l = db.lru_head;
 
 		//Skip if currently deleting
-		if (l->deleted) continue;
-
-		db.lru_head = l->lru_next;
+		assert(!l->deleted);
 
 		bytes_to_remove -= l->data_length;
 
@@ -176,13 +173,13 @@ void db_lru_cleanup(int bytes_to_remove){
 	}
 
 	//Update the head's prev pointer
-	if (db.lru_head != NULL)
+	/*if (db.lru_head != NULL){
 		db.lru_head->lru_prev = NULL;
-
-	//null the tail as well
-	if (db.lru_head == NULL){
-		db.lru_tail = NULL;
 	}
+	else
+	{
+		db.lru_tail = NULL;
+	}*/
 }
 
 void db_lru_gc(){
@@ -248,6 +245,13 @@ void db_init_folders(){
 			}
 		}
 	}
+}
+
+void db_complete_writing(cache_entry* entry){
+	entry->writing = false;
+
+	//LRU: insert
+	db_lru_insert(entry);
 }
 
 uint32_t hash_string(const char* str, int length){
@@ -417,6 +421,7 @@ cache_entry* db_entry_new(db_table* table){
 	entry->deleted = false;
 	entry->expires = 0;
 	entry->table = table;
+	entry->lru_next = NULL;
 	return entry;
 }
 
@@ -483,7 +488,7 @@ void db_entry_handle_softdelete(cache_entry* entry, khiter_t k){
 	db.db_size_bytes -= entry->data_length;
 
 	//Remove from LRU
-	db_lru_delete_node(entry);
+	db_lru_remove_node(entry);
 
 	//Dont need the key any more, deleted
 	entry->deleted = true;
@@ -499,12 +504,12 @@ void db_entry_handle_softdelete(cache_entry* entry, khiter_t k){
 cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length){
 	uint32_t hash = hash_string(key, length);
 	khiter_t k = kh_get(entry, table->cache_hash_set, hash);
-
 	cache_entry* entry = k == kh_end(table->cache_hash_set) ? NULL : kh_value(table->cache_hash_set, k);
 
 	//Stats
 	db.db_stats_inserts++;
 	db.db_stats_operations++;
+
 
 	//This is a re-used entry
 	if (entry != NULL){
@@ -513,15 +518,17 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 			return NULL;
 		}
 
+		//Remove entry in LRU
+		db_lru_remove_node(entry);
+
 		//We might have clients reading this key
 		db_entry_handle_softdelete(entry, k);
 	}
 	else{
 		db.db_keys++;
 	}
-	
-	entry = db_entry_new(table);
 
+	entry = db_entry_new(table);
 	entry->block = db_block_get_write();
 	entry->data_length = 0;
 
@@ -537,8 +544,6 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	k = kh_put(entry, table->cache_hash_set, hash, &ret);
 	kh_value(table->cache_hash_set, k) = entry;
 
-	//LRU: insert
-	db_lru_insert(entry);
 
 	entry->key = key;
 	entry->key_length = length;
@@ -604,17 +609,17 @@ void db_close(){
 	//tables and key space
 	for (khiter_t ke = kh_begin(db.tables); ke != kh_end(db.tables); ++ke){
 		if (kh_exist(db.tables, ke)) {
-			db_table* t = kh_val(db.tables, ke);
+			db_table* table = kh_val(db.tables, ke);
 
 			//All other refernces should have been de-refed before db_close is called
 			//and hence anything pending deletion will have been cleaned up already
-			assert(!t->deleted);
+			assert(!table->deleted);
 
 			//Check reference count (should be 1)
-			assert(t->refs == 1);
+			assert(table->refs == 1);
 
 			//Actually delete
-			db_table_handle_delete(t);
+			db_table_handle_delete(table);
 		}
 	}
 	kh_destroy(table, db.tables);
@@ -635,6 +640,19 @@ void db_entry_handle_delete(cache_entry* entry){
 	db_entry_handle_delete(entry, k);
 }
 
+void db_delete_table_entry(db_table* table, khiter_t k){
+	kh_destroy(entry, table->cache_hash_set);
+
+	//If not fully de-refed remove now, not later
+	if (table->refs != 0){
+		assert(k != kh_end(db.tables));
+		kh_del(table, db.tables, k);
+	}
+
+	//Remove reference holding table open
+	db_table_deref(table);
+}
+
 
 void db_table_handle_delete(db_table* table, khiter_t k){
 	//Set deleted
@@ -650,16 +668,8 @@ void db_table_handle_delete(db_table* table, khiter_t k){
 			}
 		}
 	}
-	kh_destroy(entry, table->cache_hash_set);
-
-	//If not fully de-refed remove now, not later
-	if (table->refs != 0){
-		assert(k != kh_end(db.tables));
-		kh_del(table, db.tables, k);
-	}
-
-	//Remove reference holding table open
-	db_table_deref(table);
+	
+	db_delete_table_entry(table, k);
 }
 
 
@@ -684,7 +694,7 @@ void db_entry_handle_delete(cache_entry* entry, khiter_t k){
 	db.db_keys--;
 
 	//Remove from LRU
-	db_lru_delete_node(entry);
+	db_lru_remove_node(entry);
 
 	//Remove from hash table
 	kh_del(entry, entry->table->cache_hash_set, k);
@@ -697,7 +707,10 @@ void db_entry_handle_delete(cache_entry* entry, khiter_t k){
 
 	//If table entry, cleanup table
 	if (kh_size(entry->table->cache_hash_set) == 0){
-		db_table_deref(entry->table);
+		assert(!entry->table->deleted);
+		entry->table->deleted = true;
+		k = kh_get(table, db.tables, entry->table->hash);
+		db_delete_table_entry(entry->table, k);
 	}
 }
 

@@ -599,7 +599,7 @@ state_action http_handle_request_body(int epfd, cache_connection* connection){
 	if (connection->target.key.end_position == connection->target.key.position){
 		//Decrease refs, done with writing
 		if (connection->writing){
-			connection->target.key.entry->writing = false;
+			db_complete_writing(connection->target.key.entry);
 			connection->writing = false;
 		}
 		db_target_entry_close(&connection->target.key);

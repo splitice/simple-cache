@@ -66,6 +66,7 @@ struct cache_entry* db_entry_get_delete(struct db_table* table, char* key, size_
 
 /* Prepare for write */
 void db_target_write_allocate(struct cache_target* target, uint32_t data_length);
+void db_complete_writing(cache_entry* entry);
 
 /* Delete an entry (request) */
 void db_entry_handle_delete(struct cache_entry* entry, khiter_t k);
