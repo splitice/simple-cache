@@ -3,12 +3,12 @@
 #include "read_buffer.h"
 #include "debug.h"
 
-void rb_debug_check(struct read_buffer* buffer){
+void rbuf_debug_check(struct read_buffer* buffer){
 	assert(RBUF_READLENPTR(buffer) <= BUFFER_SIZE);
 }
 
 int rbuf_copyn(struct read_buffer* buffer, char* dest, int n) {
-	rb_debug_check(buffer);
+	rbuf_debug_check(buffer);
 	assert(n <= BUFFER_SIZE);
 	int to_end = rbuf_read_to_end(buffer);
 
@@ -49,7 +49,7 @@ int rbuf_copyn(struct read_buffer* buffer, char* dest, int n) {
 }
 
 int rbuf_cmpn(struct read_buffer* buffer, const char* with, int n) {
-	rb_debug_check(buffer);
+	rbuf_debug_check(buffer);
 	assert(n <= BUFFER_SIZE);
 	int to_end = rbuf_read_to_end(buffer);
 
@@ -93,7 +93,7 @@ int rbuf_cmpn(struct read_buffer* buffer, const char* with, int n) {
 
 bool rbuf_strntol(struct read_buffer* buffer, int* output, int max)
 {
-	rb_debug_check(buffer);
+	rbuf_debug_check(buffer);
 	int result = 0;
 	int n = rbuf_read_to_end(buffer);
 	if (max != -1 && max < n){
@@ -140,7 +140,7 @@ bool rbuf_strntol(struct read_buffer* buffer, int* output, int max)
 }
 
 int rbuf_read_remaining(struct read_buffer* buffer) {
-	rb_debug_check(buffer);
+	rbuf_debug_check(buffer);
 	return RBUF_READLENPTR(buffer);
 }
 void rb_debug_check_write(struct read_buffer* buffer, uint16_t to){
@@ -149,11 +149,11 @@ void rb_debug_check_write(struct read_buffer* buffer, uint16_t to){
 	struct read_buffer rb;
 	rb.read_position = buffer->read_position;
 	rb.write_position = buffer->write_position + to;
-	rb_debug_check(&rb);
+	rbuf_debug_check(&rb);
 #endif
 }
 int rbuf_read_to_end(struct read_buffer* buffer) {
-	rb_debug_check(buffer);
+	rbuf_debug_check(buffer);
 
 	uint16_t to_end = (buffer->read_position & (BUFFER_SIZE - 1));
 	if (to_end <= (buffer->write_position & (BUFFER_SIZE - 1))){
@@ -164,11 +164,11 @@ int rbuf_read_to_end(struct read_buffer* buffer) {
 	}
 }
 int rbuf_write_remaining(struct read_buffer* buffer) {
-	rb_debug_check(buffer);
+	rbuf_debug_check(buffer);
 	return RBUF_WRITELENPTR(buffer);
 }
 uint16_t rbuf_write_to_end(struct read_buffer* buffer) {
-	rb_debug_check(buffer);
+	rbuf_debug_check(buffer);
 	uint16_t to_end = (buffer->write_position & (BUFFER_SIZE - 1));
 	uint16_t read_pos = (buffer->read_position & (BUFFER_SIZE - 1));
 	if (to_end <= read_pos && buffer->read_position != buffer->write_position){
@@ -188,20 +188,20 @@ void rbuf_init(struct read_buffer* buf){
 #endif
 }
 
-void rb_debug_read_check(struct read_buffer* buffer, int by){
+void rbuf_debug_read_check(struct read_buffer* buffer, int by){
 	assert(buffer->write_remaining <= BUFFER_SIZE);
 	assert(by >= 0);
 #ifdef DEBUG_BUILD
 	buffer->write_remaining -= by;
 	assert(buffer->write_remaining >= 0);
-	rb_debug_check(buffer);
+	rbuf_debug_check(buffer);
 #endif
 }
 
-void rb_debug_write_incr(struct read_buffer* buffer, int by){
+void rbuf_debug_write_incr(struct read_buffer* buffer, int by){
 	assert(by >= 0);
 #ifdef DEBUG_BUILD
 	buffer->write_remaining += by;
-	rb_debug_check(buffer);
+	rbuf_debug_check(buffer);
 #endif
 }

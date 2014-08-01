@@ -41,10 +41,10 @@ static void skip_over_newlines(struct read_buffer* rb){
 			return;
 		}
 #ifdef DEBUG_BUILD
-		rb_debug_read_check(rb, 1);
+		rbuf_debug_read_check(rb, 1);
 #endif
 		rb->read_position++;
-		rb_debug_check(rb);
+		rbuf_debug_check(rb);
 		buffer++;
 	}
 
@@ -55,10 +55,10 @@ static void skip_over_newlines(struct read_buffer* rb){
 			return;
 		}
 #ifdef DEBUG_BUILD
-		rb_debug_read_check(rb, 1);
+		rbuf_debug_read_check(rb, 1);
 #endif
 		rb->read_position++;
-		rb_debug_check(rb);
+		rbuf_debug_check(rb);
 		buffer++;
 	}
 }
