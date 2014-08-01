@@ -184,7 +184,7 @@ void db_lru_cleanup(int bytes_to_remove){
 
 void db_lru_gc(){
 	if (settings.max_size > 0 && settings.max_size < db.db_size_bytes){
-		double bytes_to_remove = (((double)db.db_size_bytes / settings.max_size) - 1.) * db.db_keys;
+		double bytes_to_remove = (((double)db.db_size_bytes / settings.max_size) - (1. - settings.db_lru_clear)) * db.db_keys;
 		
         db_lru_cleanup((int)bytes_to_remove);
     }
