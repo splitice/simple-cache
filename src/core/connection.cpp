@@ -35,7 +35,7 @@ void connection_register_write(int epfd, int fd){
 	ev.data.fd = fd;
 	int res = epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev);
 	if (res != 0){
-		PFATAL("epoll_ctl() failed.");
+		PFATAL("epoll_ctl() failed on fd: %d.", fd);
 	}
 }
 
@@ -44,7 +44,7 @@ void connection_register_read(int epfd, int fd){
 	ev.data.fd = fd;
 	int res = epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev);
 	if (res != 0){
-		PFATAL("epoll_ctl() failed.");
+		PFATAL("epoll_ctl() failed on fd: %d.", fd);
 	}
 }
 
