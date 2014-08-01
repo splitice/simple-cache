@@ -2,10 +2,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/time.h>
-#include <atomic>
 #include "debug.h"
 
-volatile std::atomic<time_t> time_seconds;
+volatile time_t time_seconds;
 
 static void timer_store_current_time()
 {
