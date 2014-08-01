@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include "debug.h"
 #include "settings.h"
 
 struct scache_settings settings {
@@ -65,8 +66,9 @@ void settings_parse_arguments(int argc, char** argv){
 
 	//Defaults
 	settings.db_file_path = NULL;
+	settings.bind_af = AF_INET;
 	//By default bind to any IPv4
-	memset(settings.bind_addr, sizeof(settings.bind_addr), sizeof(char));//INADDR_ANY
+	memset(settings.bind_addr, htonl(INADDR_ANY), sizeof(uint32_t));//INADDR_ANY
 
 	int r = 0, option_index = 0;
 	while ((r = getopt_long(argc, argv, "46dom:s:r:l:b:p:", long_options, &option_index)) != -1) {
@@ -98,7 +100,9 @@ void settings_parse_arguments(int argc, char** argv){
 			settings.db_file_path = optarg;
 			break;
 		case 'b':
-			inet_pton(settings.bind_af, optarg, settings.bind_addr);
+			if (inet_pton(settings.bind_af, optarg, settings.bind_addr) < 0){
+				PFATAL("Error parsing bind address");
+			}
 			break;
 		case 'l':
 			settings.db_lru_clear = atof(optarg)/100;

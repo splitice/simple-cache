@@ -105,7 +105,7 @@ void connection_open_listener(){
 	//bind1
 	memset(&servaddr, 0, sizeof(servaddr));
 	servaddr.sin_family = settings.bind_af;
-	servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	memcpy(&servaddr.sin_addr.s_addr, &settings.bind_addr, sizeof(servaddr.sin_addr.s_addr));
 	servaddr.sin_port = htons(settings.bind_port);
 	res = bind(listenfd, (struct sockaddr *) &servaddr, sizeof(servaddr));
 	if (res < 0){
