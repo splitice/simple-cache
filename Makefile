@@ -8,3 +8,8 @@ server: core
 
 core:
 	cd src/core && make
+
+install: core server
+	cp src/server/Release/scache /usr/local/bin/scache
+	chmod +x /usr/local/bin/scache
+	echo "Installed to /usr/local/bin/scache";
