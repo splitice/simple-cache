@@ -14,7 +14,7 @@ static void timer_store_current_time()
 		PFATAL("Failed to get system time");
 	}
 	time_seconds = current_time.tv_sec;
-	DEBUG("[#] Time is now %d\n", current_time.tv_sec);
+	//DEBUG("[#] Time is now %d\n", current_time.tv_sec);
 }
 
 static void timer_handler(int signum)
