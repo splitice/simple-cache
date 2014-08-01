@@ -137,10 +137,10 @@ void http_cleanup(cache_connection* connection){
 	if (REQUEST_IS(connection->type, REQUEST_LEVELKEY)){
 		if (connection->writing){
 			cache_entry* entry = connection->target.key.entry;
-			entry->writing = false;
 			if (!entry->deleted){
 				db_entry_handle_delete(entry);
 			}
+			entry->writing = false;
 			connection->writing = false;
 		}
 		if (connection->target.key.entry != NULL){

@@ -120,10 +120,14 @@ void db_lru_remove_node(cache_entry* entry){
 
 void db_lru_insert(cache_entry* entry){
 	assert(entry->lru_removed);
+	assert(entry != db.lru_tail);
+	assert(entry->lru_next == NULL);
+	assert(entry->lru_prev == NULL);
+
 	//insert @ tail
-	entry->lru_next = db.lru_tail;
+	entry->lru_prev = db.lru_tail;
 	if (db.lru_tail != NULL){
-		assert(db.lru_tail->lru_prev == NULL);
+		assert(db.lru_tail->lru_next == NULL);
 		db.lru_tail->lru_next = entry;
 	}
 	entry->lru_next = NULL;
@@ -213,15 +217,6 @@ void db_lru_cleanup(int bytes_to_remove){
 			db_entry_handle_delete(l);
 		}
 	}
-
-	//Update the head's prev pointer
-	/*if (db.lru_head != NULL){
-		db.lru_head->lru_prev = NULL;
-	}
-	else
-	{
-		db.lru_tail = NULL;
-	}*/
 }
 
 void db_lru_gc(){
@@ -290,12 +285,8 @@ void db_init_folders(){
 }
 
 void db_complete_writing(cache_entry* entry){
+	assert(entry->writing);
 	entry->writing = false;
-
-	//Store into hash table
-	int ret;
-	khiter_t k = kh_put(entry, entry->table->cache_hash_set, entry->hash, &ret);
-	kh_value(entry->table->cache_hash_set, k) = entry;
 
 	//LRU: insert
 	db_lru_insert(entry);
@@ -476,6 +467,7 @@ cache_entry* db_entry_new(db_table* table){
 	entry->expires = 0;
 	entry->table = table;
 	entry->lru_next = NULL;
+	entry->lru_prev = NULL;
 
 #ifdef DEBUG_BUILD
 	entry->lru_found = false;
@@ -543,6 +535,8 @@ void db_entry_handle_softdelete(cache_entry* entry, khiter_t k){
 		unlink(filename_buffer);
 	}
 
+	//Dont need the key any more, deleted
+	entry->deleted = true;
 	kh_del(entry, entry->table->cache_hash_set, k);
 
 	//Counters
@@ -550,9 +544,6 @@ void db_entry_handle_softdelete(cache_entry* entry, khiter_t k){
 
 	//Remove from LRU
 	db_lru_remove_node(entry);
-
-	//Dont need the key any more, deleted
-	entry->deleted = true;
 
 	//Assertion check
 	if (entry->refs == 0){
@@ -594,6 +585,8 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 
 	//Store entry
 	int ret;
+	k = kh_put(entry, entry->table->cache_hash_set, entry->hash, &ret);
+	kh_value(entry->table->cache_hash_set, k) = entry;
 
 	//Take a reference if this is the first entry (released when size == 0)
 	if (kh_size(table->cache_hash_set) == 0){
@@ -749,14 +742,16 @@ void db_entry_handle_delete(cache_entry* entry, khiter_t k){
 	db.db_size_bytes -= entry->data_length;
 	db.db_keys--;
 
-	//Remove from LRU
-	db_lru_remove_node(entry);
-
 	//Remove from hash table
 	kh_del(entry, entry->table->cache_hash_set, k);
 
 	//Dont need the key any more, deleted
 	entry->deleted = true;
+
+	if (!entry->writing){
+		//Remove from LRU
+		db_lru_remove_node(entry);
+	}
 
 	//Assertion check
 	assert(entry->refs != 0);
