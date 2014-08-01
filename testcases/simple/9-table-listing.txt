@@ -47,3 +47,63 @@ Connection: Close
 
 k
 a
+2>>>>>
+GET /new HTTP/1.1
+Connection: Keep-Alive
+X-Limit: 3
+
+
+-----
+HTTP/1.1 200 OK
+Connection: Close
+
+k
+a
+3>>>>>
+GET /new HTTP/1.1
+Connection: Keep-Alive
+X-Limit: 2
+
+
+-----
+HTTP/1.1 200 OK
+Connection: Close
+
+k
+a
+4>>>>>
+GET /new HTTP/1.1
+Connection: Keep-Alive
+X-Limit: 1
+
+
+-----
+HTTP/1.1 200 OK
+Connection: Close
+
+k
+5>>>>>
+GET /new HTTP/1.1
+Connection: Keep-Alive
+X-Start: 0
+X-Limit: 2
+
+
+-----
+HTTP/1.1 200 OK
+Connection: Close
+
+k
+6>>>>>
+GET /new HTTP/1.1
+Connection: Keep-Alive
+X-Start: 1
+X-Limit: 1
+
+
+-----
+HTTP/1.1 200 OK
+Connection: Close
+
+a
+a
