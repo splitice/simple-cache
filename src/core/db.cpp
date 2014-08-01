@@ -582,6 +582,9 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	entry = db_entry_new(table);
 	entry->block = db_block_get_write();
 	entry->data_length = 0;
+	entry->key = key;
+	entry->key_length = length;
+	entry->hash = hash;
 
 	//Store entry
 	int ret;
@@ -592,11 +595,6 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	if (kh_size(table->cache_hash_set) == 0){
 		db_table_incref(table);
 	}
-
-
-	entry->key = key;
-	entry->key_length = length;
-	entry->hash = hash;
 
 	//Refs
 	db_entry_incref(entry);

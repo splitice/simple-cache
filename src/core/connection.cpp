@@ -160,8 +160,6 @@ static cache_connection* connection_get(int fd, cache_connection_node* ctable){
 		}
 	}
 
-	assert(node->connection.client_sock > STDERR_FILENO);
-
 	return &node->connection;
 }
 
