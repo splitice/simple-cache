@@ -184,6 +184,23 @@ void db_table_actually_delete(db_table* entry){
 	free(entry);
 }
 
+void db_table_deref(db_table* entry){
+	DEBUG("[#] Decrementing table refcount - was: %d\n", entry->refs);
+	assert(entry->refs > 0);
+	entry->refs--;
+
+	//Actually clean up the entry
+	if (entry->refs == 0 && entry->deleted){
+		//Remove table from hash set
+		db_table_actually_delete(entry);
+	}
+}
+
+void db_table_incref(db_table* entry){
+	DEBUG("[#] Incrementing refcount - was: %d\n", entry->refs);
+	entry->refs++;
+}
+
 void db_entry_deref(cache_entry* entry){
 	DEBUG("[#] Decrementing refcount - was: %d\n", entry->refs);
 	entry->refs--;
@@ -192,11 +209,13 @@ void db_entry_deref(cache_entry* entry){
 	if (entry->refs == 0 && entry->deleted){
 		db_entry_actually_delete(entry);
 	}
+	db_table_deref(entry->table);
 }
 
 void db_entry_incref(cache_entry* entry){
 	DEBUG("[#] Incrementing entry refcount - was: %d\n", entry->refs);
 	entry->refs++;
+	db_table_incref(entry->table);
 }
 
 void db_lru_cleanup(int bytes_to_remove){
@@ -358,30 +377,10 @@ void db_target_setup(struct cache_target* target, struct cache_entry* entry, boo
 	}
 }
 
-void db_table_deref(db_table* entry){
-	DEBUG("[#] Decrementing table refcount - was: %d\n", entry->refs);
-	assert(entry->refs > 0);
-	entry->refs--;
-
-	//Actually clean up the entry
-	if (entry->refs == 0 && entry->deleted){
-		//Remove table from hash set
-		db_table_actually_delete(entry);
-	}
-}
-
-void db_table_incref(db_table* entry){
-	DEBUG("[#] Incrementing refcount - was: %d\n", entry->refs);
-	entry->refs++;
-}
-
 void db_target_entry_close(cache_target* target){
 	if (target->entry != NULL){
 		if (target->fd != db.fd_blockfile){
 			close(target->fd);
-		}
-		if (target->entry->table != NULL){
-			db_table_close(target->entry->table);
 		}
 
 		db_entry_deref(target->entry);
@@ -760,6 +759,7 @@ void db_entry_handle_delete(cache_entry* entry, khiter_t k){
 		entry->table->deleted = true;
 		k = kh_get(table, db.tables, entry->table->hash);
 		db_delete_table_entry(entry->table, k);
+		entry->table = NULL;
 	}
 }
 
