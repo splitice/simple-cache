@@ -160,10 +160,12 @@ static cache_connection* connection_get(int fd, cache_connection_node* ctable){
 		}
 	}
 
+	assert(node->connection.client_sock > STDERR_FILENO);
+
 	return &node->connection;
 }
 
-static void connection_remove(int fd, cache_connection_node* ctable){
+static void connection_remove(int epfd, int fd, cache_connection_node* ctable){
 	cache_connection_node* prev = NULL;
 	cache_connection_node* node = &ctable[CONNECTION_HASH_KEY(fd)];
 	while (node->connection.client_sock != fd){
@@ -183,7 +185,7 @@ static void connection_remove(int fd, cache_connection_node* ctable){
 	else{
 		if (node->next){
 			//Has nodes after it
-			memcpy(&node->next->connection, &node->connection, sizeof(cache_connection));
+			memcpy(&node->connection, &node->next->connection, sizeof(cache_connection));
 			prev = node->next;
 			node->next = prev->next;
 			free(prev);
@@ -192,6 +194,12 @@ static void connection_remove(int fd, cache_connection_node* ctable){
 			//Is a single entry in table
 			node->connection.client_sock = -1;
 		}
+	}
+
+	ev.data.fd = fd;
+	int res = epoll_ctl(epfd, EPOLL_CTL_DEL, fd, &ev);
+	if (res != 0){
+		PFATAL("epoll_ctl() failed.");
 	}
 }
 
@@ -264,8 +272,10 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 
 
 					if (close_connection){
+						DEBUG("[#%d] Closing connection\n", fd);
 						http_cleanup(connection);
-						connection_remove(fd, ctable);
+						connection_remove(epfd, fd, ctable);
+						assert(connection_get(fd, ctable) == NULL);
 						close(fd);
 					}
 				}

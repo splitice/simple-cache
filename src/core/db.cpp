@@ -338,10 +338,10 @@ void db_table_incref(db_table* entry){
 }
 
 void db_target_entry_close(cache_target* target){
-	if (target->fd != db.fd_blockfile){
-		close(target->fd);
-	}
 	if (target->entry != NULL){
+		if (target->fd != db.fd_blockfile){
+			close(target->fd);
+		}
 		if (target->entry->table != NULL){
 			db_table_close(target->entry->table);
 		}
