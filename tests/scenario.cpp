@@ -338,7 +338,16 @@ bool execute_file(const char* filename, int port){
 		trim_last_nl(&request);
 		trim_last_nl(&expect);
 
+		//Lookup connection
 		if (connections.find(connection) == connections.end()){
+			connections[connection] = unit_connect(port);
+		}
+
+		//Reconnect if disconnected
+		int error = 0;
+		socklen_t len = sizeof (error);
+		int retval = getsockopt(connections[connection], SOL_SOCKET, SO_ERROR, &error, &len);
+		if (retval != 0){
 			connections[connection] = unit_connect(port);
 		}
 
