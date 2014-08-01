@@ -275,7 +275,7 @@ bool db_open(const char* path){
 	db_init_folders();
 
 	//Block file
-	snprintf(db.path_blockfile, MAX_PATH, "%s/block.db", path);
+	snprintf(db.path_blockfile, MAX_PATH, "%s/blockfile.db", path);
 	db.fd_blockfile = open(db.path_blockfile, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 	if (db.fd_blockfile < 0){
 		PFATAL("Failed to open blockfile: %s", db.path_blockfile);

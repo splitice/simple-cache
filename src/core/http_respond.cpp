@@ -114,21 +114,21 @@ state_action http_respond_close_connection(int epfd, cache_connection* connectio
 state_action http_respond_listing(int epfd, cache_connection* connection){
 	DEBUG("[#%d] Sending listing response\n", connection->client_sock);
 
-	if (connection->state > kh_end(connection->target.table.table->cache_hash_set)){
-		connection->state = kh_end(connection->target.table.table->cache_hash_set);
+	if (connection->target.table.limit > kh_end(connection->target.table.table->cache_hash_set)){
+		connection->target.table.limit = kh_end(connection->target.table.table->cache_hash_set);
 	}
 
 	cache_entry* entry;
-	while ((entry = kh_val(connection->target.table.table->cache_hash_set, connection->state)) == NULL){
+	while ((entry = kh_val(connection->target.table.table->cache_hash_set, connection->target.table.limit)) == NULL){
 		if (connection->state == 0){
 			return close_connection;
 		}
-		connection->state--;
+		connection->target.table.limit--;
 	}
 
 	bool cleanup = false;
-	if (connection->state){
-		connection->state--;
+	if (connection->target.table.limit){
+		connection->target.table.limit--;
 	}
 	else{
 		cleanup = true;

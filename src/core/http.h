@@ -37,7 +37,7 @@
 #define REQUEST_GETTABLE (REQUEST_HTTPGET | REQUEST_LEVELTABLE)
 
 /* Helpers */
-#define REQUEST_IS(type, mask) ((type & mask) == mask)
+#define REQUEST_IS(type, mask) ((type & (mask)) == (mask))
 
 /* ===[ HTTP TEMPLATES ]=== */
 #define NUMBER_OF_HTTPTEMPLATE 8
@@ -66,6 +66,8 @@ int extern http_templates_length[NUMBER_OF_HTTPTEMPLATE];
 /* Parsable headers */
 #define HEADER_CONTENTLENGTH 1
 #define HEADER_XTTL 2
+#define HEADER_XLIMIT 3
+#define HEADER_XSTART 4
 
 /* Methods */
 state_action http_read_handle(int epfd, cache_connection* connection);

@@ -262,9 +262,10 @@ static state_action http_read_requeststarturl2(int epfd, cache_connection* conne
 
 static state_action http_read_headers(int epfd, cache_connection* connection, char* buffer, int n, uint32_t& temporary){
 	if (*buffer == ':'){
-		if (REQUEST_IS(connection->type, REQUEST_HTTPPUT)){
-			int bytes = buffer - RBUF_READ(connection->input);
-			DEBUG("[#%d] Found header of length %d\n", connection->client_sock, bytes);
+		int bytes = buffer - RBUF_READ(connection->input);
+		DEBUG("[#%d] Found header of length %d\n", connection->client_sock, bytes);
+
+		if (REQUEST_IS(connection->type, REQUEST_HTTPPUT | REQUEST_LEVELKEY)){
 			if (bytes == 14 && rbuf_cmpn(&connection->input, "Content-Length", 14) == 0){
 				DEBUG("[#%d] Found Content-Length header\n", connection->client_sock);
 				RBUF_READMOVE(connection->input, bytes + 1);
@@ -276,6 +277,22 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 				DEBUG("[#%d] Found X-Ttl header\n", connection->client_sock);
 				RBUF_READMOVE(connection->input, bytes + 1);
 				connection->state = HEADER_XTTL;
+				connection->handler = http_handle_headers_extract;
+				return needs_more;
+			}
+		}
+		else if (REQUEST_IS(connection->type, REQUEST_HTTPGET | REQUEST_LEVELTABLE)){
+			if (bytes == 7 && rbuf_cmpn(&connection->input, "X-Start", 7) == 0){
+				DEBUG("[#%d] Found X-Start header\n", connection->client_sock);
+				RBUF_READMOVE(connection->input, bytes + 1);
+				connection->state = HEADER_XSTART;
+				connection->handler = http_handle_headers_extract;
+				return needs_more;
+			}
+			if (bytes == 7 && rbuf_cmpn(&connection->input, "X-Limit", 7) == 0){
+				DEBUG("[#%d] Found X-Limit header\n", connection->client_sock);
+				RBUF_READMOVE(connection->input, bytes + 1);
+				connection->state = HEADER_XLIMIT;
 				connection->handler = http_handle_headers_extract;
 				return needs_more;
 			}
@@ -322,7 +339,6 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 				//Table level
 				if (REQUEST_IS(connection->type, REQUEST_HTTPGET)){
 					if (connection->target.table.table){
-						connection->state = 1000;
 						connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200_CONCLOSE];
 						connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200_CONCLOSE];
 						connection->handler = http_respond_listing;
@@ -378,43 +394,10 @@ static state_action http_read_header_extraction(int epfd, cache_connection* conn
 
 		switch (connection->state){
 		case HEADER_CONTENTLENGTH:
-			int content_length;
-			if (!rbuf_strntol(&connection->input, &content_length, length)){
-				WARN("Invalid Content-Length value provided");
-
-				//This is an INVALID request
-				RBUF_READMOVE(connection->input, length + temporary);
-				return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
-			}
-
-			//Else: We are writing, initalize fd now
-			DEBUG("[#%d] Content-Length of %d found\n", connection->client_sock, content_length);
-
-			if (connection->target.key.entry != NULL){
-				db_target_write_allocate(&connection->target.key, content_length);
-
-				if (IS_SINGLE_FILE(connection->target.key.entry)){
-					connection->target.key.end_position = connection->target.key.entry->data_length;
-				}
-				else{
-					connection->target.key.end_position = connection->target.key.position + connection->target.key.entry->data_length;
-				}
-			}
-			else{
-				connection->target.key.position = 0;
-				connection->target.key.end_position = content_length;
-			}
-
-			connection->state = 1;
-			connection->handler = http_handle_headers;
-			RBUF_READMOVE(connection->input, length + temporary);
-			return needs_more;
-
-		case HEADER_XTTL:
-			if (connection->target.key.entry != NULL){
-				int ttl;
-				if (!rbuf_strntol(&connection->input, &ttl, length)){
-					WARN("Invalid X-Ttl value provided");
+			if (REQUEST_IS(connection->type, REQUEST_HTTPPUT | REQUEST_LEVELKEY)){
+				int content_length;
+				if (!rbuf_strntol(&connection->input, &content_length, length)){
+					WARN("Invalid Content-Length value provided");
 
 					//This is an INVALID request
 					RBUF_READMOVE(connection->input, length + temporary);
@@ -422,18 +405,94 @@ static state_action http_read_header_extraction(int epfd, cache_connection* conn
 				}
 
 				//Else: We are writing, initalize fd now
-				DEBUG("[#%d] X-Ttl of %d found\n", connection->client_sock, ttl);
+				DEBUG("[#%d] Content-Length of %d found\n", connection->client_sock, content_length);
 
-				if (ttl != 0){
-					connection->target.key.entry->expires = ttl + time_seconds;
+				if (connection->target.key.entry != NULL){
+					db_target_write_allocate(&connection->target.key, content_length);
+
+					if (IS_SINGLE_FILE(connection->target.key.entry)){
+						connection->target.key.end_position = connection->target.key.entry->data_length;
+					}
+					else{
+						connection->target.key.end_position = connection->target.key.position + connection->target.key.entry->data_length;
+					}
+				}
+				else{
+					connection->target.key.position = 0;
+					connection->target.key.end_position = content_length;
+				}
+			}
+			break;
+
+		case HEADER_XTTL:
+			if (REQUEST_IS(connection->type, REQUEST_HTTPPUT | REQUEST_LEVELKEY)){
+				if (connection->target.key.entry != NULL){
+					int ttl;
+					if (!rbuf_strntol(&connection->input, &ttl, length)){
+						WARN("Invalid X-Ttl value provided");
+
+						//This is an INVALID request
+						RBUF_READMOVE(connection->input, length + temporary);
+						return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+					}
+
+					//Else: We are writing, initalize fd now
+					DEBUG("[#%d] X-Ttl of %d found\n", connection->client_sock, ttl);
+
+					if (ttl != 0){
+						connection->target.key.entry->expires = ttl + time_seconds;
+					}
 				}
 			}
 
-			connection->state = 1;
-			connection->handler = http_handle_headers;
-			RBUF_READMOVE(connection->input, length + temporary);
-			return needs_more;
+			break;
+
+		case HEADER_XLIMIT:
+			if (REQUEST_IS(connection->type, REQUEST_HTTPGET | REQUEST_LEVELTABLE)){
+				int limit;
+				if (!rbuf_strntol(&connection->input, &limit, length)){
+					WARN("Invalid X-Limit value provided");
+
+					//This is an INVALID request
+					RBUF_READMOVE(connection->input, length + temporary);
+					return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+				}
+
+				//Else: We are writing, initalize fd now
+				DEBUG("[#%d] X-Limit of %d found\n", connection->client_sock, limit);
+
+				if (limit >= 0){
+					connection->target.table.limit = limit;
+				}
+			}
+			break;
+
+		case HEADER_XSTART:
+			if (REQUEST_IS(connection->type, REQUEST_HTTPGET | REQUEST_LEVELTABLE)){
+				int start;
+				if (!rbuf_strntol(&connection->input, &start, length)){
+					WARN("Invalid X-Start value provided");
+
+					//This is an INVALID request
+					RBUF_READMOVE(connection->input, length + temporary);
+					return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+				}
+
+				//Else: We are writing, initalize fd now
+				DEBUG("[#%d] X-Start of %d found\n", connection->client_sock, start);
+
+				if (start >= 0){
+					connection->target.table.start = start;
+				}
+			}
+			break;
 		}
+
+
+		connection->state = 1;
+		connection->handler = http_handle_headers;
+		RBUF_READMOVE(connection->input, length + temporary);
+		return needs_more;
 	}
 	else{
 		temporary = 1;
