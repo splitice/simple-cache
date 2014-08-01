@@ -15,8 +15,8 @@ LRU
 
 -------------------------------------------------------------------
 | Entry #0    | Entry #1     |      | Entry #10    | Entry #11    |
-| next: #1    | next: #0     |  ... | next: #9     | next: NULL   |
-| prev: NULL  | prev: #2     |      | prev: #11    | prev: #10    |
+| next: #1    | next: #2     |  ... | next: #11    | next: NULL   |
+| prev: NULL  | prev: #0     |      | prev: #9     | prev: #10    |
 -------------------------------------------------------------------
 
         Head <-----------------------------------------> Tail
@@ -58,7 +58,45 @@ struct db_details db {
 //Buffers
 char filename_buffer[MAX_PATH];
 
+#ifdef DEBUG_BUILD
+void db_validate_lru_flags(){
+	for (khiter_t k = kh_begin(db.tables); k != kh_end(db.tables); ++k){
+		if (kh_exist(db.tables, k)) {
+			db_table* table = kh_val(db.tables, k);
+			for (khiter_t ke = kh_begin(table->cache_hash_set); ke != kh_end(table->cache_hash_set); ++ke){
+				if (kh_exist(table->cache_hash_set, ke)) {
+					cache_entry* entry = kh_val(table->cache_hash_set, ke);
+					assert(entry->lru_found);
+					entry->lru_found = false;
+				}
+			}
+		}
+	}
+}
+#endif
+
+void db_validate_lru(){
+#ifdef DEBUG_BUILD
+	cache_entry* entry = db.lru_head;
+	while (entry != NULL){
+		assert(!entry->lru_found);
+		entry->lru_found = true;
+		entry = entry->lru_next;
+	}
+	db_validate_lru_flags();
+
+	entry = db.lru_tail;
+	while (entry != NULL){
+		assert(!entry->lru_found);
+		entry->lru_found = true;
+		entry = entry->lru_prev;
+	}
+	db_validate_lru_flags();
+#endif
+}
+
 void db_lru_remove_node(cache_entry* entry){
+	assert(!entry->lru_removed);
 	if (entry->lru_prev != NULL){
 		entry->lru_prev->lru_next = entry->lru_next;
 	}
@@ -76,13 +114,16 @@ void db_lru_remove_node(cache_entry* entry){
 	}
 	entry->lru_next = NULL;
 	entry->lru_prev = NULL;
+	entry->lru_removed = true;
 }
 
 
 void db_lru_insert(cache_entry* entry){
+	assert(entry->lru_removed);
 	//insert @ tail
-	entry->lru_prev = db.lru_tail;
+	entry->lru_next = db.lru_tail;
 	if (db.lru_tail != NULL){
+		assert(db.lru_tail->lru_prev == NULL);
 		db.lru_tail->lru_next = entry;
 	}
 	entry->lru_next = NULL;
@@ -90,19 +131,20 @@ void db_lru_insert(cache_entry* entry){
 	if (db.lru_head == NULL){
 		db.lru_head = entry;
 	}
+
+	entry->lru_removed = false;
 }
 
 void db_lru_hit(cache_entry* entry){
-	//Check if has already been removed
-	if (entry->lru_next == NULL && entry->lru_prev == NULL){
-		return;
-	}
+	assert(!entry->lru_removed);
 
 	//Remove from current position
 	db_lru_remove_node(entry);
 
 	//Re-insert @ tail
 	db_lru_insert(entry);
+
+	db_validate_lru();
 }
 
 void db_block_free(uint32_t block){
@@ -250,6 +292,11 @@ void db_init_folders(){
 void db_complete_writing(cache_entry* entry){
 	entry->writing = false;
 
+	//Store into hash table
+	int ret;
+	khiter_t k = kh_put(entry, entry->table->cache_hash_set, entry->hash, &ret);
+	kh_value(entry->table->cache_hash_set, k) = entry;
+
 	//LRU: insert
 	db_lru_insert(entry);
 }
@@ -369,7 +416,7 @@ cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length)
 	}
 
 	if (entry->expires != 0){
-		DEBUG("[#] Key has ttl: %d (%d from now)\n", entry->expires, entry->expires - time_seconds);
+		DEBUG("[#] Key has ttl: %lu (%d from now)\n", (unsigned long)entry->expires, (int)(entry->expires - time_seconds));
 	}
 
 	if (entry->expires != 0 && entry->expires < time_seconds){
@@ -429,6 +476,11 @@ cache_entry* db_entry_new(db_table* table){
 	entry->expires = 0;
 	entry->table = table;
 	entry->lru_next = NULL;
+
+#ifdef DEBUG_BUILD
+	entry->lru_found = false;
+	entry->lru_removed = true;
+#endif
 	return entry;
 }
 
@@ -491,6 +543,8 @@ void db_entry_handle_softdelete(cache_entry* entry, khiter_t k){
 		unlink(filename_buffer);
 	}
 
+	kh_del(entry, entry->table->cache_hash_set, k);
+
 	//Counters
 	db.db_size_bytes -= entry->data_length;
 
@@ -525,11 +579,10 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 			return NULL;
 		}
 
-		//Remove entry in LRU
-		db_lru_remove_node(entry);
-
 		//We might have clients reading this key
 		db_entry_handle_softdelete(entry, k);
+
+		db_validate_lru();
 	}
 	else{
 		db.db_keys++;
@@ -546,10 +599,6 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	if (kh_size(table->cache_hash_set) == 0){
 		db_table_incref(table);
 	}
-
-	//Store into hash table
-	k = kh_put(entry, table->cache_hash_set, hash, &ret);
-	kh_value(table->cache_hash_set, k) = entry;
 
 
 	entry->key = key;

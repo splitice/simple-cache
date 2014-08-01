@@ -22,6 +22,10 @@ struct cache_entry
 	db_table* table;
 	bool writing : 1;
 	bool deleted : 1;
+#ifdef DEBUG_BUILD
+	bool lru_found : 1;
+	bool lru_removed : 1;
+#endif
 };
 
 KHASH_MAP_INIT_INT(entry, struct cache_entry*)
