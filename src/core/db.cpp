@@ -98,18 +98,21 @@ void db_validate_lru(){
 void db_lru_remove_node(cache_entry* entry){
 	assert(!entry->lru_removed);
 	if (entry->lru_prev != NULL){
+		assert(db.lru_head != entry);
 		entry->lru_prev->lru_next = entry->lru_next;
 	}
 	else{
 		//This node is the tail
+		assert(db.lru_head == entry);
 		db.lru_head = entry->lru_next;
 	}
 
 	if (entry->lru_next != NULL){
+		assert(db.lru_tail != entry);
 		entry->lru_next->lru_prev = entry->lru_prev;
 	}
 	else{
-		//Is head
+		assert(db.lru_tail == entry);
 		db.lru_tail = entry->lru_prev;
 	}
 	entry->lru_next = NULL;
@@ -160,10 +163,14 @@ void db_block_free(uint32_t block){
 
 void db_entry_actually_delete(cache_entry* entry){
 	DEBUG("[#] Cleaning key up reference due to refcount == 0\n");
+#ifdef DEBUG_BUILD
+	assert(entry->lru_removed);
+#endif
 	//If is a block, can now free it
 	if (!IS_SINGLE_FILE(entry)){
 		db_block_free(entry->block);
 	}
+
 
 	//Free key
 	free(entry->key);
@@ -307,8 +314,10 @@ void db_complete_writing(cache_entry* entry){
 	assert(entry->writing);
 	entry->writing = false;
 
-	//LRU: insert
-	db_lru_insert(entry);
+	if (!entry->deleted){
+		//LRU: insert
+		db_lru_insert(entry);
+	}
 }
 
 uint32_t hash_string(const char* str, int length){
