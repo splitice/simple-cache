@@ -195,12 +195,6 @@ static void connection_remove(int epfd, int fd, cache_connection_node* ctable){
 			node->connection.client_sock = -1;
 		}
 	}
-
-	ev.data.fd = fd;
-	int res = epoll_ctl(epfd, EPOLL_CTL_DEL, fd, &ev);
-	if (res != 0){
-		PFATAL("epoll_ctl() failed.");
-	}
 }
 
 
