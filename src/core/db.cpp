@@ -311,7 +311,6 @@ void db_init_folders(){
 				if (closedir(theFolder) < 0){
 					PFATAL("Unable to close directory.");
 				}
-				free(theFolder);
 			}
 		}
 	}
