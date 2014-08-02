@@ -525,14 +525,14 @@ struct db_table* db_table_get_write(char* name, int length){
 		table = (db_table*)malloc(sizeof(db_table));
 		table->hash = hash;
 		table->key = name;
-		table->refs = 0;
+		table->refs = 1;
 		table->deleted = false;
 		table->cache_hash_set = kh_init(entry);
 
 		int ret;
 		k = kh_put(table, db.tables, hash, &ret);
 		kh_value(db.tables, k) = table;
-		db_table_incref(table);
+		//db_table_incref(table);
 		return table;
 	}
 
@@ -574,6 +574,8 @@ void db_entry_handle_softdelete(cache_entry* entry, khiter_t k){
 
 
 cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length){
+	assert(table->refs >= 1); //If not, it wouldnt be existing
+
 	uint32_t hash = hash_string(key, length);
 	khiter_t k = kh_get(entry, table->cache_hash_set, hash);
 	cache_entry* entry = k == kh_end(table->cache_hash_set) ? NULL : kh_value(table->cache_hash_set, k);
@@ -606,15 +608,16 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	entry->key_length = length;
 	entry->hash = hash;
 
-	//Store entry
-	int ret;
-	k = kh_put(entry, entry->table->cache_hash_set, entry->hash, &ret);
-	kh_value(entry->table->cache_hash_set, k) = entry;
-
 	//Take a reference if this is the first entry (released when size == 0)
 	if (kh_size(table->cache_hash_set) == 0){
 		db_table_incref(table);
 	}
+	assert(table->refs >= 2 || (table->refs >= 1 && table->deleted)); //If not, it wouldnt be storing
+
+	//Store entry
+	int ret;
+	k = kh_put(entry, entry->table->cache_hash_set, entry->hash, &ret);
+	kh_value(entry->table->cache_hash_set, k) = entry;
 
 	//Refs
 	db_entry_incref(entry, false);
