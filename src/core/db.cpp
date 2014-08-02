@@ -392,13 +392,14 @@ void db_target_setup(struct cache_target* target, struct cache_entry* entry, boo
 
 void db_target_entry_close(cache_target* target){
 	if (target->entry != NULL){
-		if (target->fd != db.fd_blockfile){
-			assert(target->fd != 0 || settings.daemon_mode);
+		if (target->fd != db.fd_blockfile && target->fd != -1){
+			assert(target->fd >= 0 || settings.daemon_mode);
 			close(target->fd);
 		}
 
 		db_entry_deref(target->entry);
 		target->entry = NULL;
+		target->fd = -1;
 	}
 	target->position = 0;
 }

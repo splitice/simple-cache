@@ -133,6 +133,7 @@ static bool http_key_lookup(cache_connection* connection, int n, int epfd){
 	else{
 		db_table_close(connection->target.table.table);
 		connection->target.key.entry = NULL;
+		connection->target.key.fd = -1;
 	}
 
 	return true;
