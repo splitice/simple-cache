@@ -145,7 +145,7 @@ void http_cleanup(cache_connection* connection){
 		}
 		if (connection->target.key.entry != NULL){
 			db_target_entry_close(&connection->target.key);
-			connection->target.key.entry = NULL;
+			assert(connection->target.key.entry == NULL);
 		}
 	}
 	else if(REQUEST_IS(connection->type, REQUEST_LEVELTABLE)){

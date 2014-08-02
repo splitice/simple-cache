@@ -388,6 +388,8 @@ void db_target_setup(struct cache_target* target, struct cache_entry* entry, boo
 	if (!write){
 		db_target_open(target);
 	}
+
+	target->fd = -1;
 }
 
 void db_target_entry_close(cache_target* target){

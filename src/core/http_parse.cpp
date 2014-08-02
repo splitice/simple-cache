@@ -126,9 +126,7 @@ static bool http_key_lookup(cache_connection* connection, int n, int epfd){
 
 	if (entry){
 		connection->target.key.entry = entry;
-		if (!REQUEST_IS(connection->type, REQUEST_HTTPPUT)){
-			db_target_setup(&connection->target.key, entry, REQUEST_IS(connection->type, REQUEST_HTTPPUT));
-		}
+		db_target_setup(&connection->target.key, entry, REQUEST_IS(connection->type, REQUEST_HTTPPUT));
 	}
 	else{
 		db_table_close(connection->target.table.table);
