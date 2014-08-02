@@ -308,7 +308,8 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 			if (REQUEST_IS(connection->type, REQUEST_LEVELKEY)) {
 				if (REQUEST_IS(connection->type, REQUEST_HTTPPUT)){
 					if (connection->target.key.entry != NULL && connection->target.key.entry->data_length == 0){
-						return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+						DEBUG("[#%d] No valid content-length provided for PUT request\n", connection->client_sock);
+						return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDCONTENTLENGTH);
 					}
 
 					connection->handler = http_handle_request_body;
@@ -369,6 +370,7 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 
 		//Move pointers to next record
 		RBUF_READMOVE(connection->input, n + 1);
+		return needs_more;
 		//n = -1;
 		//return 
 	}
