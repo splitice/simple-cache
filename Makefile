@@ -10,7 +10,7 @@ core:
 	cd src/core && make
 
 install: core server
-	if [[ "$CONFIG" == "" ]]; then CONFIG="Release"; fi
+	if [ "$CONFIG" == "" ]; then CONFIG="Release"; fi
 	cp src/server/$CONFIG/scache /usr/local/bin/scache
 	chmod +x /usr/local/bin/scache
 	echo "Installed to /usr/local/bin/scache";
