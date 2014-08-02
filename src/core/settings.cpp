@@ -24,7 +24,6 @@ static void print_usage(){
 "Networking options:\n"
 "\n"
 "  -4 / -6                                  - bind to either IPv4 or IPv6 address (default: IPv4)\n"
-"  -p port  --bind-port port                - listen on the specified network port (default: 8000)\n"
 "  -b addr  --bind-addr addr                - listen on the specified network address (default: 0.0.0.0)\n"
 "  -p port  --bind-port port                - listen on the specified network port (default: 8000)\n"
 "\n"
@@ -38,7 +37,7 @@ static void print_usage(){
 "\n"
 "  -m file  --make-pid file                 - output a PID file (default: no)\n"
 "  -d                                       - daemonize (default: no)\n"
-"  -o                                       - redirecto output to /dev/null if daemonized (default: yes)\n"
+"  -o                                       - redirect output to /dev/null if daemonized (default: yes)\n"
 "\n"
 "Problems? You can reach the author at <admin@x4b.net>.\n");
 }
@@ -121,10 +120,9 @@ void settings_parse_arguments(int argc, char** argv){
     }
 
 	if (settings.db_file_path == NULL){
-		settings.db_file_path = string_allocate("/var/lib/scache/");
+		settings.db_file_path = "/var/lib/scache/";
 	}
 }
 
 void settings_cleanup(){
-	free(settings.db_file_path);
 }

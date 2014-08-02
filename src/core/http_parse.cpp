@@ -120,6 +120,7 @@ static bool http_key_lookup(cache_connection* connection, int n, int epfd){
 	else{
 		return http_write_response_after_eol(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 	}
+
 	connection->type |= REQUEST_LEVELKEY;
 	connection->type &= ~REQUEST_LEVELTABLE;
 	connection->handler = http_handle_httpversion;
