@@ -781,7 +781,7 @@ void db_entry_handle_delete(cache_entry* entry, khiter_t k){
 
 void db_target_write_allocate(struct cache_target* target, uint32_t data_length){
 	cache_entry* entry = target->entry;
-	//DEBUG("[#] Allocating space for entry, block is currently: %d and is single file: %d (was: %d)\n", entry->block, data_length > BLOCK_LENGTH, IS_SINGLE_FILE(entry));
+	DEBUG("[#] Allocating space for entry, block is currently: %d and is single file: %d (was: %d)\n", entry->block, data_length > BLOCK_LENGTH, entry->block == -2?-1:(IS_SINGLE_FILE(entry)));
 	if (entry->block == -2){
 		//if this is a new entry, with nothing previously allocated.
 		if (data_length <= BLOCK_LENGTH){
