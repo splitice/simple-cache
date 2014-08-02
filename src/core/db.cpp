@@ -223,10 +223,11 @@ void db_entry_deref(cache_entry* entry){
 	db_table_deref(entry->table);
 }
 
-void db_entry_incref(cache_entry* entry){
+void db_entry_incref(cache_entry* entry, bool table = true){
 	DEBUG("[#] Incrementing entry refcount - was: %d\n", entry->refs);
 	entry->refs++;
-	db_table_incref(entry->table);
+	if (table)
+		db_table_incref(entry->table);
 }
 
 void db_lru_cleanup(int bytes_to_remove){
@@ -387,7 +388,6 @@ void db_target_open(struct cache_target* target){
 }
 
 void db_target_setup(struct cache_target* target, struct cache_entry* entry, bool write){
-	db_table_deref(entry->table);//TODO: fix excess incref
 	if (!write){
 		db_target_open(target);
 	}
@@ -474,7 +474,7 @@ cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length)
 	}
 
 	//Refs
-	db_entry_incref(entry);
+	db_entry_incref(entry, false);
 
 	return entry;
 }
@@ -617,7 +617,7 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	}
 
 	//Refs
-	db_entry_incref(entry);
+	db_entry_incref(entry, false);
 	entry->writing = true;
 
 	assert(!entry->deleted);
@@ -667,7 +667,7 @@ cache_entry* db_entry_get_delete(struct db_table* table, char* key, size_t lengt
 	db.db_stats_operations++;
 
 	//Refs
-	db_entry_incref(entry);
+	db_entry_incref(entry, false);
 
 	return entry;
 }
