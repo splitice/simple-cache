@@ -759,7 +759,6 @@ void db_entry_handle_delete(cache_entry* entry, khiter_t k){
 		entry->table->deleted = true;
 		k = kh_get(table, db.tables, entry->table->hash);
 		db_delete_table_entry(entry->table, k);
-		entry->table = NULL;
 	}
 }
 

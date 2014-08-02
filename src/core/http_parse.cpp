@@ -661,8 +661,6 @@ state_action http_handle_request_body(int epfd, cache_connection* connection){
 			db_complete_writing(connection->target.key.entry);
 			connection->writing = false;
 		}
-		db_target_entry_close(&connection->target.key);
-		connection->target.key.entry = NULL;
 
 		return http_write_response(epfd, connection, HTTPTEMPLATE_FULL200OK);
 	}
