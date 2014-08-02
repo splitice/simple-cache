@@ -121,12 +121,15 @@ state_action http_respond_listing(int epfd, cache_connection* connection){
 
 	if (connection->target.table.limit >= 0){
 		cache_entry* entry = NULL;
-		while ((entry = kh_val(connection->target.table.table->cache_hash_set, (connection->target.table.limit + connection->target.table.start))) == NULL){
+		int i = connection->target.table.limit + connection->target.table.start;
+		while (!kh_exist(connection->target.table.table->cache_hash_set, i)){
 			if (connection->target.table.limit == 0){
 				return close_connection;
 			}
 			connection->target.table.limit--;
+			i--;
 		}
+		entry = kh_val(connection->target.table.table->cache_hash_set, i);
 
 		bool cleanup = false;
 		if (connection->target.table.limit){
