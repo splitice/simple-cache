@@ -117,7 +117,9 @@ void db_lru_remove_node(cache_entry* entry){
 	}
 	entry->lru_next = NULL;
 	entry->lru_prev = NULL;
+#ifdef DEBUG_BUILD
 	entry->lru_removed = true;
+#endif
 }
 
 
@@ -139,7 +141,9 @@ void db_lru_insert(cache_entry* entry){
 		db.lru_head = entry;
 	}
 
+#ifdef DEBUG_BUILD
 	entry->lru_removed = false;
+#endif
 }
 
 void db_lru_hit(cache_entry* entry){
