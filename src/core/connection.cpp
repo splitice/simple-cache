@@ -31,6 +31,7 @@ volatile sig_atomic_t stop_soon = 0;
 
 /* Methods */
 void connection_register_write(int epfd, int fd){
+	assert(fd != 0 || fd);
 	ev.events = EPOLLOUT | EPOLLERR | EPOLLHUP | EPOLLRDHUP;
 	ev.data.fd = fd;
 	int res = epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev);
@@ -40,6 +41,7 @@ void connection_register_write(int epfd, int fd){
 }
 
 void connection_register_read(int epfd, int fd){
+	assert(fd != 0 || fd);
 	ev.events = EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLRDHUP;
 	ev.data.fd = fd;
 	int res = epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev);
@@ -274,11 +276,13 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 						http_cleanup(connection);
 						connection_remove(epfd, fd, ctable);
 						assert(connection_get(fd, ctable) == NULL);
+						assert(fd != 0 || fd);
 						close(fd);
 					}
 				}
 				else{
 					WARN("Unknown connection %d", fd);
+					assert(fd != 0 || fd);
 					close(fd);
 				}
 			}

@@ -263,6 +263,9 @@ static state_action http_read_requeststarturl2(int epfd, cache_connection* conne
 static state_action http_read_headers(int epfd, cache_connection* connection, char* buffer, int n, uint32_t& temporary){
 	if (*buffer == ':'){
 		int bytes = buffer - RBUF_READ(connection->input);
+		if (bytes < 0){
+			bytes = rbuf_read_to_end(&connection->input) + (buffer - RBUF_START(connection->input));
+		}
 		DEBUG("[#%d] Found header of length %d\n", connection->client_sock, bytes);
 
 		if (REQUEST_IS(connection->type, REQUEST_HTTPPUT | REQUEST_LEVELKEY)){
