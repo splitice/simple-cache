@@ -141,7 +141,83 @@ static const char * test_high_rb() {
 	return 0;
 }
 
+static const char * test_simple_rbcmp() {
+	struct read_buffer rb;
+	rbuf_init(&rb);
+	rb.read_position = BUFFER_SIZE - 5;
+	rb.write_position = BUFFER_SIZE;
+
+	rb.buffer[BUFFER_SIZE - 5] = 'a';
+	rb.buffer[BUFFER_SIZE - 4] = 'b';
+	rb.buffer[BUFFER_SIZE - 3] = 'c';
+
+	mu_assert("test_simple_rbcmp rbuf_cmpn matches", rbuf_cmpn(&rb, "abc", 3) == 0);
+	mu_assert("test_simple_rbcmp rbuf_cmpn doesnt match", rbuf_cmpn(&rb, "abd", 3) != 0);
+	return 0;
+}
+
+static const char * test_rollover_rbcmp() {
+	struct read_buffer rb;
+	rbuf_init(&rb);
+	rb.read_position = BUFFER_SIZE - 5;
+	rb.write_position = BUFFER_SIZE+2;
+
+	rb.buffer[BUFFER_SIZE - 5] = 'a';
+	rb.buffer[BUFFER_SIZE - 4] = 'b';
+	rb.buffer[BUFFER_SIZE - 3] = 'c';
+
+	rb.buffer[BUFFER_SIZE - 2] = 'd';
+	rb.buffer[BUFFER_SIZE - 1] = 'e';
+	rb.buffer[0] = 'f';
+	rb.buffer[1] = 'g';
+
+	mu_assert("test_rollover_rbcmp rbuf_cmpn matches", rbuf_cmpn(&rb, "abcdefg", 7) == 0);
+	mu_assert("test_rollover_rbcmp rbuf_cmpn doesnt match", rbuf_cmpn(&rb, "abcdeeg", 7) != 0);
+	return 0;
+}
+
+static const char * test_rolloverhigh_rbcmp() {
+	struct read_buffer rb;
+	rbuf_init(&rb);
+	rb.read_position = (BUFFER_SIZE+BUFFER_SIZE) - 5;
+	rb.write_position = (BUFFER_SIZE + BUFFER_SIZE) + 2;
+
+	rb.buffer[BUFFER_SIZE - 5] = 'a';
+	rb.buffer[BUFFER_SIZE - 4] = 'b';
+	rb.buffer[BUFFER_SIZE - 3] = 'c';
+
+	rb.buffer[BUFFER_SIZE - 2] = 'd';
+	rb.buffer[BUFFER_SIZE - 1] = 'e';
+	rb.buffer[0] = 'f';
+	rb.buffer[1] = 'g';
+
+	mu_assert("test_rolloverhigh_rbcmp rbuf_cmpn matches", rbuf_cmpn(&rb, "abcdefg", 7) == 0);
+	mu_assert("test_rolloverhigh_rbcmp rbuf_cmpn doesnt match", rbuf_cmpn(&rb, "abcdeeg", 7) != 0);
+	return 0;
+}
+
+static const char * test_overflow_rbcmp() {
+	struct read_buffer rb;
+	rbuf_init(&rb);
+	rb.read_position = 65536 - 5;
+	rb.write_position = 2;
+
+	rb.buffer[BUFFER_SIZE - 5] = 'a';
+	rb.buffer[BUFFER_SIZE - 4] = 'b';
+	rb.buffer[BUFFER_SIZE - 3] = 'c';
+
+	rb.buffer[BUFFER_SIZE - 2] = 'd';
+	rb.buffer[BUFFER_SIZE - 1] = 'e';
+	rb.buffer[0] = 'f';
+	rb.buffer[1] = 'g';
+
+	mu_assert("test_overflow_rbcmp rbuf_cmpn matches", rbuf_cmpn(&rb, "abcdefg", 7) == 0);
+	mu_assert("test_overflow_rbcmp rbuf_cmpn doesnt match", rbuf_cmpn(&rb, "abcdeeg", 7) != 0);
+	return 0;
+}
+
 static const char * test_rbuffer() {
+	//Basic tests
 	mu_run_test(test_high_rb);
 	mu_run_test(test_rb_initial);
 	mu_run_test(test_rb_initial_full);
@@ -151,5 +227,11 @@ static const char * test_rbuffer() {
 	mu_run_test(test_2x_rb_standard);
 	mu_run_test(test_2x_rb_at_end_rollover_capacity);
 	mu_run_test(test_2x_rb_initial_empty_at_end);
+
+	//Comparison tests
+	mu_run_test(test_simple_rbcmp);
+	mu_run_test(test_rollover_rbcmp);
+	mu_run_test(test_rolloverhigh_rbcmp);
+	mu_run_test(test_overflow_rbcmp);
 	return 0;
 }
