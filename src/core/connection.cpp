@@ -274,15 +274,15 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					if (close_connection){
 						DEBUG("[#%d] Closing connection\n", fd);
 						http_cleanup(connection);
+						assert(fd != 0 || settings.daemon_mode);
+						close(fd);
 						connection_remove(epfd, fd, ctable);
 						assert(connection_get(fd, ctable) == NULL);
-						assert(fd != 0 || fd);
-						close(fd);
 					}
 				}
 				else{
 					WARN("Unknown connection %d", fd);
-					assert(fd != 0 || fd);
+					assert(fd != 0 || settings.daemon_mode);
 					close(fd);
 				}
 			}
