@@ -270,6 +270,7 @@ bool run_unit(std::string& request, std::string& expect, int sockfd){
 
 pid_t start_server(const char* binary_path, int port, const char* db, const char* options, bool debug_output = true){
 	char execcmd[512];
+	int res;
 
 	char* pidfile = tempnam(NULL, NULL);
 
@@ -279,7 +280,10 @@ pid_t start_server(const char* binary_path, int port, const char* db, const char
 	}
 
 	sprintf(execcmd, "%s -d -o --bind-port %d --database-file-path %s --make-pid %s %s %s", binary_path, port, db, pidfile, options, debug_output?"":"2>/dev/null");
-	system(execcmd);
+	res = system(execcmd);
+	if (res < 0){
+		PFATAL("Unable to execute scache server");
+	}
 
 	FILE* f;
 	do {
@@ -288,7 +292,10 @@ pid_t start_server(const char* binary_path, int port, const char* db, const char
 	} while (f == 0);
 	char* line = NULL;
 	size_t len;
-	getline(&line, &len, f);
+	res = getline(&line, &len, f);
+	if (res < 0){
+		PFATAL("Unable to read PID file");
+	}
 	int pid = atoi(line);
 	fclose(f);
 	free(pidfile);
@@ -396,7 +403,10 @@ bool run_scenario(const char* binary, const char* testcases, const char* filenam
 
 	//Cleanup temporary directory
 	sprintf(testcase_path, "rm -Rf \"%s\"", db);
-	system(testcase_path);
+	res = system(testcase_path);
+	if (res < 0){
+		PFATAL("Failed to clean up temporary directory: %s", db);
+	}
 
 	return result;
 }
