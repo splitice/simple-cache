@@ -308,7 +308,9 @@ void db_init_folders(){
 					sprintf(file_buffer, "%s/%s", filename_buffer, next_file->d_name);
 					remove(file_buffer);
 				}
-				closedir(theFolder);
+				if (closedir(theFolder) < 0){
+					PFATAL("Unable to close directory.");
+				}
 				free(theFolder);
 			}
 		}
