@@ -387,6 +387,7 @@ void db_target_open(struct cache_target* target){
 }
 
 void db_target_setup(struct cache_target* target, struct cache_entry* entry, bool write){
+	db_table_deref(entry->table);//TODO: fix excess incref
 	if (!write){
 		db_target_open(target);
 	}
