@@ -59,18 +59,6 @@ Connection: Close
 
 k
 a
-3>>>>>
-GET /new HTTP/1.1
-Connection: Keep-Alive
-X-Limit: 2
-
-
------
-HTTP/1.1 200 OK
-Connection: Close
-
-k
-a
 4>>>>>
 GET /new HTTP/1.1
 Connection: Keep-Alive
