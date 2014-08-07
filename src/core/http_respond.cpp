@@ -68,6 +68,13 @@ void http_register_read(int epfd, cache_connection* connection){
 	}
 }
 
+state_action http_respond_reset_connection(int epfd, cache_connection* connection){
+	http_cleanup(connection);
+	connection->handler = http_handle_method;
+	http_register_read(epfd, connection);
+	return continue_processing;
+}
+
 state_action http_respond_responseend(int epfd, cache_connection* connection){
 	int fd = connection->client_sock;
 	DEBUG("[#%d] Responding with the newlines\n", fd);
@@ -77,9 +84,7 @@ state_action http_respond_responseend(int epfd, cache_connection* connection){
 		connection->handler = http_respond_contentbody;
 	}
 	else if (REQUEST_IS(connection->type, REQUEST_HTTPHEAD)){
-		http_cleanup(connection);
-		connection->handler = http_handle_method;
-		http_register_read(epfd, connection);
+		connection->handler = http_respond_reset_connection;
 	}
 	else{
 		connection->handler = http_respond_writeonly;
