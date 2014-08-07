@@ -60,6 +60,8 @@ X-Limit: 1
 -----
 HTTP/1.1 200 OK
 Connection: Close
+X-Entries: 2
+X-Total: 4
 
 a
 5>>>>>
