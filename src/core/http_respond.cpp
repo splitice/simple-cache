@@ -185,3 +185,39 @@ state_action http_respond_listing(int epfd, cache_connection* connection){
 	return close_connection;
 }
 
+state_action http_respond_listingtotal(int epfd, cache_connection* connection){
+	int fd = connection->client_sock;
+	char ttl[128];
+
+	if (REQUEST_IS(connection->type, REQUEST_GETTABLE)){
+		DEBUG("[#%d] Responding with X-Total\n", fd);
+		//Returns the number of chars put into the buffer
+		int temp = snprintf(ttl, 128, "X-Total: %d\r\n", kh_n_buckets(connection->target.table.table->cache_hash_set));
+
+		connection->output_buffer_free = (char*)malloc(temp);
+		memcpy(connection->output_buffer_free, ttl, temp);
+		connection->output_buffer = connection->output_buffer_free;
+		connection->output_length = temp;
+	}
+
+	connection->handler = http_respond_listing_separator;
+	return continue_processing;
+}
+
+state_action http_respond_listingentries(int epfd, cache_connection* connection){
+	int fd = connection->client_sock;
+	char ttl[128];
+
+	if (REQUEST_IS(connection->type, REQUEST_GETTABLE)){
+		DEBUG("[#%d] Responding with X-Entries\n", fd);
+		//Returns the number of chars put into the buffer
+		int temp = snprintf(ttl, 128, "X-Entries: %d\r\n", kh_size(connection->target.table.table->cache_hash_set));
+
+		connection->output_buffer_free = (char*)malloc(temp);
+		memcpy(connection->output_buffer_free, ttl, temp);
+		connection->output_buffer = connection->output_buffer_free;
+		connection->output_length = temp;
+	}
+	connection->handler = http_respond_listingtotal;
+	return continue_processing;
+}

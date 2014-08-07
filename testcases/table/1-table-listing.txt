@@ -21,6 +21,8 @@ Connection: Keep-Alive
 -----
 HTTP/1.1 200 OK
 Connection: Close
+X-Entries: 1
+X-Total: 4
 
 k
 1>>>>>
@@ -40,10 +42,11 @@ OK
 GET /new HTTP/1.1
 Connection: Keep-Alive
 
-
 -----
 HTTP/1.1 200 OK
 Connection: Close
+X-Entries: 2
+X-Total: 4
 
 k
 a
@@ -61,13 +64,13 @@ a
 5>>>>>
 GET /new HTTP/1.1
 Connection: Keep-Alive
-X-Start: 0
-X-Limit: 4
 
 
 -----
 HTTP/1.1 200 OK
 Connection: Close
+X-Entries: 2
+X-Total: 4
 
 k
 a

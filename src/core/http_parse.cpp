@@ -371,7 +371,7 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 					if (connection->target.table.table){
 						connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200_CONCLOSE];
 						connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200_CONCLOSE];
-						connection->handler = http_respond_listing;
+						connection->handler = http_respond_listingentries;
 						connection_register_write(epfd, connection->client_sock);
 						return registered_write;
 					}

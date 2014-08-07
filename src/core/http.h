@@ -61,7 +61,7 @@ static const char http_templates[NUMBER_OF_HTTPTEMPLATE][100] = {
 	"\r\n\r\n",
 	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 14\r\n\r\nInvalid Method\r\n",
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\nContent-Length: 9\r\n\r\nDELETED\r\n",
-	"HTTP/1.1 200 OK\r\nConnection: Close\r\n\r\n",
+	"HTTP/1.1 200 OK\r\nConnection: Close\r\n",
 	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 24\r\n\r\nInvalid Content-Length\r\n",
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\nContent-Length: 9\r\n\r\nBULK OK\r\n",
 };
