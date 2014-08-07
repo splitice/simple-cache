@@ -29,8 +29,8 @@ state_action http_respond_expires(int epfd, cache_connection* connection){
 	int fd = connection->client_sock;
 	char ttl[128];
 
-	if (REQUEST_IS(connection->type, REQUEST_GETKEY | REQUEST_HTTPGET)){
-		DEBUG("[#%d] Responding with Content-Length\n", fd);
+	if (REQUEST_IS(connection->type, REQUEST_GETKEY) || REQUEST_IS(connection->type, REQUEST_HEADKEY)){
+		DEBUG("[#%d] Responding with X-Ttl\n", fd);
 		//Returns the number of chars put into the buffer
 		__time_t expires = connection->target.key.entry->expires;
 		int temp = snprintf(ttl, 128, "X-Ttl: %d\r\n", (expires == 0) ? expires : (expires - time_seconds));
@@ -59,6 +59,15 @@ state_action http_respond_contentlength(int epfd, cache_connection* connection){
 	return continue_processing;
 }
 
+void http_register_read(int epfd, cache_connection* connection){
+	int extern stop_soon;
+
+	connection_register_read(epfd, connection->client_sock);
+	if (!stop_soon && rbuf_write_remaining(&connection->input)){
+		http_read_handle(epfd, connection);
+	}
+}
+
 state_action http_respond_responseend(int epfd, cache_connection* connection){
 	int fd = connection->client_sock;
 	DEBUG("[#%d] Responding with the newlines\n", fd);
@@ -67,19 +76,16 @@ state_action http_respond_responseend(int epfd, cache_connection* connection){
 	if (REQUEST_IS(connection->type, REQUEST_HTTPGET)){
 		connection->handler = http_respond_contentbody;
 	}
+	else if (REQUEST_IS(connection->type, REQUEST_HTTPHEAD)){
+		http_cleanup(connection);
+		connection->handler = http_handle_method;
+		http_register_read(epfd, connection);
+		return continue_processing;
+	}
 	else{
 		connection->handler = http_respond_writeonly;
 	}
 	return continue_processing;
-}
-
-void http_register_read(int epfd, cache_connection* connection){
-	int extern stop_soon;
-
-	connection_register_read(epfd, connection->client_sock);
-	if (!stop_soon && rbuf_write_remaining(&connection->input)){
-		http_read_handle(epfd, connection);
-	}
 }
 
 state_action http_respond_contentbody(int epfd, cache_connection* connection){

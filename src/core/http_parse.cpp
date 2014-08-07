@@ -99,7 +99,7 @@ static bool http_key_lookup(cache_connection* connection, int n, int epfd){
 
 	struct cache_entry* entry;
 	//TODO: memcpy always?
-	if (REQUEST_IS(connection->type, REQUEST_HTTPGET)){
+	if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPHEAD)){
 		//db_entry_get_read will free key if necessary
 		entry = db_entry_get_read(connection->target.table.table, key, n);
 	}
@@ -168,6 +168,13 @@ static inline state_action http_read_requeststartmethod(int epfd, cache_connecti
 			DEBUG("[#%d] HTTP PUT Request\n", connection->client_sock);
 			return needs_more;
 		}
+		else if (n == 3 && rbuf_cmpn(&connection->input, "HEAD", 4) == 0){
+			//This is a GET request
+			connection->type = REQUEST_HTTPHEAD;
+			RBUF_READMOVE(connection->input, n + 1);
+			DEBUG("[#%d] HTTP HEAD Request\n", connection->client_sock);
+			return needs_more;
+		}
 		else if (n == 6 && rbuf_cmpn(&connection->input, "DELETE", 6) == 0){
 			DEBUG("[#%d] HTTP DELETE Request\n", connection->client_sock);
 			//This is a DELETE request
@@ -207,7 +214,7 @@ static inline state_action http_read_requeststarturl1(int epfd, cache_connection
 			//URL: table/key
 
 
-			if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
+			if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPDELETE) || REQUEST_IS(connection->type, REQUEST_HTTPHEAD)){
 				connection->target.table.table = db_table_get_read(key, n - 1);
 			}
 			else{
@@ -317,7 +324,7 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 					return needs_more;
 				}
 				else if (connection->target.key.entry != NULL){
-					if (REQUEST_IS(connection->type, REQUEST_HTTPGET)){
+					if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPHEAD)){
 						connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200];
 						connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200];
 						connection->state = 0;//n to send
