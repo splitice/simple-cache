@@ -169,7 +169,7 @@ static inline state_action http_read_requeststartmethod(int epfd, cache_connecti
 			return needs_more;
 		}
 		else if (n == 4 && rbuf_cmpn(&connection->input, "HEAD", 4) == 0){
-			//This is a GET request
+			//This is a HEAD request
 			connection->type = REQUEST_HTTPHEAD;
 			RBUF_READMOVE(connection->input, n + 1);
 			DEBUG("[#%d] HTTP HEAD Request\n", connection->client_sock);
@@ -180,6 +180,13 @@ static inline state_action http_read_requeststartmethod(int epfd, cache_connecti
 			//This is a DELETE request
 			connection->type = REQUEST_HTTPDELETE;
 			RBUF_READMOVE(connection->input, n + 1);
+			return needs_more;
+		}
+		else if (n == 4 && rbuf_cmpn(&connection->input, "BULK", 4) == 0){
+			//This is a BULK request
+			connection->type = REQUEST_HTTPBULK;
+			RBUF_READMOVE(connection->input, n + 1);
+			DEBUG("[#%d] HTTP BULK Request\n", connection->client_sock);
 			return needs_more;
 		}
 
@@ -239,7 +246,7 @@ static inline state_action http_read_requeststarturl1(int epfd, cache_connection
 			connection->target.table.limit = DEFAULT_LISTING_LIMIT;
 
 			RBUF_READMOVE(connection->input, n + 1);
-			if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
+			if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPDELETE) || REQUEST_IS(connection->type, REQUEST_HTTPBULK)){
 				connection->handler = http_handle_headers;
 				connection->state = 0;
 				return needs_more;
@@ -307,6 +314,15 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 				return needs_more;
 			}
 		}
+		else if (REQUEST_IS(connection->type, REQUEST_HTTPBULK | REQUEST_LEVELTABLE)){
+			if (bytes == 8 && rbuf_cmpn(&connection->input, "X-Delete", 8) == 0){
+				DEBUG("[#%d] Found X-Delete header\n", connection->client_sock);
+				RBUF_READMOVE(connection->input, bytes + 1);
+				connection->state = HEADER_XDELETE;
+				connection->handler = http_handle_headers_extract;
+				return needs_more;
+			}
+		}
 	}
 	else if (*buffer == '\n'){
 		temporary++;
@@ -341,6 +357,9 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 					else{
 						FATAL("Unknown request type");
 					}
+				}
+				else if (REQUEST_IS(connection->type, REQUEST_HTTPBULK)){
+					return http_write_response(epfd, connection, HTTPTEMPLATE_BULK_OK);
 				}
 				else{
 					return http_write_response(epfd, connection, HTTPTEMPLATE_FULL404);
@@ -495,6 +514,18 @@ static state_action http_read_header_extraction(int epfd, cache_connection* conn
 
 				if (start >= 0){
 					connection->target.table.start = start;
+				}
+			}
+			break;
+
+		case HEADER_XDELETE:
+			if (REQUEST_IS(connection->type, REQUEST_HTTPBULK | REQUEST_LEVELTABLE)){
+				char* key = (char*)malloc(length);
+				rbuf_copyn(&connection->input, key, length);
+				cache_entry* entry = db_entry_get_delete(connection->target.table.table, key, length);
+				if (entry != NULL){
+					db_entry_handle_delete(entry);
+					db_entry_deref(entry);
 				}
 			}
 			break;

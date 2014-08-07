@@ -20,7 +20,7 @@
 /* Request methods */
 #define LONGEST_REQMETHOD 6
 #define REQUEST_HTTPGET 0x80
-#define REQUEST_HTTPPOST 0x40
+#define REQUEST_HTTPBULK 0x40
 #define REQUEST_HTTPPUT 0x20
 #define REQUEST_HTTPDELETE 0x10
 #define REQUEST_HTTPHEAD 0x01
@@ -41,7 +41,7 @@
 #define REQUEST_IS(type, mask) ((type & (mask)) == (mask))
 
 /* ===[ HTTP TEMPLATES ]=== */
-#define NUMBER_OF_HTTPTEMPLATE 9
+#define NUMBER_OF_HTTPTEMPLATE 10
 #define HTTPTEMPLATE_HEADERS200 0
 #define HTTPTEMPLATE_FULL404 1
 #define HTTPTEMPLATE_FULL200OK 2
@@ -51,6 +51,7 @@
 #define HTTPTEMPLATE_FULLHTTP200DELETED 6
 #define HTTPTEMPLATE_HEADERS200_CONCLOSE 7
 #define HTTPTEMPLATE_FULLINVALIDCONTENTLENGTH 8
+#define HTTPTEMPLATE_BULK_OK 8
 
 static const char http_templates[NUMBER_OF_HTTPTEMPLATE][100] = {
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\n",
@@ -61,7 +62,8 @@ static const char http_templates[NUMBER_OF_HTTPTEMPLATE][100] = {
 	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 14\r\n\r\nInvalid Method\r\n",
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\nContent-Length: 9\r\n\r\nDELETED\r\n",
 	"HTTP/1.1 200 OK\r\nConnection: Close\r\n\r\n",
-	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 24\r\n\r\nInvalid Content-Length\r\n"
+	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 24\r\n\r\nInvalid Content-Length\r\n",
+	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\nContent-Length: 9\r\n\r\nBULK OK\r\n",
 };
 
 int extern http_templates_length[NUMBER_OF_HTTPTEMPLATE];
@@ -71,6 +73,7 @@ int extern http_templates_length[NUMBER_OF_HTTPTEMPLATE];
 #define HEADER_XTTL 2
 #define HEADER_XLIMIT 3
 #define HEADER_XSTART 4
+#define HEADER_XDELETE 5
 
 /* Methods */
 state_action http_read_handle(int epfd, cache_connection* connection);

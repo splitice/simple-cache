@@ -78,6 +78,7 @@ void db_target_entry_close(struct cache_target* target);
 void db_target_setup(struct cache_target* target, struct cache_entry* entry, bool write);
 
 void db_table_handle_delete(struct db_table* table);
+void db_entry_deref(cache_entry* entry);
 
 #define IS_SINGLE_FILE(x) x->data_length>BLOCK_LENGTH
 
