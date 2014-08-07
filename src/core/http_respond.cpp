@@ -140,7 +140,7 @@ state_action http_respond_listing(int epfd, cache_connection* connection){
 	DEBUG("[#%d] Sending listing response\n", connection->client_sock);
 
 	if ((connection->target.table.limit + connection->target.table.start) > kh_end(connection->target.table.table->cache_hash_set)){
-		connection->target.table.limit = kh_end(connection->target.table.table->cache_hash_set) - connection->target.table.start;
+		connection->target.table.limit = kh_end(connection->target.table.table->cache_hash_set) - (connection->target.table.start + 1);
 	}
 
 	if (connection->target.table.limit >= 0){
