@@ -42,6 +42,7 @@ OK
 GET /new HTTP/1.1
 Connection: Keep-Alive
 
+
 -----
 HTTP/1.1 200 OK
 Connection: Close
