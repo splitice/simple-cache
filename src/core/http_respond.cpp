@@ -25,6 +25,25 @@
 #include "http_parse.h"
 #include "http_respond.h"
 
+state_action http_respond_expires(int epfd, cache_connection* connection){
+	int fd = connection->client_sock;
+	char ttl[128];
+
+	if (REQUEST_IS(connection->type, REQUEST_GETKEY | REQUEST_HTTPGET)){
+		DEBUG("[#%d] Responding with Content-Length\n", fd);
+		//Returns the number of chars put into the buffer
+		__time_t expires = connection->target.key.entry->expires;
+		int temp = snprintf(ttl, 128, "X-Ttl: %d\r\n", (expires == 0) ? expires : (expires - time_seconds));
+
+		connection->output_buffer_free = (char*)malloc(temp);
+		memcpy(connection->output_buffer_free, ttl, temp);
+		connection->output_buffer = connection->output_buffer_free;
+		connection->output_length = temp;
+	}
+	connection->handler = http_respond_contentlength;
+	return continue_processing;
+}
+
 state_action http_respond_contentlength(int epfd, cache_connection* connection){
 	int fd = connection->client_sock;
 	char content_length_buffer[128];

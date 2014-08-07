@@ -21,6 +21,7 @@ Connection: Keep-Alive
 -----
 HTTP/1.1 200 OK
 Connection: Keep-Alive
+X-Ttl: 0
 Content-Length: 2
 
 12
@@ -45,6 +46,7 @@ Connection: Keep-Alive
 -----
 HTTP/1.1 200 OK
 Connection: Keep-Alive
+X-Ttl: 0
 Content-Length: 2
 
 12
@@ -69,6 +71,7 @@ Connection: Keep-Alive
 -----
 HTTP/1.1 200 OK
 Connection: Keep-Alive
+X-Ttl: 0
 Content-Length: 2
 
 34
@@ -93,6 +96,7 @@ Connection: Keep-Alive
 -----
 HTTP/1.1 200 OK
 Connection: Keep-Alive
+X-Ttl: 0
 Content-Length: 4
 
 1234

@@ -22,6 +22,7 @@ Connection: Keep-Alive
 -----
 HTTP/1.1 200 OK
 Connection: Keep-Alive
+X-Ttl: 100
 Content-Length: 2
 
 12
