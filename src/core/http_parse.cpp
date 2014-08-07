@@ -168,7 +168,7 @@ static inline state_action http_read_requeststartmethod(int epfd, cache_connecti
 			DEBUG("[#%d] HTTP PUT Request\n", connection->client_sock);
 			return needs_more;
 		}
-		else if (n == 3 && rbuf_cmpn(&connection->input, "HEAD", 4) == 0){
+		else if (n == 4 && rbuf_cmpn(&connection->input, "HEAD", 4) == 0){
 			//This is a GET request
 			connection->type = REQUEST_HTTPHEAD;
 			RBUF_READMOVE(connection->input, n + 1);
