@@ -212,7 +212,7 @@ void db_table_incref(db_table* entry){
 	entry->refs++;
 }
 
-void db_entry_deref(cache_entry* entry){
+void db_entry_deref(cache_entry* entry, bool table){
 	DEBUG("[#] Decrementing refcount - was: %d\n", entry->refs);
 	entry->refs--;
 
@@ -220,7 +220,9 @@ void db_entry_deref(cache_entry* entry){
 	if (entry->refs == 0 && entry->deleted){
 		db_entry_actually_delete(entry);
 	}
-	db_table_deref(entry->table);
+	if (table){
+		db_table_deref(entry->table);
+	}
 }
 
 void db_entry_incref(cache_entry* entry, bool table = true){

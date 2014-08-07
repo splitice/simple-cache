@@ -525,7 +525,7 @@ static state_action http_read_header_extraction(int epfd, cache_connection* conn
 				cache_entry* entry = db_entry_get_delete(connection->target.table.table, key, length);
 				if (entry != NULL){
 					db_entry_handle_delete(entry);
-					db_entry_deref(entry);
+					db_entry_deref(entry, false);
 				}
 			}
 			break;
