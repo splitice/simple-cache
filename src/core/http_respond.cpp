@@ -80,7 +80,6 @@ state_action http_respond_responseend(int epfd, cache_connection* connection){
 		http_cleanup(connection);
 		connection->handler = http_handle_method;
 		http_register_read(epfd, connection);
-		return continue_processing;
 	}
 	else{
 		connection->handler = http_respond_writeonly;

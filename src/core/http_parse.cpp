@@ -327,7 +327,7 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 					if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPHEAD)){
 						connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200];
 						connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200];
-						connection->state = 0;//n to send
+						connection->state = 0;
 
 						connection->handler = http_respond_start;
 						connection_register_write(epfd, connection->client_sock);
