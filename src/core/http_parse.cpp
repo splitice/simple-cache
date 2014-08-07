@@ -358,9 +358,6 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 						FATAL("Unknown request type");
 					}
 				}
-				else if (REQUEST_IS(connection->type, REQUEST_HTTPBULK)){
-					return http_write_response(epfd, connection, HTTPTEMPLATE_BULK_OK);
-				}
 				else{
 					return http_write_response(epfd, connection, HTTPTEMPLATE_FULL404);
 				}
@@ -391,6 +388,9 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 					{
 						return http_write_response(epfd, connection, HTTPTEMPLATE_FULL404);
 					}
+				}
+				else if (REQUEST_IS(connection->type, REQUEST_HTTPBULK)){
+					return http_write_response(epfd, connection, HTTPTEMPLATE_BULK_OK);
 				}
 			}
 		}
