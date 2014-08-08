@@ -133,10 +133,10 @@ static const char * test_high_rb() {
 	rb.write_position = 1000;
 
 	//Calculations
-	mu_assert("test_high_rb rbuf_read_to_end check", rbuf_read_to_end(&rb) == 536);
-	mu_assert("test_high_rb rbuf_read_remaining check", rbuf_read_remaining(&rb) == 1536);
-	mu_assert("test_high_rb rbuf_write_to_end check", rbuf_write_to_end(&rb) == 2560);
-	mu_assert("test_high_rb rbuf_write_remaining check", rbuf_write_remaining(&rb) == 2560);
+	mu_assert("test_high_rb rbuf_read_to_end check", rbuf_read_to_end(&rb) == (BUFFER_SIZE - (rb.read_position % BUFFER_SIZE)));
+	mu_assert("test_high_rb rbuf_read_remaining check", rbuf_read_remaining(&rb) == (BUFFER_SIZE - (rb.read_position % BUFFER_SIZE)) + rb.write_position);
+	mu_assert("test_high_rb rbuf_write_to_end check", rbuf_write_to_end(&rb) == BUFFER_SIZE - ((BUFFER_SIZE - (rb.read_position % BUFFER_SIZE)) + rb.write_position));
+	mu_assert("test_high_rb rbuf_write_remaining check", rbuf_write_remaining(&rb) == BUFFER_SIZE - ((BUFFER_SIZE - (rb.read_position % BUFFER_SIZE)) + rb.write_position));
 
 	return 0;
 }
