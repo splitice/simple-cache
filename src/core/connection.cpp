@@ -20,6 +20,10 @@
 #include "debug.h"
 #include "http.h"
 #include "settings.h"
+#ifdef DEBUG_BUILD
+/* For reference counting checks */
+#include "db.h"
+#endif
 
 /* Globals */
 int listenfd = -1;
@@ -197,6 +201,21 @@ static void connection_remove(int epfd, int fd, cache_connection_node* ctable){
 	}
 }
 
+static int connection_count(cache_connection_node* ctable){
+	int count = 0;
+	for (int i = 0; i < CONNECTION_HASH_ENTRIES; i++){
+		cache_connection_node* target = &ctable[i];
+		do {
+			if (target->connection.client_sock == -1){
+				break;
+			}
+			count++;
+			target = target->next;
+		} while (target != NULL);
+	}
+	return count;
+}
+
 
 void connection_event_loop(void (*connection_handler)(cache_connection* connection)){
 	int epfd = epoll_create(MAXCLIENTS);
@@ -272,6 +291,12 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 						close(fd);
 						connection_remove(epfd, fd, ctable);
 						assert(connection_get(fd, ctable) == NULL);
+#ifdef DEBUG_BUILD
+						int num_connections = connection_count(ctable);
+						if (num_connections == 0){
+							db_check_table_refs();
+						}
+#endif
 					}
 				}
 				else{

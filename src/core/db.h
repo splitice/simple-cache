@@ -82,4 +82,8 @@ void db_entry_deref(cache_entry* entry, bool table = true);
 
 #define IS_SINGLE_FILE(x) x->data_length>BLOCK_LENGTH
 
+#ifdef DEBUG_BUILD
+void db_check_table_refs();
+#endif
+
 #endif // !defined(DB_H_INCLUDED_1FA53FD2_BB5F_432E_9E57_761594DEBEC7)

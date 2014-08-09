@@ -66,6 +66,7 @@ void db_validate_lru_flags(){
 			for (khiter_t ke = kh_begin(table->cache_hash_set); ke != kh_end(table->cache_hash_set); ++ke){
 				if (kh_exist(table->cache_hash_set, ke)) {
 					cache_entry* entry = kh_val(table->cache_hash_set, ke);
+					//Assert that this entry in in the LRU like it should be
 					assert(entry->lru_found);
 					entry->lru_found = false;
 				}
@@ -588,6 +589,8 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	db.db_stats_inserts++;
 	db.db_stats_operations++;
 
+	//Must be checked before softdelete removes an entry being replaced
+	bool is_first_in_table = kh_size(table->cache_hash_set) == 0;
 
 	//This is a re-used entry
 	if (entry != NULL){
@@ -613,15 +616,15 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	entry->hash = hash;
 
 	//Take a reference if this is the first entry (released when size == 0)
-	if (kh_size(table->cache_hash_set) == 0){
+	if (is_first_in_table){
 		db_table_incref(table);
 	}
 	assert(table->refs >= 2 || (table->refs >= 1 && table->deleted)); //If not, it wouldnt be storing
 
 	//Store entry
 	int ret;
-	k = kh_put(entry, entry->table->cache_hash_set, entry->hash, &ret);
-	kh_value(entry->table->cache_hash_set, k) = entry;
+	k = kh_put(entry, table->cache_hash_set, entry->hash, &ret);
+	kh_value(table->cache_hash_set, k) = entry;
 
 	//Refs
 	db_entry_incref(entry, false);
@@ -678,6 +681,23 @@ cache_entry* db_entry_get_delete(struct db_table* table, char* key, size_t lengt
 
 	return entry;
 }
+
+#ifdef DEBUG_BUILD
+void db_check_table_refs(){
+	for (khiter_t ke = kh_begin(db.tables); ke != kh_end(db.tables); ++ke){
+		if (kh_exist(db.tables, ke)) {
+			db_table* table = kh_val(db.tables, ke);
+
+			//All other refernces should have been de-refed before db_close is called
+			//and hence anything pending deletion will have been cleaned up already
+			assert(!table->deleted);
+
+			//Check reference count (should be 1)
+			assert(table->refs == 1);
+		}
+	}
+}
+#endif
 
 void db_close(){
 	//tables and key space
