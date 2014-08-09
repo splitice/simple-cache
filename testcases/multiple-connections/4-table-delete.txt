@@ -1,0 +1,71 @@
+Desciption: 
+
+0>>>>>
+PUT /t22/k HTTP/1.1
+
+-----
+1>>>>>
+DELETE /t22 HTTP/1.1
+Connection: Keep-Alive
+
+
+-----
+HTTP/1.1 200 OK
+Connection: Keep-Alive
+Content-Length: 9
+
+DELETED
+
+0>>>>>
+Connection: Keep-Alive
+
+-----
+1>>>>>
+DELETE /t22 HTTP/1.1
+Connection: Keep-Alive
+
+
+-----
+HTTP/1.1 404 File Not Found
+Connection: Keep-Alive
+Content-Length: 15
+
+Key not Found
+
+0>>>>>
+Content-Length: 2
+
+-----
+1>>>>>
+DELETE /t22 HTTP/1.1
+Connection: Keep-Alive
+
+
+-----
+HTTP/1.1 404 File Not Found
+Connection: Keep-Alive
+Content-Length: 15
+
+Key not Found
+
+0>>>>>
+
+12
+-----
+HTTP/1.1 200 OK
+Connection: Keep-Alive
+Content-Length: 4
+
+OK
+
+0>>>>>
+GET /t22/k HTTP/1.1
+Connection: Keep-Alive
+
+
+-----
+HTTP/1.1 404 File Not Found
+Connection: Keep-Alive
+Content-Length: 15
+
+Key not Found

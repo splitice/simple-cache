@@ -564,8 +564,10 @@ void db_entry_handle_softdelete(cache_entry* entry, khiter_t k){
 	//Counters
 	db.db_size_bytes -= entry->data_length;
 
-	//Remove from LRU
-	db_lru_remove_node(entry);
+	if (!entry->writing){
+		//Remove from LRU
+		db_lru_remove_node(entry);
+	}
 
 	//Assertion check
 	if (entry->refs == 0){
