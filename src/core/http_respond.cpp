@@ -144,11 +144,14 @@ state_action http_respond_close_connection(int epfd, cache_connection* connectio
 state_action http_respond_listing(int epfd, cache_connection* connection){
 	DEBUG("[#%d] Sending listing response\n", connection->client_sock);
 
-	if ((connection->target.table.limit + connection->target.table.start) > kh_end(connection->target.table.table->cache_hash_set)){
+	if (connection->target.table.start > kh_end(connection->target.table.table->cache_hash_set)){
+		connection->target.table.start = kh_end(connection->target.table.table->cache_hash_set);
+		connection->target.table.limit = 0;
+	}else if ((connection->target.table.limit + connection->target.table.start) > kh_end(connection->target.table.table->cache_hash_set)){
 		connection->target.table.limit = kh_end(connection->target.table.table->cache_hash_set) - (connection->target.table.start + 1);
 	}
 
-	if (connection->target.table.limit >= 0){
+	if (connection->target.table.limit > 0){
 		cache_entry* entry = NULL;
 		int i = connection->target.table.limit + connection->target.table.start;
 		while (!kh_exist(connection->target.table.table->cache_hash_set, i)){
