@@ -49,15 +49,12 @@ state_action http_respond_expires(int epfd, cache_connection* connection){
 
 state_action http_respond_contentlength(int epfd, cache_connection* connection){
 	int fd = connection->client_sock;
-	char content_length_buffer[128];
+	char header[32];
 	DEBUG("[#%d] Responding with Content-Length\n", fd);
 	//Returns the number of chars put into the buffer
-	int temp = snprintf(content_length_buffer, 128, "Content-Length: %d\r\n", connection->target.key.entry->data_length);
+	int temp = snprintf(header, sizeof(header), "Content-Length: %d\r\n", connection->target.key.entry->data_length);
 
-	connection->output_buffer_free = (char*)malloc(temp);
-	memcpy(connection->output_buffer_free, content_length_buffer, temp);
-	connection->output_buffer = connection->output_buffer_free;
-	connection->output_length = temp;
+	copy_to_outputbuffer(connection, header, temp);
 	connection->handler = http_respond_responseend;
 	return continue_processing;
 }
