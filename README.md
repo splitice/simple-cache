@@ -22,6 +22,7 @@ Compile with the provided Makefile. Requires a GCC version with C++11 support. T
 
 ### Get Key Value
 **GET /table/key HTTP/1.1**
+
 Get the value of key in table
 ```
 curl http://127.0.0.1:8000/table/key -XGET -v
@@ -32,6 +33,7 @@ curl http://127.0.0.1:8000/table/key -XGET -v
 
 ## Insert or Update Key
 **PUT /table/key HTTP/1.1**
+
 Put (Set or inset) a value (post data) into key in table
 ```
 curl http://127.0.0.1:8000/table/key -XPUT -v -d 'key value'
@@ -42,6 +44,7 @@ curl http://127.0.0.1:8000/table/key -XPUT -v -d 'key value'
 
 ## Delete Key
 **DELETE /table/key HTTP/1.1**
+
 Delete the key in table
 ```
 curl http://127.0.0.1:8000/table/key -XDELETE -v
@@ -52,6 +55,7 @@ curl http://127.0.0.1:8000/table/key -XDELETE -v
 
 ## Delete / Purge table
 **DELETE /table HTTP/1.1**
+
 Delete table, effectively purging table
 ```
 curl http://127.0.0.1:8000/table -XDELETE -v
@@ -62,6 +66,7 @@ curl http://127.0.0.1:8000/table -XDELETE -v
 
 ## List table contents
 **GET /table HTTP/1.1**
+
 Get a listing of keys in the table. NOTE: This may return duplicates
 ```
 curl http://127.0.0.1:8000/table -XGET -v
