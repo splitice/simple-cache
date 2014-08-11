@@ -188,19 +188,22 @@ state_action http_respond_listing(int epfd, cache_connection* connection){
 	return close_connection;
 }
 
+void copy_to_outputbuffer(cache_connection* connection, char* header, int length){
+	connection->output_buffer = connection->output_buffer_free = (char*)malloc(length);
+	memcpy(connection->output_buffer_free, header, length);
+	connection->output_length = length;
+}
+
 state_action http_respond_listingtotal(int epfd, cache_connection* connection){
 	int fd = connection->client_sock;
-	char ttl[128];
+	char header[32];
 
 	if (REQUEST_IS(connection->type, REQUEST_GETTABLE)){
 		DEBUG("[#%d] Responding with X-Total\n", fd);
 		//Returns the number of chars put into the buffer
-		int temp = snprintf(ttl, 128, "X-Total: %d\r\n", kh_n_buckets(connection->target.table.table->cache_hash_set));
+		int temp = snprintf(header, sizeof(header), "X-Total: %d\r\n", kh_n_buckets(connection->target.table.table->cache_hash_set));
 
-		connection->output_buffer_free = (char*)malloc(temp);
-		memcpy(connection->output_buffer_free, ttl, temp);
-		connection->output_buffer = connection->output_buffer_free;
-		connection->output_length = temp;
+		copy_to_outputbuffer(connection, header, temp);
 	}
 
 	connection->handler = http_respond_listing_separator;
@@ -209,17 +212,14 @@ state_action http_respond_listingtotal(int epfd, cache_connection* connection){
 
 state_action http_respond_listingentries(int epfd, cache_connection* connection){
 	int fd = connection->client_sock;
-	char ttl[128];
+	char header[32];
 
 	if (REQUEST_IS(connection->type, REQUEST_GETTABLE)){
 		DEBUG("[#%d] Responding with X-Entries\n", fd);
 		//Returns the number of chars put into the buffer
-		int temp = snprintf(ttl, 128, "X-Entries: %d\r\n", kh_size(connection->target.table.table->cache_hash_set));
+		int temp = snprintf(header, sizeof(header), "X-Entries: %d\r\n", kh_size(connection->target.table.table->cache_hash_set));
 
-		connection->output_buffer_free = (char*)malloc(temp);
-		memcpy(connection->output_buffer_free, ttl, temp);
-		connection->output_buffer = connection->output_buffer_free;
-		connection->output_length = temp;
+		copy_to_outputbuffer(connection, header, temp);
 	}
 	connection->handler = http_respond_listingtotal;
 	return continue_processing;
