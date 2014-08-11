@@ -67,7 +67,7 @@ void db_validate_lru_flags(){
 				if (kh_exist(table->cache_hash_set, ke)) {
 					cache_entry* entry = kh_val(table->cache_hash_set, ke);
 					//Assert that this entry in in the LRU like it should be
-					assert(entry->lru_found);
+					assert(entry->lru_found || entry->writing);
 					entry->lru_found = false;
 				}
 			}
@@ -217,12 +217,14 @@ void db_entry_deref(cache_entry* entry, bool table){
 	DEBUG("[#] Decrementing refcount - was: %d\n", entry->refs);
 	entry->refs--;
 
+	//Deref the table
+	if (table && entry->table){
+		db_table_deref(entry->table);
+	}
+
 	//Actually clean up the entry
 	if (entry->refs == 0 && entry->deleted){
 		db_entry_actually_delete(entry);
-	}
-	if (table){
-		db_table_deref(entry->table);
 	}
 }
 
@@ -807,6 +809,7 @@ void db_entry_handle_delete(cache_entry* entry, khiter_t k){
 		entry->table->deleted = true;
 		k = kh_get(table, db.tables, entry->table->hash);
 		db_delete_table_entry(entry->table, k);
+		entry->table = NULL;
 	}
 }
 
