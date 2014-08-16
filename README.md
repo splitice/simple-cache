@@ -27,8 +27,42 @@ Get the value of key in table
 ```
 curl http://127.0.0.1:8000/table/key -XGET -v
 ```
+**Key Not Found:**
 ```
-
+$ curl http://127.0.0.1:8000/table/key -XGET -v
+* Hostname was NOT found in DNS cache
+*   Trying 127.0.0.1...
+* Connected to 127.0.0.1 (127.0.0.1) port 8000 (#0)
+> GET /table/key HTTP/1.1
+> User-Agent: curl/7.35.0
+> Host: 127.0.0.1:8000
+> Accept: */*
+>
+< HTTP/1.1 404 File Not Found
+< Connection: Keep-Alive
+< Content-Length: 15
+<
+Key not Found
+* Connection #0 to host 127.0.0.1 left intact
+```
+**Key Found:**
+```
+$ curl http://127.0.0.1:8000/table/key -XGET -v
+* Hostname was NOT found in DNS cache
+*   Trying 127.0.0.1...
+* Connected to 127.0.0.1 (127.0.0.1) port 8000 (#0)
+> GET /table/key HTTP/1.1
+> User-Agent: curl/7.35.0
+> Host: 127.0.0.1:8000
+> Accept: */*
+>
+< HTTP/1.1 200 OK
+< Connection: Keep-Alive
+< X-Ttl: 0
+< Content-Length: 9
+<
+* Connection #0 to host 127.0.0.1 left intact
+key value
 ```
 
 ## Insert or Update Key
@@ -39,7 +73,24 @@ Put (Set or inset) a value (post data) into key in table
 curl http://127.0.0.1:8000/table/key -XPUT -v -d 'key value'
 ```
 ```
-
+$ curl http://127.0.0.1:8000/table/key -XPUT -v -d 'key value'
+* Hostname was NOT found in DNS cache
+*   Trying 127.0.0.1...
+* Connected to 127.0.0.1 (127.0.0.1) port 8000 (#0)
+> PUT /table/key HTTP/1.1
+> User-Agent: curl/7.35.0
+> Host: 127.0.0.1:8000
+> Accept: */*
+> Content-Length: 9
+> Content-Type: application/x-www-form-urlencoded
+>
+* upload completely sent off: 9 out of 9 bytes
+< HTTP/1.1 200 OK
+< Connection: Keep-Alive
+< Content-Length: 4
+<
+OK
+* Connection #0 to host 127.0.0.1 left intact
 ```
 
 ## Delete Key
@@ -50,7 +101,21 @@ Delete the key in table
 curl http://127.0.0.1:8000/table/key -XDELETE -v
 ```
 ```
-
+$ curl http://127.0.0.1:8000/table/key -XDELETE -v
+* Hostname was NOT found in DNS cache
+*   Trying 127.0.0.1...
+* Connected to 127.0.0.1 (127.0.0.1) port 8000 (#0)
+> DELETE /table/key HTTP/1.1
+> User-Agent: curl/7.35.0
+> Host: 127.0.0.1:8000
+> Accept: */*
+>
+< HTTP/1.1 200 OK
+< Connection: Keep-Alive
+< Content-Length: 9
+<
+DELETED
+* Connection #0 to host 127.0.0.1 left intact
 ```
 
 ## Delete / Purge table
@@ -60,8 +125,41 @@ Delete table, effectively purging table
 ```
 curl http://127.0.0.1:8000/table -XDELETE -v
 ```
+**Table Not Found:**
 ```
-
+$ curl http://127.0.0.1:8000/table -XDELETE -v
+* Hostname was NOT found in DNS cache
+*   Trying 127.0.0.1...
+* Connected to 127.0.0.1 (127.0.0.1) port 8000 (#0)
+> DELETE /table HTTP/1.1
+> User-Agent: curl/7.35.0
+> Host: 127.0.0.1:8000
+> Accept: */*
+>
+< HTTP/1.1 404 File Not Found
+< Connection: Keep-Alive
+< Content-Length: 15
+<
+Key not Found
+* Connection #0 to host 127.0.0.1 left intact
+```
+**Table Found:**
+```
+$ curl http://127.0.0.1:8000/table -XDELETE -v
+* Hostname was NOT found in DNS cache
+*   Trying 127.0.0.1...
+* Connected to 127.0.0.1 (127.0.0.1) port 8000 (#0)
+> DELETE /table HTTP/1.1
+> User-Agent: curl/7.35.0
+> Host: 127.0.0.1:8000
+> Accept: */*
+>
+< HTTP/1.1 200 OK
+< Connection: Keep-Alive
+< Content-Length: 9
+<
+DELETED
+* Connection #0 to host 127.0.0.1 left intact
 ```
 
 ## List table contents
@@ -71,8 +169,42 @@ Get a listing of keys in the table. NOTE: This may return duplicates
 ```
 curl http://127.0.0.1:8000/table -XGET -v
 ```
+**Table Not Found:**
 ```
-
+$ curl http://127.0.0.1:8000/table -XGET -v
+* Hostname was NOT found in DNS cache
+*   Trying 127.0.0.1...
+* Connected to 127.0.0.1 (127.0.0.1) port 8000 (#0)
+> GET /table HTTP/1.1
+> User-Agent: curl/7.35.0
+> Host: 127.0.0.1:8000
+> Accept: */*
+>
+< HTTP/1.1 404 File Not Found
+< Connection: Keep-Alive
+< Content-Length: 15
+<
+Key not Found
+* Connection #0 to host 127.0.0.1 left intact
+```
+**Table Found:**
+```
+$ curl http://127.0.0.1:8000/table -XGET -v
+* Hostname was NOT found in DNS cache
+*   Trying 127.0.0.1...
+* Connected to 127.0.0.1 (127.0.0.1) port 8000 (#0)
+> GET /table HTTP/1.1
+> User-Agent: curl/7.35.0
+> Host: 127.0.0.1:8000
+> Accept: */*
+>
+< HTTP/1.1 200 OK
+< Connection: Close
+< X-Entries: 1
+< X-Total: 4
+<
+key
+* Closing connection 0
 ```
 
 **Request headers supported:**
