@@ -14,6 +14,9 @@
 #include <sys/sendfile.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <fcntl.h>
 #include <errno.h>
 #include "connection.h"
@@ -247,6 +250,9 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 
 						if (connection_non_blocking(client_sock) < 0)
 							PFATAL("Setting connection to non blocking failed.");
+
+						int state = 1;
+						setsockopt(client_sock, IPPROTO_TCP, TCP_CORK, &state, sizeof(state));
 
 						ev.events = EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLRDHUP;
 						ev.data.fd = client_sock;
