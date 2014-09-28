@@ -103,7 +103,8 @@ state_action http_respond_contentbody(int epfd, cache_connection* connection){
 		off_t pos = connection->target.key.position;
 		int bytes_sent = sendfile(fd, connection->target.key.fd, &pos, temp);
 		if (bytes_sent < 0){
-			PFATAL("Error sending bytes with sendfile");
+			PWARN("Error sending bytes with sendfile. Closing connection.");
+			return close_connection;
 		}
 		DEBUG("[#%d] Sendfile sent %d bytes from position %d\n", fd, bytes_sent, connection->target.key.position);
 		connection->target.key.position += bytes_sent;
