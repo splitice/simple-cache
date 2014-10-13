@@ -334,6 +334,7 @@ bool execute_file(const char* filename, int port){
 
 	int step = 1;
 	do {
+		printf("Running scenarios \"%s\" step %d\n", filename, step);
 		more = extract_unit(f, request, expect, connection);
 
 		if (request.empty() && expect.empty()){
@@ -380,6 +381,7 @@ bool execute_file(const char* filename, int port){
 }
 
 bool run_scenario(const char* binary, const char* testcases, const char* filename, int port, bool run_server, const char* options, bool debug_output = true){
+	printf("Running scenarios \"%s\"\n", testcases);
 	char testcase_path[1024];
 	sprintf(testcase_path,"%s/%s", testcases, filename);
 	char* db = tempnam(NULL, NULL);
