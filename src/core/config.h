@@ -3,7 +3,11 @@
 #define MAX_PATH 512
 
 #define CONNECTION_HASH_ENTRIES 1024
-//#define DB_LRU_EVERY 500
+
+#ifdef DEBUG_BUILD
 #define DB_LRU_EVERY 1
+#else
+#define DB_LRU_EVERY 500
+#endif
 
 #define DEFAULT_LISTING_LIMIT 10000
