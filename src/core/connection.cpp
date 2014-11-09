@@ -151,6 +151,10 @@ static cache_connection* connection_add(int fd, cache_connection_node* ctable){
 		newNode->next = NULL;
 		node = newNode;
 	}
+	else{
+		node->next = NULL;
+	}
+
 	rbuf_init(&node->connection.input);
 	node->connection.state = 0;
 	node->connection.client_sock = fd;
@@ -162,7 +166,11 @@ static cache_connection* connection_add(int fd, cache_connection_node* ctable){
 
 static cache_connection* connection_get(int fd, cache_connection_node* ctable){
 	cache_connection_node* node = &ctable[CONNECTION_HASH_KEY(fd)];
+	if (node->connection.client_sock == -1){
+		return NULL;
+	}
 	while (node->connection.client_sock != fd){
+		assert(node->connection.client_sock != -1);
 		node = node->next;
 		if (node == NULL){
 			return NULL;
@@ -175,11 +183,16 @@ static cache_connection* connection_get(int fd, cache_connection_node* ctable){
 static void connection_remove(int epfd, int fd, cache_connection_node* ctable){
 	cache_connection_node* prev = NULL;
 	cache_connection_node* node = &ctable[CONNECTION_HASH_KEY(fd)];
+	if (node->connection.client_sock == -1){
+		WARN("Unable to find fd: %d connection entry to remove", fd);
+		return;
+	}
 	while (node->connection.client_sock != fd){
+		assert(node->connection.client_sock != -1);
 		prev = node;
 		node = node->next;
 		if (node == NULL){
-			WARN("Unable to find fd: %d connection entry to remove", fd);
+			WARN("Unable to find fd: %d connection entry to remove, reached end of list", fd);
 			return;
 		}
 	}
@@ -191,8 +204,10 @@ static void connection_remove(int epfd, int fd, cache_connection_node* ctable){
 	}
 	else{
 		if (node->next){
-			//Has nodes after it
+			//Has nodes after it, but is the first node
 			memcpy(&node->connection, &node->next->connection, sizeof(cache_connection));
+
+			//Set node->next to node->next->next then free next->next (temp var: prev)
 			prev = node->next;
 			node->next = prev->next;
 			free(prev);
