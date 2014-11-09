@@ -248,25 +248,31 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					else {
 						DEBUG("[#] Accepted connection %d\n", client_sock);
 
+						//Connection will be non-blocking
 						if (connection_non_blocking(client_sock) < 0)
 							PFATAL("Setting connection to non blocking failed.");
 
+						//Enable TCP CORK
 						int state = 1;
 						setsockopt(client_sock, IPPROTO_TCP, TCP_CORK, &state, sizeof(state));
 
-						ev.events = EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLRDHUP;
+						//Add socket to epoll
+						ev.events = EPOLLIN | EPOLLHUP | EPOLLRDHUP;
 						ev.data.fd = client_sock;
 						res = epoll_ctl(epfd, EPOLL_CTL_ADD, client_sock, &ev);
 						if (res != 0){
 							PFATAL("epoll_ctl() failed.");
 						}
 
+						//Store connection
 						cache_connection* connection = connection_add(client_sock, ctable);
+
+						//Handle event
 						connection_handler(connection);
 					}
 				}
 				else if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP){
-					FATAL("API socket is down.");
+					FATAL("listener socket is down.");
 				}
 			}
 			else{
@@ -275,10 +281,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 				if (connection != NULL){
 					int close_connection = 0;
 
-					if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP || events[n].events & EPOLLRDHUP){
-						close_connection = 1;
-					}
-					else if (events[n].events & EPOLLIN){
+					if (events[n].events & EPOLLIN){
 						if (http_read_handle(epfd, connection) == close_connection){
 							close_connection = 1;
 						}
@@ -287,6 +290,9 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 						if (http_write_handle(epfd, connection) == close_connection){
 							close_connection = 1;
 						}
+					}
+					else if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP || events[n].events & EPOLLRDHUP){
+						close_connection = 1;
 					}
 
 
@@ -318,15 +324,25 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 	close(epfd);
 }
 
+/*
+On close connection cleanup routine
+*/
 void connection_cleanup_http(cache_connection_node* connection, bool toFree = false){
+	assert(connection != null);
+
+	//Close socket to client
 	if (connection->connection.client_sock != -1){
 		http_cleanup(&connection->connection);
 		close(connection->connection.client_sock);
 		connection->connection.client_sock = -1;
 	}
+
+	//Handle chained connections
 	if (connection->next != NULL){
 		connection_cleanup_http(connection->next, true);
 	}
+
+	//Free up the connection if dynamically allocated
 	if (toFree){
 		free(connection);
 	}
