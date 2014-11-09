@@ -59,20 +59,23 @@ state_action http_respond_contentlength(int epfd, cache_connection* connection){
 	return continue_processing;
 }
 
-void http_register_read(int epfd, cache_connection* connection){
+bool http_register_read(int epfd, cache_connection* connection){
 	int extern stop_soon;
 
-	connection_register_read(epfd, connection->client_sock);
+	bool res = connection_register_read(epfd, connection->client_sock);
+
 	if (!stop_soon && rbuf_write_remaining(&connection->input)){
 		http_read_handle(epfd, connection);
 	}
+
+	return res;
 }
 
 state_action http_respond_reset_connection(int epfd, cache_connection* connection){
 	http_cleanup(connection);
 	connection->handler = http_handle_method;
-	http_register_read(epfd, connection);
-	return continue_processing;
+	bool res = http_register_read(epfd, connection);
+	return res ? continue_processing : close_connection;
 }
 
 state_action http_respond_responseend(int epfd, cache_connection* connection){
@@ -115,7 +118,10 @@ state_action http_respond_contentbody(int epfd, cache_connection* connection){
 	if (connection->target.key.position == connection->target.key.end_position){
 		http_cleanup(connection);
 		connection->handler = http_handle_method;
-		http_register_read(epfd, connection);
+		bool res = http_register_read(epfd, connection);
+		if (!res){
+			return close_connection;
+		}
 	}
 	return continue_processing;
 }
@@ -125,8 +131,8 @@ state_action http_respond_writeonly(int epfd, cache_connection* connection){
 	//Static response, after witing, read next request
 	http_cleanup(connection);
 	connection->handler = http_handle_method;
-	http_register_read(epfd, connection);
-	return continue_processing;
+	bool res = http_register_read(epfd, connection);
+	return res ? continue_processing : close_connection;
 }
 
 state_action http_respond_listing_separator(int epfd, cache_connection* connection){

@@ -76,8 +76,8 @@ static state_action http_write_response(int epfd, cache_connection* connection, 
 	connection->output_buffer = http_templates[http_template];
 	connection->output_length = http_templates_length[http_template];
 	connection->state = 0;
-	connection_register_write(epfd, connection->client_sock);
-	return registered_write;
+	bool res = connection_register_write(epfd, connection->client_sock);
+	return res?registered_write:close_connection;
 }
 
 static state_action http_headers_response_after_eol(int epfd, cache_connection* connection, int http_template){
@@ -346,8 +346,8 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 						connection->state = 0;
 
 						connection->handler = http_respond_start;
-						connection_register_write(epfd, connection->client_sock);
-						return registered_write;
+						bool res = connection_register_write(epfd, connection->client_sock);
+						return res ? registered_write : close_connection;
 					}
 					else if (REQUEST_IS(connection->type, REQUEST_HTTPDELETE)){
 						db_entry_handle_delete(connection->target.key.entry);
@@ -369,8 +369,8 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 						connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200_CONCLOSE];
 						connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200_CONCLOSE];
 						connection->handler = http_respond_listingentries;
-						connection_register_write(epfd, connection->client_sock);
-						return registered_write;
+						bool res = connection_register_write(epfd, connection->client_sock);
+						return res ? registered_write : close_connection;
 					}
 					else
 					{
@@ -559,7 +559,11 @@ static state_action http_read_eol(int epfd, cache_connection* connection, char* 
 	if (target == current){
 		connection->state = 0;
 		connection->handler = http_respond_writeonly;
-		connection_register_write(epfd, connection->client_sock);
+		bool res = connection_register_write(epfd, connection->client_sock);
+
+		if (!res){
+			return close_connection;
+		}
 
 		if (n != 0){
 			RBUF_READMOVE(connection->input, n);

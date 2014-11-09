@@ -37,22 +37,23 @@ struct cache_connection_node ctable[CONNECTION_HASH_ENTRIES] = { 0 };
 volatile sig_atomic_t stop_soon = 0;
 
 /* Methods */
-static void connection_event_update(int epfd, int fd, uint32_t events){
+static bool connection_event_update(int epfd, int fd, uint32_t events){
 	assert(fd != 0 || fd);
 	ev.events = events;
 	ev.data.fd = fd;
 	int res = epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev);
 	if (res != 0){
-		PFATAL("epoll_ctl() update failed on fd: %d.", fd);
+		DEBUG("[#] epoll_ctl() update failed on fd: %d.\n", fd);
 	}
+	return res == 0;
 }
 
-void connection_register_write(int epfd, int fd){
-	connection_event_update(epfd, fd, EPOLLOUT | EPOLLHUP);
+bool connection_register_write(int epfd, int fd){
+	return connection_event_update(epfd, fd, EPOLLOUT | EPOLLHUP);
 }
 
-void connection_register_read(int epfd, int fd){
-	connection_event_update(epfd, fd, EPOLLIN | EPOLLHUP | EPOLLRDHUP);
+bool connection_register_read(int epfd, int fd){
+	return connection_event_update(epfd, fd, EPOLLIN | EPOLLHUP | EPOLLRDHUP);
 }
 
 void connection_setup(){
@@ -141,6 +142,7 @@ static cache_connection* connection_add(int fd, cache_connection_node* ctable){
 	cache_connection_node* node = &ctable[CONNECTION_HASH_KEY(fd)];
 	if (node->connection.client_sock != -1){
 		while (node->next != NULL) {
+			assert(node->connection.client_sock != -1);
 			node = node->next;
 		}
 

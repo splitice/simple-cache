@@ -4,8 +4,8 @@
 #include "config.h"
 #include "connection_structures.h"
 
-void connection_register_write(int epfd, int fd);
-void connection_register_read(int epfd, int fd);
+bool connection_register_write(int epfd, int fd);
+bool connection_register_read(int epfd, int fd);
 void connection_open_listener();
 void connection_close_listener();
 void connection_event_loop(void(*connection_handler)(cache_connection* connection));
