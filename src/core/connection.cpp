@@ -37,24 +37,22 @@ struct cache_connection_node ctable[CONNECTION_HASH_ENTRIES] = { 0 };
 volatile sig_atomic_t stop_soon = 0;
 
 /* Methods */
-void connection_register_write(int epfd, int fd){
+static void connection_event_update(int epfd, int fd, uint32_t events){
 	assert(fd != 0 || fd);
-	ev.events = EPOLLOUT | EPOLLERR | EPOLLHUP | EPOLLRDHUP;
+	ev.events = events;
 	ev.data.fd = fd;
 	int res = epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev);
 	if (res != 0){
-		PFATAL("epoll_ctl() failed on fd: %d.", fd);
+		PFATAL("epoll_ctl() update failed on fd: %d.", fd);
 	}
 }
 
+void connection_register_write(int epfd, int fd){
+	connection_event_update(epfd, fd, EPOLLOUT | EPOLLHUP);
+}
+
 void connection_register_read(int epfd, int fd){
-	assert(fd != 0 || fd);
-	ev.events = EPOLLIN | EPOLLERR | EPOLLHUP | EPOLLRDHUP;
-	ev.data.fd = fd;
-	int res = epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev);
-	if (res != 0){
-		PFATAL("epoll_ctl() failed on fd: %d.", fd);
-	}
+	connection_event_update(epfd, fd, EPOLLIN | EPOLLHUP | EPOLLRDHUP);
 }
 
 void connection_setup(){
