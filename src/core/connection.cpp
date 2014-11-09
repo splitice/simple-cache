@@ -328,7 +328,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 On close connection cleanup routine
 */
 void connection_cleanup_http(cache_connection_node* connection, bool toFree = false){
-	assert(connection != null);
+	assert(connection != NULL);
 
 	//Close socket to client
 	if (connection->connection.client_sock != -1){

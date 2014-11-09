@@ -132,13 +132,16 @@ state_action http_write_handle(int epfd, cache_connection* connection){
 	return run;
 }
 
+/*
+Cleanup & Reset state for a HTTP connection
+*/
 void http_cleanup(cache_connection* connection){
-	assert(connection != null);
+	assert(connection != NULL);
 	DEBUG("[#%d] Cleaning up connection\n", connection->client_sock);
 	if (REQUEST_IS(connection->type, REQUEST_LEVELKEY)){
 		if (connection->writing){
 			cache_entry* entry = connection->target.key.entry;
-			assert(entry != null);
+			assert(entry != NULL);
 			if (!entry->deleted){
 				db_entry_handle_delete(entry);
 			}
