@@ -55,7 +55,10 @@ state_action http_read_handle(int epfd, cache_connection* connection){
 		DEBUG("[#%d] reading %d bytes from socket (write pos: %d, read pos: %d)\n", fd, num, connection->input.write_position, connection->input.read_position);
 		num = read(fd, RBUF_WRITE(connection->input), num);
 
-		if (num <= 0){
+		if (num == 0){
+			return close_connection;
+		}
+		if (num < 0){
 			if (errno != EAGAIN && errno != EWOULDBLOCK){
 				DEBUG("A socket error occured while reading: %d", num);
 				return close_connection;
