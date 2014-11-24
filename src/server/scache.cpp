@@ -119,6 +119,11 @@ static __pid_t fork_off() {
 
 }
 
+void signal_callback_handler(int signum){
+
+	printf("Caught signal SIGPIPE %d\n", signum);
+}
+
 /* Time to go down the rabbit hole */
 int main(int argc, char** argv)
 {
@@ -152,6 +157,7 @@ int main(int argc, char** argv)
 	install_signal_handlers();
 
 	//Connection handling
+	signal(SIGPIPE, signal_callback_handler);
 	connection_event_loop(http_connection_handler);
 
 	//Cleanup
