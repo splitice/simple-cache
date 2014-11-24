@@ -58,7 +58,12 @@ static void abort_handler(int sig) {
 	stop_soon = 1;
 }
 
+void sigpipe_handler(int signum){
+	DEBUG(" [#] Caught & ignored signal SIGPIPE %d\n", signum);
+}
+
 static void install_signal_handlers(){
+	signal(SIGPIPE, sigpipe_handler);
 	signal(SIGINT, abort_handler);
 	signal(SIGTERM, abort_handler);
 }
@@ -116,12 +121,6 @@ static __pid_t fork_off() {
 		exit(0);
 
 	}
-
-}
-
-void signal_callback_handler(int signum){
-
-	printf("Caught signal SIGPIPE %d\n", signum);
 }
 
 /* Time to go down the rabbit hole */
@@ -157,7 +156,6 @@ int main(int argc, char** argv)
 	install_signal_handlers();
 
 	//Connection handling
-	signal(SIGPIPE, signal_callback_handler);
 	connection_event_loop(http_connection_handler);
 
 	//Cleanup
