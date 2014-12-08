@@ -58,12 +58,8 @@ static void abort_handler(int sig) {
 	stop_soon = 1;
 }
 
-void sigpipe_handler(int signum){
-	DEBUG(" [#] Caught & ignored signal SIGPIPE %d\n", signum);
-}
-
 static void install_signal_handlers(){
-	signal(SIGPIPE, sigpipe_handler);
+	signal(SIGPIPE, SIG_IGN);
 	signal(SIGINT, abort_handler);
 	signal(SIGTERM, abort_handler);
 }
