@@ -104,7 +104,7 @@ state_action http_respond_contentbody(int epfd, cache_connection* connection){
 	assert(temp >= 0);
 	if (temp != 0){
 		off_t pos = connection->target.key.position;
-		int bytes_sent = sendfile(fd, connection->target.key.fd, &pos, temp);
+		ssize_t bytes_sent = sendfile(fd, connection->target.key.fd, &pos, temp);
 		if (bytes_sent == 0) {
 			DEBUG("[#%d] EOF Reached\r\n", fd);
 			return close_connection;
