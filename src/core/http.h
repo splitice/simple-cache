@@ -55,11 +55,11 @@
 
 static const char http_templates[NUMBER_OF_HTTPTEMPLATE][100] = {
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\n",
-	"HTTP/1.1 404 File Not Found\r\nConnection: Keep-Alive\r\nContent-Length: 15\r\n\r\nKey not Found\r\n",
+	"HTTP/1.1 404 Not Found\r\nConnection: Keep-Alive\r\nContent-Length: 15\r\n\r\nKey not Found\r\n",
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\nContent-Length: 4\r\n\r\nOK\r\n",
 	"\r\n",
 	"\r\n\r\n",
-	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 14\r\n\r\nInvalid Method\r\n",
+	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 16\r\n\r\nInvalid Method\r\n",
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\nContent-Length: 9\r\n\r\nDELETED\r\n",
 	"HTTP/1.1 200 OK\r\nConnection: Close\r\n",
 	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 24\r\n\r\nInvalid Content-Length\r\n",
