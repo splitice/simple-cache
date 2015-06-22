@@ -213,7 +213,7 @@ int unit_connect(int port){
 }
 
 bool run_unit(std::string& request, std::string& expect, int sockfd){
-	char recv_buffer[1025];
+	char recv_buffer[8096];
 
 	//Send request
 	int len = request.length();
