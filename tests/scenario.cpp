@@ -23,13 +23,14 @@
 #define UNIT_DELAY "*****"
 #define UNIT_SEPERATOR_LEN 6
 
-bool extract_unit(FILE* f, std::string& request, std::string& expect, int& connection){
+bool extract_unit(FILE* f, std::string& request, std::string& expect, int& connection, bool& close){
 	char * line = NULL;
 	size_t len = 0;
 	ssize_t read;
 	int state = 0;
 	long last_pos = -1;
 	connection = 0;
+	close = false;
 	while ((read = getline(&line, &len, f)) != -1) {
 		int expect_len = UNIT_SEPERATOR_LEN;
 		if (read >= 2){
@@ -100,8 +101,15 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 						}
 						if (strncmp(buf, UNIT_DELAY, 5) == 0){
 							*buf = 0;
-							printf("Sleeping for %s seconds\n", line);
-							sleep(atoi(line));
+							if (line[0] == 'c'){
+								printf("Closing connection\n", line);
+								close = true;
+								return true;
+							}
+							else{
+								printf("Sleeping for %s seconds\n", line);
+								sleep(atoi(line));
+							}
 							line = NULL;
 						}
 					}
@@ -330,12 +338,13 @@ bool execute_file(const char* filename, int port){
 	std::string request;
 	std::string expect;
 	int connection;
+	bool close_connection = false;
 	std::map<int, int> connections;
 
 	int step = 1;
 	do {
 		printf("Running scenarios \"%s\" step %d\n", filename, step);
-		more = extract_unit(f, request, expect, connection);
+		more = extract_unit(f, request, expect, connection, close_connection);
 
 		if (request.empty() && expect.empty()){
 			fclose(f);
@@ -349,6 +358,12 @@ bool execute_file(const char* filename, int port){
 		//Lookup connection
 		if (connections.find(connection) == connections.end()){
 			connections[connection] = unit_connect(port);
+		}
+
+		//Close connection if asked
+		if (close_connection){
+			close(connections[connection]);
+			continue;
 		}
 
 		//Reconnect if disconnected

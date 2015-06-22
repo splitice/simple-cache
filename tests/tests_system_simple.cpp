@@ -14,6 +14,7 @@ static const char * test_simple_put_get() {
 	//result |= !run_scenarios(binary_path, "lru", testcases_path, port ? port : 8002, port == 0, "--database-max-size 5000", false);
 	result |= !run_scenarios(binary_path, "expires", testcases_path, port ? port : 8001, port == 0, "");
 	result |= !run_scenarios(binary_path, "table", testcases_path, port ? port : 8001, port == 0, "");
+	result |= !run_scenarios(binary_path, "interruptions", testcases_path, port ? port : 8001, port == 0, "");
 	result |= !run_scenarios(binary_path, "complex-system", testcases_path, port ? port : 8001, port == 0, "");
 
 	return result ? "System Tests failed" : 0;
