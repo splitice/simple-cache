@@ -102,7 +102,7 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 						if (strncmp(buf, UNIT_DELAY, 5) == 0){
 							*buf = 0;
 							if (line[0] == 'c'){
-								printf("Closing connection\n", line);
+								printf("Close connection after step\n", line);
 								close = true;
 							}
 							else{
@@ -380,7 +380,7 @@ bool execute_file(const char* filename, int port){
 		//Close connection if asked
 		if (close_connection){
 			close(connections[connection]);
-			continue;
+			connections.erase(connections.find(connection));
 		}
 
 		//Are there more tests
