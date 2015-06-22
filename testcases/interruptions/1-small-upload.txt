@@ -7,6 +7,7 @@ Content-Length: 3
 
 12
 -----
+c*****
 1>>>>>
 GET /t/k HTTP/1.1
 Connection: Keep-Alive
@@ -18,5 +19,3 @@ Connection: Keep-Alive
 Content-Length: 15
 
 Key not Found
-
-c*****

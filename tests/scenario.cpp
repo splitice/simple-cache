@@ -360,12 +360,6 @@ bool execute_file(const char* filename, int port){
 			connections[connection] = unit_connect(port);
 		}
 
-		//Close connection if asked
-		if (close_connection){
-			close(connections[connection]);
-			continue;
-		}
-
 		//Reconnect if disconnected
 		int error = 0;
 		socklen_t len = sizeof (error);
@@ -376,6 +370,7 @@ bool execute_file(const char* filename, int port){
 
 		int sockfd = connections[connection];
 
+		//Execute the step
 		bool result = run_unit(request, expect, sockfd);
 		if (!result){
 			fclose(f);
@@ -383,6 +378,13 @@ bool execute_file(const char* filename, int port){
 			return false;
 		}
 
+		//Close connection if asked
+		if (close_connection){
+			close(connections[connection]);
+			continue;
+		}
+
+		//Are there more tests
 		if (more){
 			request.clear();
 			expect.clear();
