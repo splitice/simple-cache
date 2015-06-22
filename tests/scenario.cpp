@@ -242,7 +242,7 @@ bool run_unit(std::string& request, std::string& expect, int sockfd){
 			printf("%s\n", request.c_str());
 			printf("=========================================\n");
 			if (errno == EAGAIN || errno == EWOULDBLOCK){
-				printf("A timeout occured waiting for a response\n");
+				printf("A timeout occured waiting for a response of length %d\n", to_recv);
 				return false;
 			}
 			PFATAL("An error occured reading from socket");
