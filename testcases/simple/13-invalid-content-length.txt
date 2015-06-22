@@ -3,7 +3,6 @@ Desciption: PUT content, then retrieve with GET
 >>>>>
 PUT /t/aa HTTP/1.1
 Connection: Keep-Alive
-Content-Length: 0
 
 12
 -----
