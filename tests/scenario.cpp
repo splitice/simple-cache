@@ -23,11 +23,15 @@
 #define UNIT_DELAY "*****"
 #define UNIT_SEPERATOR_LEN 6
 
+#define STATE_HEADER 0
+#define STATE_REQUEST 1
+#define STATE_RESPONSE 2
+
 bool extract_unit(FILE* f, std::string& request, std::string& expect, int& connection, bool& close){
 	char * line = NULL;
 	size_t len = 0;
 	ssize_t read;
-	int state = 0;
+	int state = STATE_HEADER;
 	long last_pos = -1;
 	connection = 0;
 	close = false;
@@ -44,7 +48,7 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 			expect_len--;
 		}
 		switch (state){
-		case 0:
+		case STATE_HEADER:
 			if (read == expect_len){
 				if (strncmp(line, UNIT_REQUEST, 5) == 0){
 					state++;
@@ -67,7 +71,7 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 				}
 			}
 			break;
-		case 1:
+		case STATE_REQUEST:
 			last_pos = ftell(f);
 			if (read == UNIT_SEPERATOR_LEN){
 				if (strncmp(line, UNIT_RESPONSE, 5) == 0){
@@ -77,7 +81,7 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 			}
 			request += line;
 			break;
-		case 2:
+		case STATE_RESPONSE:
 			//printf("TravisCI (%d): %s\n", read, line);
 			if (read == expect_len){
 				if (strncmp(line, UNIT_REQUEST, 5) == 0){
@@ -87,32 +91,33 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 				}
 			}
 			else{
-				char* buf = line;
-				int remlen = read;
-				while (remlen >= expect_len && isdigit(*buf)){
-					remlen--;
-					buf++;
+				if (*line == 'c'){
+					if (strncmp(line+1, UNIT_DELAY, 5) == 0){
+						printf("Close connection after step\n", line);
+						close = true;
+						line = NULL;
+					}
+				} else{
+					char* buf = line;
+					int remlen = read;
+					while (remlen >= expect_len && isdigit(*buf)){
+						remlen--;
+						buf++;
 
-					if (remlen == expect_len){
-						if (strncmp(buf, UNIT_REQUEST, 5) == 0){
-							fseek(f, last_pos, SEEK_SET);
-							free(line);
-							return true;
-						}
-						if (strncmp(buf, UNIT_DELAY, 5) == 0){
-							*buf = 0;
-							if (line[0] == 'c'){
-								printf("Close connection after step\n", line);
-								close = true;
+						if (remlen == expect_len){
+							if (strncmp(buf, UNIT_REQUEST, 5) == 0){
+								fseek(f, last_pos, SEEK_SET);
+								free(line);
+								return true;
 							}
-							else{
+							if (strncmp(buf, UNIT_DELAY, 5) == 0){
+								*buf = 0;
 								printf("Sleeping for %s seconds\n", line);
 								sleep(atoi(line));
+								line = NULL;
 							}
-							line = NULL;
 						}
 					}
-
 				}
 			}
 			last_pos = ftell(f);
