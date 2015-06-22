@@ -104,7 +104,6 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 							if (line[0] == 'c'){
 								printf("Closing connection\n", line);
 								close = true;
-								return true;
 							}
 							else{
 								printf("Sleeping for %s seconds\n", line);
