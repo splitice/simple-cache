@@ -44,6 +44,7 @@ struct db_details {
 
 	//Tables
 	khash_t(table) *tables;
+	khiter_t table_gc;
 };
 
 db_details* db_get_details();

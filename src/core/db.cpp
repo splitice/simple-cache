@@ -241,14 +241,15 @@ void db_entry_incref(cache_entry* entry, bool table = true){
 		db_table_incref(entry->table);
 }
 
-void db_lru_cleanup(int bytes_to_remove){
-	while (bytes_to_remove > 0 && db.lru_head != NULL){
+void db_lru_cleanup_percent(int* bytes_to_remove){
+	while (db.lru_head != NULL && *bytes_to_remove > 0){
 		cache_entry* l = db.lru_head;
 
 		//Skip if currently deleting
+		assert(!l->writing);
 		assert(!l->deleted);
 
-		bytes_to_remove -= l->data_length;
+		*bytes_to_remove -= l->data_length;
 
 		if (l->refs == 0)
 		{
@@ -263,13 +264,63 @@ void db_lru_cleanup(int bytes_to_remove){
 	}
 }
 
+static int db_expire_cursor_table(db_table* table){
+	int ret = 0;
+	for (khiter_t ke = kh_begin(table->cache_hash_set); ke != kh_end(table->cache_hash_set); ++ke){
+		if (kh_exist(table->cache_hash_set, ke)) {
+			ret++;
+			cache_entry* l = kh_value(table->cache_hash_set, ke);
+			if (!db.lru_head->expires != 0 && l->expires < time_seconds){
+				if (l->refs == 0)
+				{
+					db_entry_incref(l);
+					db_entry_handle_delete(l);
+					db_entry_deref(l);
+				}
+				else
+				{
+					db_entry_handle_delete(l);
+				}
+			}
+		}
+	}
+	return ret;
+}
+
+void db_expire_cursor(){
+	khiter_t start = db.table_gc;
+	int done = 0;
+	do {
+		db_table* table = kh_value(db.tables, db.table_gc);
+		done += db_expire_cursor_table(table);
+		db.table_gc++;
+		if (db.table_gc == kh_end(db.tables)){
+			db.table_gc = kh_begin(db.tables);
+		}
+	} while (db.table_gc != start && done < 1000);
+}
+
 void db_lru_gc(){
 	if (settings.max_size > 0 && settings.max_size < db.db_size_bytes)
 	{
-		double bytes_to_remove = (((double)db.db_size_bytes / settings.max_size) - (1. - settings.db_lru_clear)) * db.db_keys;
+		int bytes_to_remove = (int)(((double)db.db_size_bytes / settings.max_size) - (1. - settings.db_lru_clear)) * db.db_keys;
 		
-        db_lru_cleanup((int)bytes_to_remove);
-    }
+		db_lru_cleanup_percent(&bytes_to_remove);
+
+		if (bytes_to_remove > 0){
+			db_expire_cursor();
+		}
+	}
+	else
+	{
+		db_expire_cursor();
+	}
+}
+
+static void db_block_size(){
+	if (ftruncate(db.fd_blockfile, db.blocks_exist*BLOCK_LENGTH) < 0){
+		PWARN("File truncation failed (length: %d)", db.blocks_exist);
+	}
 }
 
 int db_block_allocate_new(){
@@ -284,9 +335,7 @@ int db_block_allocate_new(){
 	else{
 		block_num = db.blocks_exist;
 		db.blocks_exist++;
-		if (ftruncate(db.fd_blockfile, db.blocks_exist*BLOCK_LENGTH) < 0){
-			PWARN("File truncation failed (length: %d)", db.blocks_exist);
-		}
+		db_block_size();
 	}
 	return block_num;
 }
@@ -387,6 +436,7 @@ bool db_open(const char* path){
 	//cache entries
 	//db.cache_hash_set = (cache_entry**)calloc(HASH_ENTRIES, sizeof(cache_entry*));
 	db.tables = kh_init(table);
+	db.table_gc = kh_begin(db.tables);
 }
 
 int db_entry_open(struct cache_entry* e, mode_t modes){
