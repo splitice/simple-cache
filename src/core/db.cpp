@@ -270,7 +270,7 @@ static int db_expire_cursor_table(db_table* table){
 		if (kh_exist(table->cache_hash_set, ke)) {
 			ret++;
 			cache_entry* l = kh_value(table->cache_hash_set, ke);
-			if (!db.lru_head->expires != 0 && l->expires < time_seconds){
+			if (l->expires != 0 && l->expires < time_seconds){
 				if (l->refs == 0)
 				{
 					db_entry_incref(l);
@@ -291,8 +291,10 @@ void db_expire_cursor(){
 	khiter_t start = db.table_gc;
 	int done = 0;
 	do {
-		db_table* table = kh_value(db.tables, db.table_gc);
-		done += db_expire_cursor_table(table);
+		if (kh_exist(db.tables, db.table_gc)){
+			db_table* table = kh_value(db.tables, db.table_gc);
+			done += db_expire_cursor_table(table);
+		}
 		db.table_gc++;
 		if (db.table_gc == kh_end(db.tables)){
 			db.table_gc = kh_begin(db.tables);
