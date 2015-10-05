@@ -289,6 +289,13 @@ static int db_expire_cursor_table(db_table* table){
 
 void db_expire_cursor(){
 	khiter_t start = db.table_gc;
+
+	//Make sure tables havent been reduced
+	if (start >= kh_end(db.tables)){
+		start = kh_begin(db.tables);
+		db.table_gc = start;
+	}
+
 	int done = 0;
 	do {
 		if (kh_exist(db.tables, db.table_gc)){
