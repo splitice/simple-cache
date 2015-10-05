@@ -273,10 +273,20 @@ void db_lru_gc(){
 }
 
 int db_block_allocate_new(){
-	uint32_t block_num = db.blocks_exist;
-	db.blocks_exist++;
-	if (ftruncate(db.fd_blockfile, db.blocks_exist*BLOCK_LENGTH) < 0){
-		PWARN("File truncation failed (length: %d)", db.blocks_exist);
+	uint32_t block_num;
+	block_free_node* free_node;
+	if (db.free_blocks != NULL){
+		free_node = db.free_blocks;
+		block_num = free_node->block_number;
+		db.free_blocks = free_node->next;
+		free(free_node);
+	}
+	else{
+		block_num = db.blocks_exist;
+		db.blocks_exist++;
+		if (ftruncate(db.fd_blockfile, db.blocks_exist*BLOCK_LENGTH) < 0){
+			PWARN("File truncation failed (length: %d)", db.blocks_exist);
+		}
 	}
 	return block_num;
 }

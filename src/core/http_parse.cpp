@@ -412,8 +412,6 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 		//Move pointers to next record
 		RBUF_READMOVE(connection->input, n + 1);
 		return needs_more;
-		//n = -1;
-		//return 
 	}
 	else if (*buffer != '\r'){
 		temporary = 0;

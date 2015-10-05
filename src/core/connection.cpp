@@ -63,15 +63,13 @@ void connection_setup(){
 	connection_open_listener();
 }
 
-/*----------------------------------------------------------------------
-Portable function to set a socket into nonblocking mode.
+/* Portable function to set a socket into nonblocking mode.
 Calling this on a socket causes all future read() and write() calls on
 that socket to do only as much as they can immediately, and return
 without waiting.
 If no data can be read or written, they return -1 and set errno
 to EAGAIN (or EWOULDBLOCK).
-Thanks to Bjorn Reese for this code.
-----------------------------------------------------------------------*/
+Thanks to Bjorn Reese for this code. */
 int connection_non_blocking(int fd)
 {
 	int flags;
