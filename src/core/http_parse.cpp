@@ -63,6 +63,12 @@ static void skip_over_newlines(struct read_buffer* rb){
 	}
 }
 
+static state_action http_stats_after_eol(int epfd, cache_connection* connection){
+	connection->state = 0;
+	connection->handler = http_handle_eolstats;
+	return needs_more;
+}
+
 static state_action http_write_response_after_eol(int epfd, cache_connection* connection, int http_template){
 	connection->handler = http_handle_eolwrite;
 	connection->output_buffer = http_templates[http_template];
@@ -204,6 +210,7 @@ static inline state_action http_read_requeststarturl1(int epfd, cache_connection
 
 
 	if (n != 0){
+		//Skip unless character has meaning
 		if (*buffer != '/' && *buffer != ' ') {
 			return continue_processing;//continue
 		}
@@ -247,6 +254,13 @@ static inline state_action http_read_requeststarturl1(int epfd, cache_connection
 
 			RBUF_READMOVE(connection->input, n + 1);
 			if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPDELETE) || REQUEST_IS(connection->type, REQUEST_HTTPBULK)){
+				//Request for "/"
+				if (n == 1){
+					//Stats Command
+					return http_stats_after_eol(epfd, connection);
+				}
+
+				//Else request for table/key
 				connection->handler = http_handle_headers;
 				connection->state = 0;
 				return needs_more;
@@ -629,6 +643,23 @@ state_action http_handle_httpversion(int epfd, cache_connection* connection){
 	if (n != 0){
 		RBUF_READMOVE(connection->input, n);
 	}
+	return ret;
+}
+
+state_action http_handle_eolstats(int epfd, cache_connection* connection){
+	char* buffer;
+	int end, n;
+	state_action ret = continue_processing;
+	DEBUG("[#%d] Handling HTTP EOL Search, then writing stats\n", connection->client_sock);
+
+	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_eol(epfd, connection, buffer, n, connection->state));
+	if (n != 0 && ret == needs_more){
+		RBUF_READMOVE(connection->input, n);
+	}
+	if (ret == registered_write){
+		connection->handler = http_respond_stats;
+	}
+
 	return ret;
 }
 

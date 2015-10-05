@@ -41,7 +41,7 @@
 #define REQUEST_IS(type, mask) ((type & (mask)) == (mask))
 
 /* ===[ HTTP TEMPLATES ]=== */
-#define NUMBER_OF_HTTPTEMPLATE 10
+#define NUMBER_OF_HTTPTEMPLATE 11
 #define HTTPTEMPLATE_HEADERS200 0
 #define HTTPTEMPLATE_FULL404 1
 #define HTTPTEMPLATE_FULL200OK 2
@@ -52,6 +52,7 @@
 #define HTTPTEMPLATE_HEADERS200_CONCLOSE 7
 #define HTTPTEMPLATE_FULLINVALIDCONTENTLENGTH 8
 #define HTTPTEMPLATE_BULK_OK 9
+#define HTTPTEMPLATE_200CONTENT_LENGTH 10
 
 static const char http_templates[NUMBER_OF_HTTPTEMPLATE][100] = {
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\n",
@@ -64,6 +65,7 @@ static const char http_templates[NUMBER_OF_HTTPTEMPLATE][100] = {
 	"HTTP/1.1 200 OK\r\nConnection: Close\r\n",
 	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 24\r\n\r\nInvalid Content-Length\r\n",
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\nContent-Length: 9\r\n\r\nBULK OK\r\n",
+	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\nContent-Length: %d\r\n\r\n",
 };
 
 int extern http_templates_length[NUMBER_OF_HTTPTEMPLATE];

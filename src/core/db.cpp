@@ -36,6 +36,8 @@ LRU
 #include "settings.h"
 #include "timer.h"
 
+#define DEC2ALPH(x) ('A' + (x)%26)
+
 /* Globals */
 struct db_details db {
 	.path_root = { 0 },
@@ -56,7 +58,11 @@ struct db_details db {
 };
 
 //Buffers
-char filename_buffer[MAX_PATH];
+static char filename_buffer[MAX_PATH];
+
+db_details* db_get_details() {
+	return &db;
+}
 
 #ifdef DEBUG_BUILD
 void db_validate_lru_flags(){
@@ -244,19 +250,22 @@ void db_lru_cleanup(int bytes_to_remove){
 
 		bytes_to_remove -= l->data_length;
 
-		if (l->refs == 0){
+		if (l->refs == 0)
+		{
 			db_entry_incref(l);
 			db_entry_handle_delete(l);
 			db_entry_deref(l);
 		}
-		else{
+		else
+		{
 			db_entry_handle_delete(l);
 		}
 	}
 }
 
 void db_lru_gc(){
-	if (settings.max_size > 0 && settings.max_size < db.db_size_bytes){
+	if (settings.max_size > 0 && settings.max_size < db.db_size_bytes)
+	{
 		double bytes_to_remove = (((double)db.db_size_bytes / settings.max_size) - (1. - settings.db_lru_clear)) * db.db_keys;
 		
         db_lru_cleanup((int)bytes_to_remove);
@@ -286,37 +295,38 @@ int db_block_get_write(){
 	}
 }
 
-void db_init_folders(){
+static void db_clear_directory(const char* directory){
 	char file_buffer[MAX_PATH];
+	struct dirent *next_file;
+	DIR *theFolder = opendir(directory);
+	while (next_file = readdir(theFolder))
+	{
+		if (next_file->d_name[0] == '.')
+			continue;
 
+		// build the full path for each file in the folder
+		sprintf(file_buffer, "%s/%s", directory, next_file->d_name);
+		unlink(file_buffer);
+	}
+	if (closedir(theFolder) < 0){
+		PFATAL("Unable to close directory.");
+	}
+}
+
+void db_init_folders(){
 	mkdir(db.path_single, 0777);
 
-	for (int i1 = 0; i1 < 26; i1++){
-		for (int i2 = 0; i2 < 26; i2++){
-			char folder1 = 'A' + i1;
-			char folder2 = 'A' + i2;
-
+	for (char folder1 = 'A'; folder1 <= 'Z'; folder1++){
+		for (char folder2 = 'A'; folder2 <= 'Z'; folder2++){
 			snprintf(filename_buffer, MAX_PATH, "%s%c%c", db.path_single, folder1, folder2);
 
-			if (access(filename_buffer, F_OK) == -1){
-				//DEBUG("[#] Creating directory %s\n", filename_buffer);
-
+			if (access(filename_buffer, F_OK) == -1)
+			{
 				mkdir(filename_buffer, 0777);
 			}
-			else{
-				struct dirent *next_file;
-				DIR *theFolder = opendir(filename_buffer);
-				while (next_file = readdir(theFolder))
-				{
-					if (*(next_file->d_name) == '.')
-						continue;
-					// build the full path for each file in the folder
-					sprintf(file_buffer, "%s/%s", filename_buffer, next_file->d_name);
-					remove(file_buffer);
-				}
-				if (closedir(theFolder) < 0){
-					PFATAL("Unable to close directory.");
-				}
+			else
+			{
+				db_clear_directory(filename_buffer);
 			}
 		}
 	}
@@ -339,9 +349,7 @@ uint32_t hash_string(const char* str, int length){
 }
 
 void get_key_path(cache_entry* e, char* out){
-	char folder1 = 'A' + (e->hash % 26);
-	char folder2 = 'A' + ((e->hash >> 8) % 26);
-	snprintf(out, MAX_PATH, "%s%c%c/%x", db.path_single, folder1, folder2, e->hash);
+	snprintf(out, MAX_PATH, "%s%c%c/%x", db.path_single, DEC2ALPH(e->hash), DEC2ALPH(e->hash >> 8), e->hash);
 }
 
 bool db_open(const char* path){
@@ -419,6 +427,23 @@ void db_table_close(db_table* table){
 	db_table_deref(table);
 }
 
+cache_entry* db_entry_new(db_table* table){
+	cache_entry* entry = (cache_entry*)malloc(sizeof(cache_entry));
+	entry->refs = 0;
+	entry->writing = false;
+	entry->deleted = false;
+	entry->expires = 0;
+	entry->table = table;
+	entry->lru_next = NULL;
+	entry->lru_prev = NULL;
+
+#ifdef DEBUG_BUILD
+	entry->lru_found = false;
+	entry->lru_removed = true;
+#endif
+	return entry;
+}
+
 cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length){
 	uint32_t hash = hash_string(key, length);
 
@@ -484,23 +509,6 @@ cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length)
 	return entry;
 }
 
-cache_entry* db_entry_new(db_table* table){
-	cache_entry* entry = (cache_entry*)malloc(sizeof(cache_entry));
-	entry->refs = 0;
-	entry->writing = false;
-	entry->deleted = false;
-	entry->expires = 0;
-	entry->table = table;
-	entry->lru_next = NULL;
-	entry->lru_prev = NULL;
-
-#ifdef DEBUG_BUILD
-	entry->lru_found = false;
-	entry->lru_removed = true;
-#endif
-	return entry;
-}
-
 struct db_table* db_table_get_read(char* name, int length){
 	uint32_t hash = hash_string(name, length);
 
@@ -554,8 +562,8 @@ struct db_table* db_table_get_write(char* name, int length){
 void db_entry_handle_softdelete(cache_entry* entry, khiter_t k){
 	assert(!entry->deleted);
 
+	//If this is contained within a file, delete
 	if (IS_SINGLE_FILE(entry)){
-		//Unlink
 		get_key_path(entry, filename_buffer);
 		unlink(filename_buffer);
 	}
@@ -567,8 +575,8 @@ void db_entry_handle_softdelete(cache_entry* entry, khiter_t k){
 	//Counters
 	db.db_size_bytes -= entry->data_length;
 
+	//Remove from LRU, but only if not writing (as not, yet added)
 	if (!entry->writing){
-		//Remove from LRU
 		db_lru_remove_node(entry);
 	}
 
@@ -579,7 +587,9 @@ void db_entry_handle_softdelete(cache_entry* entry, khiter_t k){
 	}
 }
 
-
+/*
+Get a Cache Entry to write
+*/
 cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length){
 	assert(table->refs >= 1); //If not, it wouldnt be existing
 
@@ -643,6 +653,9 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	return entry;
 }
 
+/*
+Get a Cache Entry to delete
+*/
 cache_entry* db_entry_get_delete(struct db_table* table, char* key, size_t length){
 	uint32_t hash = hash_string(key, length);
 	khiter_t k = kh_get(entry, table->cache_hash_set, hash);
@@ -685,10 +698,15 @@ cache_entry* db_entry_get_delete(struct db_table* table, char* key, size_t lengt
 }
 
 #ifdef DEBUG_BUILD
+/*
+DEBUG ONLY: Test the refcounts of each table, expects nothing to be open (refs==1)
+*/
 void db_check_table_refs(){
+	db_table* table;
+
 	for (khiter_t ke = kh_begin(db.tables); ke != kh_end(db.tables); ++ke){
 		if (kh_exist(db.tables, ke)) {
-			db_table* table = kh_val(db.tables, ke);
+			table = kh_val(db.tables, ke);
 
 			//All other refernces should have been de-refed before db_close is called
 			//and hence anything pending deletion will have been cleaned up already
@@ -701,33 +719,11 @@ void db_check_table_refs(){
 }
 #endif
 
-void db_close(){
-	//tables and key space
-	for (khiter_t ke = kh_begin(db.tables); ke != kh_end(db.tables); ++ke){
-		if (kh_exist(db.tables, ke)) {
-			db_table* table = kh_val(db.tables, ke);
-
-			//All other refernces should have been de-refed before db_close is called
-			//and hence anything pending deletion will have been cleaned up already
-			assert(!table->deleted);
-
-			//Check reference count (should be 1)
-			assert(table->refs == 1);
-
-			//Actually delete
-			db_table_handle_delete(table);
-		}
+static void db_entry_cleanup(cache_entry* entry){
+	if (IS_SINGLE_FILE(entry)){
+		get_key_path(entry, filename_buffer);
+		unlink(filename_buffer);
 	}
-	kh_destroy(table, db.tables);
-
-	//blocks
-	block_free_node* bf = db.free_blocks;
-	while (bf != NULL){
-		block_free_node* bf2 = bf;
-		bf = bf->next;
-		free(bf2);
-	}
-	db.free_blocks = NULL;
 }
 
 void db_entry_handle_delete(cache_entry* entry){
@@ -761,6 +757,7 @@ void db_table_handle_delete(db_table* table, khiter_t k){
 			cache_entry* ce = kh_val(table->cache_hash_set, ke);
 			if (!ce->deleted){
 				db_entry_handle_softdelete(ce, ke);
+				db_entry_cleanup(ce);
 			}
 		}
 	}
@@ -775,15 +772,10 @@ void db_table_handle_delete(db_table* table){
 	db_table_handle_delete(table, k);
 }
 
-
 void db_entry_handle_delete(cache_entry* entry, khiter_t k){
 	assert(!entry->deleted);
 
-	if (IS_SINGLE_FILE(entry)){
-		//Unlink
-		get_key_path(entry, filename_buffer);
-		unlink(filename_buffer);
-	}
+	db_entry_cleanup(entry);
 
 	//Counters
 	db.db_size_bytes -= entry->data_length;
@@ -859,4 +851,45 @@ void db_target_write_allocate(struct cache_target* target, uint32_t data_length)
 			PWARN("File truncation failed (fd: %d, length: %d)", target->fd, data_length);
 		}
 	}
+}
+
+static void db_close_table_key_space(){
+	db_table* table;
+
+	//tables and key space
+	for (khiter_t ke = kh_begin(db.tables); ke != kh_end(db.tables); ++ke){
+		if (kh_exist(db.tables, ke)) {
+			table = kh_val(db.tables, ke);
+
+			//All other refernces should have been de-refed before db_close is called
+			//and hence anything pending deletion will have been cleaned up already
+			assert(!table->deleted);
+
+			//Check reference count (should be 1)
+			assert(table->refs == 1);
+
+			//Actually delete
+			db_table_handle_delete(table);
+		}
+	}
+	kh_destroy(table, db.tables);
+}
+
+static void db_close_blockfile(){
+	block_free_node* bf = db.free_blocks;
+	block_free_node* bf2;
+	while (bf != NULL){
+		bf2 = bf;
+		bf = bf->next;
+		free(bf2);
+	}
+	db.free_blocks = NULL;
+}
+
+/*
+Close the database engine
+*/
+void db_close(){
+	db_close_table_key_space();
+	db_close_blockfile();
 }

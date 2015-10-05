@@ -71,6 +71,31 @@ bool http_register_read(int epfd, cache_connection* connection){
 	return res;
 }
 
+state_action http_respond_stats(int epfd, cache_connection* connection){
+	char stat_buffer[4096];
+	char header_buffer[1024];
+	char *stat_ptr = stat_buffer;
+	db_details* details = db_get_details();
+
+	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Keys: %d\r\n", details->db_keys);
+	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Size Bytes: %d\r\n", details->db_size_bytes);
+	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Stats Deletes: %d\r\n", details->db_stats_deletes);
+	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Stats Gets: %d\r\n", details->db_stats_gets);
+	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Stats Inserts: %d\r\n", details->db_stats_inserts);
+
+	int content_length = stat_ptr - stat_buffer;
+	int header_length = snprintf(header_buffer, sizeof(header_buffer), http_templates[HTTPTEMPLATE_200CONTENT_LENGTH], content_length);
+
+	//Send both headers and the content
+	connection->output_buffer = connection->output_buffer_free = (char*)malloc(content_length + header_length);
+	memcpy(connection->output_buffer_free, header_buffer, header_length);
+	memcpy(connection->output_buffer_free + header_length, stat_buffer, content_length);
+	connection->output_length = content_length + header_length;
+
+	connection->handler = http_respond_writeonly;
+	return continue_processing;
+}
+
 state_action http_respond_reset_connection(int epfd, cache_connection* connection){
 	http_cleanup(connection);
 	connection->handler = http_handle_method;

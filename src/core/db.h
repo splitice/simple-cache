@@ -46,7 +46,7 @@ struct db_details {
 	khash_t(table) *tables;
 };
 
-extern struct db_details db;
+db_details* db_get_details();
 
 /* Open a database (from path) */
 bool db_open(const char* path);
