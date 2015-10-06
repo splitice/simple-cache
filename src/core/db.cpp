@@ -266,20 +266,28 @@ void db_lru_cleanup_percent(int* bytes_to_remove){
 
 static int db_expire_cursor_table(db_table* table){
 	int ret = 0;
-	for (khiter_t ke = kh_begin(table->cache_hash_set); ke != kh_end(table->cache_hash_set); ++ke){
+
+	for (khiter_t ke = kh_begin(table->cache_hash_set); ke < kh_end(table->cache_hash_set); ++ke){
 		if (kh_exist(table->cache_hash_set, ke)) {
 			ret++;
 			cache_entry* l = kh_value(table->cache_hash_set, ke);
 			if (l->expires != 0 && l->expires < time_seconds){
+				bool end_early = kh_size(table->cache_hash_set) == 1;
 				if (l->refs == 0)
 				{
 					db_entry_incref(l);
 					db_entry_handle_delete(l);
 					db_entry_deref(l);
+					end_early |= true;
 				}
 				else
 				{
 					db_entry_handle_delete(l);
+					end_early |= true;
+				}
+
+				if (end_early){
+					break;
 				}
 			}
 		}
@@ -310,7 +318,7 @@ void db_expire_cursor(){
 			done += db_expire_cursor_table(table);
 		}
 		db.table_gc++;
-		if (db.table_gc == kh_end(db.tables)){
+		if (db.table_gc >= kh_end(db.tables)){
 			db.table_gc = kh_begin(db.tables);
 		}
 	} while (db.table_gc != start && done < 1000);
@@ -932,20 +940,23 @@ void db_target_write_allocate(struct cache_target* target, uint32_t data_length)
 static void db_close_table_key_space(){
 	db_table* table;
 
-	//tables and key space
-	for (khiter_t ke = kh_begin(db.tables); ke != kh_end(db.tables); ++ke){
-		if (kh_exist(db.tables, ke)) {
-			table = kh_val(db.tables, ke);
+	//make 128 attempts to clear the tablespace
+	//table deletions can cause resizing and tables to be skipped in the iteration
+	for (int i = 0; i < 128 && kh_size(db.tables); i++){
+		for (khiter_t ke = kh_begin(db.tables); ke < kh_end(db.tables); ++ke){
+			if (kh_exist(db.tables, ke)) {
+				table = kh_val(db.tables, ke);
 
-			//All other refernces should have been de-refed before db_close is called
-			//and hence anything pending deletion will have been cleaned up already
-			assert(!table->deleted);
+				//All other refernces should have been de-refed before db_close is called
+				//and hence anything pending deletion will have been cleaned up already
+				assert(!table->deleted);
 
-			//Check reference count (should be 1)
-			assert(table->refs == 1);
+				//Check reference count (should be 1)
+				assert(table->refs == 1);
 
-			//Actually delete
-			db_table_handle_delete(table);
+				//Actually delete
+				db_table_handle_delete(table);
+			}
 		}
 	}
 	kh_destroy(table, db.tables);
