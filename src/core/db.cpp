@@ -288,6 +288,8 @@ static int db_expire_cursor_table(db_table* table){
 }
 
 void db_expire_cursor(){
+	db_table* table;
+	int done = 0;
 	khiter_t start = db.table_gc;
 
 	//Make sure tables havent been reduced
@@ -296,10 +298,15 @@ void db_expire_cursor(){
 		db.table_gc = start;
 	}
 
-	int done = 0;
+	//Empty table
+	if (start == kh_end(db.tables)){
+		return;
+	}
+
+	//Lets try and do atleast 1,000 keys, or the whole db (whichever first)
 	do {
 		if (kh_exist(db.tables, db.table_gc)){
-			db_table* table = kh_value(db.tables, db.table_gc);
+			table = kh_value(db.tables, db.table_gc);
 			done += db_expire_cursor_table(table);
 		}
 		db.table_gc++;
