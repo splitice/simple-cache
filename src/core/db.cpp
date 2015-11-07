@@ -278,12 +278,11 @@ static int db_expire_cursor_table(db_table* table){
 					db_entry_incref(l);
 					db_entry_handle_delete(l);
 					db_entry_deref(l);
-					end_early |= true;
 				}
 				else
 				{
 					db_entry_handle_delete(l);
-					end_early |= true;
+					end_early = false;
 				}
 
 				if (end_early){
@@ -941,7 +940,7 @@ static void db_close_table_key_space(){
 	db_table* table;
 
 	//make 128 attempts to clear the tablespace
-	//table deletions can cause resizing and tables to be skipped in the iteration
+	//table deletions can cause resizing and tables to be skipped in the iteration (todo: really?)
 	for (int i = 0; i < 128 && kh_size(db.tables); i++){
 		for (khiter_t ke = kh_begin(db.tables); ke < kh_end(db.tables); ++ke){
 			if (kh_exist(db.tables, ke)) {
