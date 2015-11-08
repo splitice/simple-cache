@@ -230,11 +230,11 @@ DELETE:
 |  (4096 bytes)  |  (4096 bytes)  |  ...
 -----------------------------------------
 ```
-Accessing a block is as simple as taking the block identifier (a 0 based number) and multiplying by the block length. Possibly include a header structure for file version and block size?
+Accessing a block is as simple as taking the block identifier (a 0 based number) and multiplying by the block length.
 
 The block file will be expanded as needed. Up to a maximum of of uint_32 (4,294,967,295) blocks.
 
-**Future:** Defrag / Optimize routine?
+**Future:** Defrag / Optimize routine?  Possibly include a header structure for file version and block size?
 
 ### Filesystem
 ```
@@ -254,7 +254,7 @@ A Least Recently Used list will be maintained globally. This will be done via a 
 Hard limits will be enforced on database size (sum of value size). When this limit is exceeded the least recently used values will be expired until the database it atleast X% under the limit.
 
 ## Expiration
-For now expiration will be lazy, performed on the GET request as validation. In the future an expiration cursor will be implemented.
+Expiration is both lazy and implemented via a simple expiration cursor expiring a small number of tables at a time.
 
 ## Configuration
 ```
