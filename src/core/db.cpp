@@ -271,7 +271,7 @@ static int db_expire_cursor_table(db_table* table){
 		if (kh_exist(table->cache_hash_set, ke)) {
 			ret++;
 			cache_entry* l = kh_value(table->cache_hash_set, ke);
-			if (l->expires != 0 && l->expires < time_seconds){
+			if (!l->deleted && l->expires != 0 && l->expires < time_seconds){
 				bool end_early = kh_size(table->cache_hash_set) == 1;
 				if (l->refs == 0)
 				{
@@ -923,7 +923,15 @@ void db_target_write_allocate(struct cache_target* target, uint32_t data_length)
 	}
 
 	//Update database counters
-	db.db_size_bytes += data_length;
+	if (entry->block == -2)
+	{
+		db.db_size_bytes += data_length;
+	}
+	else
+	{
+		db.db_size_bytes += data_length - entry->data_length;
+	}
+	
 	entry->data_length = data_length;
 
 	db_target_open(target);
