@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <inttypes.h>
 #include "http.h"
 #include "config.h"
 #include "debug.h"
@@ -77,11 +78,11 @@ state_action http_respond_stats(int epfd, cache_connection* connection){
 	char *stat_ptr = stat_buffer;
 	db_details* details = db_get_details();
 
-	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Keys: %d\r\n", details->db_keys);
-	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Size Bytes: %d\r\n", details->db_size_bytes);
-	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Stats Deletes: %d\r\n", details->db_stats_deletes);
-	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Stats Gets: %d\r\n", details->db_stats_gets);
-	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Stats Inserts: %d\r\n", details->db_stats_inserts);
+	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Keys: %" PRIu64 "\r\n", details->db_keys);
+	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Size Bytes: %" PRIu64 "\r\n", details->db_size_bytes);
+	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Stats Deletes: %" PRIu64 "\r\n", details->db_stats_deletes);
+	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Stats Gets: %" PRIu64 "\r\n", details->db_stats_gets);
+	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Stats Inserts: %" PRIu64 "\r\n", details->db_stats_inserts);
 
 	int content_length = stat_ptr - stat_buffer;
 	int header_length = snprintf(header_buffer, sizeof(header_buffer), http_templates[HTTPTEMPLATE_200CONTENT_LENGTH], content_length);
