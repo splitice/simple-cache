@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#define __STDC_FORMAT_MACROS 1
 #include <inttypes.h>
 #include "http.h"
 #include "config.h"
