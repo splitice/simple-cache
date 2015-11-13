@@ -7,7 +7,7 @@
 #ifdef DEBUG_BUILD
 #define DB_LRU_EVERY 1
 #else
-#define DB_LRU_EVERY 500
+#define DB_LRU_EVERY 50
 #endif
 
 #define DEFAULT_LISTING_LIMIT 10000

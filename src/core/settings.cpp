@@ -9,7 +9,7 @@
 struct scache_settings settings {
 	.max_size = 0,
 	.db_file_path = NULL,
-	.db_lru_clear = 0.1,
+	.db_lru_clear = 0.2,
 	.bind_af = AF_INET,
 	.bind_addr = { 0 },
 	.bind_port = 8000,

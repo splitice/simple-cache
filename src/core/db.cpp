@@ -294,7 +294,7 @@ static int db_expire_cursor_table(db_table* table){
 	return ret;
 }
 
-void db_expire_cursor(){
+bool db_expire_cursor(){
 	db_table* table;
 	int done = 0;
 	khiter_t start = db.table_gc;
@@ -307,7 +307,7 @@ void db_expire_cursor(){
 
 	//Empty table
 	if (start == kh_end(db.tables)){
-		return;
+		return true;
 	}
 
 	//Lets try and do atleast 1,000 keys, or the whole db (whichever first)
@@ -320,18 +320,30 @@ void db_expire_cursor(){
 		if (db.table_gc >= kh_end(db.tables)){
 			db.table_gc = kh_begin(db.tables);
 		}
-	} while (db.table_gc != start && done < 1000);
+	} while (db.table_gc != start && done < 4096);
+	
+	return db.table_gc == start;
 }
 
 void db_lru_gc(){
 	if (settings.max_size > 0 && settings.max_size < db.db_size_bytes)
 	{
-		int bytes_to_remove = (int)(((double)db.db_size_bytes / settings.max_size) - (1. - settings.db_lru_clear)) * db.db_keys;
+		int bytes_to_remove;
+		bool full_cycle;
+		int i = 0;
 		
-		db_lru_cleanup_percent(&bytes_to_remove);
-
+		//Do 5 iterations, or one full cycle of expirations
+		do
+		{
+			bytes_to_remove = (db.db_size_bytes - settings.max_size) + (settings.max_size * settings.db_lru_clear);
+			full_cycle = db_expire_cursor();
+			i++;
+		} while (!full_cycle && i < 5);
+		
+		//Apply LRU
+		bytes_to_remove = (db.db_size_bytes - settings.max_size) + (settings.max_size * settings.db_lru_clear);
 		if (bytes_to_remove > 0){
-			db_expire_cursor();
+			db_lru_cleanup_percent(&bytes_to_remove);
 		}
 	}
 	else
