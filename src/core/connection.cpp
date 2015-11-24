@@ -106,8 +106,6 @@ void connection_close_listener(){
 int connection_open_listener(struct scache_bind ibind) {
 	int res;
 	int listenfd;
-
-	struct sockaddr_in servaddr;
 	/* Set up to be a daemon listening on port 8000 */
 	listenfd = socket(ibind.af, SOCK_STREAM, 0);
 
@@ -120,11 +118,38 @@ int connection_open_listener(struct scache_bind ibind) {
 	}
 
 	//bind1
-	memset(&servaddr, 0, sizeof(servaddr));
-	servaddr.sin_family = ibind.af;
-	memcpy(&servaddr.sin_addr.s_addr, &ibind.addr, sizeof(servaddr.sin_addr.s_addr));
-	servaddr.sin_port = htons(ibind.port);
-	res = bind(listenfd, (struct sockaddr *) &servaddr, sizeof(servaddr));
+	sockaddr* tobind;
+	int tobind_len;
+	switch (ibind.af)
+	{
+	case AF_INET:
+		struct sockaddr_in servaddr;
+		tobind = (sockaddr*)&servaddr;
+		tobind_len = sizeof(servaddr);
+		memset(&servaddr, 0, sizeof(servaddr));
+		servaddr.sin_family = ibind.af;
+		memcpy(&servaddr.sin_addr.s_addr, &ibind.addr, sizeof(servaddr.sin_addr.s_addr));
+		servaddr.sin_port = htons(ibind.port);
+		
+	case AF_INET6:
+		struct sockaddr_in6 servaddr6;
+		tobind = (sockaddr*)&servaddr6;
+		tobind_len = sizeof(servaddr6);
+		memset(&servaddr6, 0, sizeof(servaddr6));
+		servaddr6.sin6_family = ibind.af;
+		memcpy(&servaddr6.sin6_addr.__in6_u, &ibind.addr, sizeof(servaddr6.sin6_addr.__in6_u));
+		servaddr6.sin6_port = htons(ibind.port);
+		
+	case AF_UNIX:
+		struct sockaddr_un unaddr;
+		tobind = (sockaddr*)&unaddr;
+		tobind_len = sizeof(unaddr);
+		memset(&unaddr, 0, sizeof(unaddr));
+		unaddr.sun_family = ibind.af;
+		memcpy(&unaddr.sun_path, &ibind.addr, sizeof(unaddr.sun_path));
+	}
+	
+	res = bind(listenfd, tobind, tobind_len);
 	if (res < 0){
 		goto fail;
 	}
