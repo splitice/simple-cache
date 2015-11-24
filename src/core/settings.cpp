@@ -57,7 +57,7 @@ static void parse_binds(char* optarg)
 	int len = strlen(optarg);
 	bind_parse_state state = bind_parse_state::ip;
 	int state_start = 0;
-	for (int i = 0; i < len; i++)
+	for (int i = 0; i <= len; i++)
 	{
 		switch (state)
 		{
