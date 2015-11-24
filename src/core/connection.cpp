@@ -153,6 +153,9 @@ int connection_open_listener(struct scache_bind ibind) {
 		memset(&unaddr, 0, sizeof(unaddr));
 		unaddr.sun_family = ibind.af;
 		memcpy(&unaddr.sun_path, &ibind.addr, sizeof(unaddr.sun_path));
+		
+	default:
+		FATAL("Unknown address family, cant bind");
 	}
 	
 	res = bind(listenfd, tobind, tobind_len);
