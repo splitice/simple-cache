@@ -138,6 +138,7 @@ int connection_open_listener(struct scache_bind ibind) {
 		tobind.servaddr.sin_family = ibind.af;
 		memcpy(&tobind.servaddr.sin_addr.s_addr, &ibind.addr, sizeof(tobind.servaddr.sin_addr.s_addr));
 		tobind.servaddr.sin_port = htons(ibind.port);
+		break;
 		
 	case AF_INET6:
 		tobind_len = sizeof(tobind.servaddr6);
@@ -145,12 +146,15 @@ int connection_open_listener(struct scache_bind ibind) {
 		tobind.servaddr6.sin6_family = ibind.af;
 		memcpy(&tobind.servaddr6.sin6_addr.__in6_u, &ibind.addr, sizeof(tobind.servaddr6.sin6_addr.__in6_u));
 		tobind.servaddr6.sin6_port = htons(ibind.port);
+		break;
 		
 	case AF_UNIX:
 		tobind_len = sizeof(tobind.unaddr);
 		memset(&tobind.unaddr, 0, sizeof(tobind.unaddr));
 		tobind.unaddr.sun_family = ibind.af;
+		unlink(ibind.addr);
 		memcpy(&tobind.unaddr.sun_path, &ibind.addr, sizeof(tobind.unaddr.sun_path));
+		break;
 		
 	default:
 		FATAL("Unknown address family, cant bind");

@@ -81,10 +81,13 @@ static void parse_binds(const char* optarg_const)
 				state_start++;
 				break;
 			}
-			else if (optarg[i] == '/')
+			else if (optarg[i] == 'u' && optarg[i+1] == ':')
 			{
 				current->af = AF_UNIX;
 				state = bind_parse_state::unix_path;
+				state_start+=2;
+				i++;
+				break;
 			}
 			else
 			{
