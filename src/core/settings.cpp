@@ -131,9 +131,9 @@ static void parse_binds(const char* optarg_const)
 			
 			break;
 		}
-		
-		free(optarg);
 	}
+		
+	free(optarg);
 }
 
 void settings_parse_arguments(int argc, char** argv){
