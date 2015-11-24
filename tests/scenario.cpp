@@ -291,7 +291,7 @@ pid_t start_server(const char* binary_path, int port, const char* db, const char
 		return -1;
 	}
 
-	sprintf(execcmd, "%s -d -o --bind-port %d --database-file-path %s --make-pid %s %s %s", binary_path, port, db, pidfile, options, debug_output?"":"2>/dev/null");
+	sprintf(execcmd, "%s -d -o --bind 0.0.0.0:%d --database-file-path %s --make-pid %s %s %s", binary_path, port, db, pidfile, options, debug_output?"":"2>/dev/null");
 	res = system(execcmd);
 	if (res < 0){
 		PFATAL("Unable to execute scache server");

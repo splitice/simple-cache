@@ -24,8 +24,7 @@ static void print_usage(){
 "Networking options:\n"
 "\n"
 "  -4 / -6                                  - bind to either IPv4 or IPv6 address (default: IPv4)\n"
-"  -b addr  --bind-addr addr                - listen on the specified network address (default: 0.0.0.0)\n"
-"  -p port  --bind-port port                - listen on the specified network port (default: 8000)\n"
+"  -b addr  --bind addr:port                - listen on the specified network address (default: 0.0.0.0:8000)\n"
 "\n"
 "Database settings:\n"
 "\n"
@@ -49,6 +48,41 @@ char* string_allocate(const char* s)
 	return c;
 }
 
+enum bind_parse_state
+{
+	ip, port
+};
+static void parse_binds(char* optarg)
+{
+	int len = strlen(optarg);
+	bind_parse_state state = bind_parse_state::ip;
+	int state_start = 0;
+	for (int i = 0; i < len; i++)
+	{
+		switch (state)
+		{
+		case bind_parse_state::ip:
+			if (optarg[i] == ':')
+			{
+				optarg[i] = 0;
+				if (inet_pton(settings.bind_af, optarg + state_start, settings.bind_addr) < 0) {
+					PFATAL("Error parsing bind address");
+				}
+				state = bind_parse_state::port;
+				state_start = i + 1;
+			}
+			break;
+		case bind_parse_state::port:
+			
+			if (optarg[i] == 0)
+			{
+				settings.bind_port = atoi(optarg + state_start);
+			}
+			break;
+		}
+	}
+}
+
 void settings_parse_arguments(int argc, char** argv){
 	static struct option long_options[] =
 	{
@@ -58,8 +92,7 @@ void settings_parse_arguments(int argc, char** argv){
 		{ "database-max-size", required_argument, 0, 's' },
 		{ "database-file-path", required_argument, 0, 'r' },
 		{ "database-lru-clear", required_argument, 0, 'l' },
-		{ "bind-addr", required_argument, 0, 'b' },
-		{ "bind-port", required_argument, 0, 'p' },
+		{ "bind", required_argument, 0, 'b' },
 		{ 0, 0, 0, 0 }
 	};
 
@@ -92,16 +125,11 @@ void settings_parse_arguments(int argc, char** argv){
 		case 's':
 			settings.max_size = atol(optarg);
 			break;
-		case 'p':
-			settings.bind_port = atoi(optarg);
-			break;
 		case 'r':
 			settings.db_file_path = optarg;
 			break;
 		case 'b':
-			if (inet_pton(settings.bind_af, optarg, settings.bind_addr) < 0){
-				PFATAL("Error parsing bind address");
-			}
+			parse_binds(optarg);
 			break;
 		case 'l':
 			settings.db_lru_clear = atof(optarg)/100;
