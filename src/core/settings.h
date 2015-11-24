@@ -13,7 +13,8 @@ struct scache_settings {
     uint64_t max_size;
     char* db_file_path;
     float db_lru_clear;
-	scache_bind bind;
+	scache_bind* bind;
+	int bind_num;
 	char* pidfile;
 	bool daemon_mode;
 	bool daemon_output;

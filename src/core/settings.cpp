@@ -10,7 +10,8 @@ struct scache_settings settings {
 	.max_size = 0,
 	.db_file_path = NULL,
 	.db_lru_clear = 0.2,
-	.bind = { .af = AF_INET, .addr = { 0 }, .port = 8000 },
+	.bind = NULL,
+	.bind_num = 0,
 	.pidfile = NULL,
 	.daemon_mode = false,
 	.daemon_output = false
@@ -55,6 +56,17 @@ static void parse_binds(char* optarg)
 	int len = strlen(optarg);
 	bind_parse_state state = bind_parse_state::first;
 	int state_start = 0;
+	int num = 0;
+	for (int i = 0; i <= len; i++)
+	{
+		if (optarg[i] == ',' || optarg[i] == 0)
+		{
+			num++;
+		}	
+	}
+	settings.bind_num = num;
+	settings.bind = (scache_bind*)malloc(sizeof(scache_bind) * num);
+	scache_bind* current = settings.bind;
 	for (int i = 0; i <= len; i++)
 	{
 		switch (state)
@@ -62,14 +74,14 @@ static void parse_binds(char* optarg)
 		case bind_parse_state::first:
 			if (optarg[i] == '[')
 			{
-				settings.bind.af = AF_INET6;
+				current->af = AF_INET6;
 				state = bind_parse_state::ipv6;
 				state_start++;
 				break;
 			}
 			else
 			{
-				settings.bind.af = AF_INET;
+				current->af = AF_INET;
 				state = bind_parse_state::ipv4;
 			}
 		case bind_parse_state::ipv6:
@@ -77,7 +89,7 @@ static void parse_binds(char* optarg)
 			if (optarg[i] == ':')
 			{
 				optarg[i] = 0;
-				if (inet_pton(settings.bind.af, optarg + state_start, settings.bind.addr) < 0) {
+				if (inet_pton(current->af, optarg + state_start, current->addr) < 0) {
 					PFATAL("Error parsing bind address");
 				}
 				state = bind_parse_state::port;
@@ -88,7 +100,13 @@ static void parse_binds(char* optarg)
 			
 			if (optarg[i] == 0)
 			{
-				settings.bind.port = atoi(optarg + state_start);
+				current->port = atoi(optarg + state_start);
+			}
+			else if (optarg[i] == ',')
+			{
+				current++;
+				state = bind_parse_state::first;
+				state_start = i + 1;				
 			}
 			break;
 		}
@@ -110,8 +128,6 @@ void settings_parse_arguments(int argc, char** argv){
 
 	//Defaults
 	settings.db_file_path = NULL;
-	//By default bind to any IPv4
-	memset(settings.bind.addr, htonl(INADDR_ANY), sizeof(uint32_t));//INADDR_ANY
 
 	int r = 0, option_index = 0;
 	while ((r = getopt_long(argc, argv, "dom:s:r:l:b:", long_options, &option_index)) != -1) {

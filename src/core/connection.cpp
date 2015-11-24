@@ -29,7 +29,7 @@
 #endif
 
 /* Globals */
-int listenfd = -1;
+cache_listeners listeners = { .fds = NULL, .fd_count = 0 };
 struct epoll_event ev;
 struct cache_connection_node ctable[CONNECTION_HASH_ENTRIES] = { 0 };
 
@@ -56,11 +56,18 @@ bool connection_register_read(int epfd, int fd){
 	return connection_event_update(epfd, fd, EPOLLIN | EPOLLHUP | EPOLLRDHUP);
 }
 
-void connection_setup(){
+void connection_setup(struct scache_bind* binds, int num_binds) {
 	for (int i = 0; i < CONNECTION_HASH_ENTRIES; i++){
 		ctable[i].connection.client_sock = -1;
 	}
-	connection_open_listener();
+	
+	listeners.fd_count = num_binds;
+	listeners.fds = (int*)malloc(sizeof(int) * num_binds);
+	for (int i = 0; i < num_binds; i++)
+	{
+		listeners.fds[i] = connection_open_listener(binds[i]);
+	}
+	
 }
 
 /* Portable function to set a socket into nonblocking mode.
@@ -89,16 +96,20 @@ int connection_non_blocking(int fd)
 
 
 void connection_close_listener(){
-	close(listenfd);
-	listenfd = -1;
+	for (int i = 0; i < listeners.fd_count; i++)
+	{
+		close(listeners.fds[i]);
+		listeners.fds[i] = -1;	
+	}
 }
 
-void connection_open_listener(){
+int connection_open_listener(struct scache_bind ibind) {
 	int res;
+	int listenfd;
 
 	struct sockaddr_in servaddr;
 	/* Set up to be a daemon listening on port 8000 */
-	listenfd = socket(settings.bind.af, SOCK_STREAM, 0);
+	listenfd = socket(ibind.af, SOCK_STREAM, 0);
 
 
 	/* Enable address reuse */
@@ -110,9 +121,9 @@ void connection_open_listener(){
 
 	//bind1
 	memset(&servaddr, 0, sizeof(servaddr));
-	servaddr.sin_family = settings.bind.af;
-	memcpy(&servaddr.sin_addr.s_addr, &settings.bind.addr, sizeof(servaddr.sin_addr.s_addr));
-	servaddr.sin_port = htons(settings.bind.port);
+	servaddr.sin_family = ibind.af;
+	memcpy(&servaddr.sin_addr.s_addr, &ibind.addr, sizeof(servaddr.sin_addr.s_addr));
+	servaddr.sin_port = htons(ibind.port);
 	res = bind(listenfd, (struct sockaddr *) &servaddr, sizeof(servaddr));
 	if (res < 0){
 		goto fail;
@@ -120,7 +131,7 @@ void connection_open_listener(){
 	/* Force the network socket into nonblocking mode */
 	res = connection_non_blocking(listenfd);
 	if (res < 0){
-			goto fail;
+		goto fail;
 	}
 
 
@@ -129,11 +140,11 @@ void connection_open_listener(){
 		goto fail;
 	}
 
-	SAYF("Listening on %d\n", settings.bind.port);
+	SAYF("Listening on %d\n", ibind.port);
 
-	return;
+	return listenfd;
 fail:
-	PFATAL("error opening listener (:%d)", settings.bind.port);
+	PFATAL("error opening listener (:%d)", ibind.port);
 }
 
 static cache_connection* connection_add(int fd, cache_connection_node* ctable){
@@ -232,28 +243,48 @@ static int connection_count(cache_connection_node* ctable){
 	return count;
 }
 
+static bool is_listener(int fd)
+{
+	
+	for (int i = 0; i < listeners.fd_count; i++)
+	{
+		if (listeners.fds[i] == fd)
+		{
+			return true;
+		}
+	}
+	return false;
+}
 
 void connection_event_loop(void (*connection_handler)(cache_connection* connection)){
 	int epfd = epoll_create(MAXCLIENTS);
-
-	struct epoll_event events[5];
-	//add api fd
-	ev.events = EPOLLIN | EPOLLERR | EPOLLHUP;
-	ev.data.fd = listenfd;
-	int res = epoll_ctl(epfd, EPOLL_CTL_ADD, listenfd, &ev);
-	if (res != 0){
-		PFATAL("epoll_ctl() failed.");
+	struct epoll_event events[NUM_EVENTS];
+	int max_listener = 0;
+	int res;
+	
+	for (int i = 0; i < listeners.fd_count; i++)
+	{
+		ev.events = EPOLLIN | EPOLLERR | EPOLLHUP;
+		ev.data.fd = listeners.fds[i];
+		if (max_listener < listeners.fds[i])
+		{
+			max_listener = listeners.fds[i];
+		}
+		res = epoll_ctl(epfd, EPOLL_CTL_ADD, listeners.fds[i], &ev);
+		if (res != 0) {
+			PFATAL("epoll_ctl() failed.");
+		}
 	}
 
 	while (!stop_soon) {
-		int nfds = epoll_wait(epfd, events, 5, 500);
+		int nfds = epoll_wait(epfd, events, NUM_EVENTS, 500);
 		int n = 0;
 		while (n < nfds) {
 			int fd = events[n].data.fd;
-			if (fd == listenfd){
+			if (fd <= max_listener && is_listener(fd)) {
 				if (events[n].events & EPOLLIN){
 					DEBUG("[#] Accepting connection\n");
-					int client_sock = accept(listenfd, NULL, NULL);
+					int client_sock = accept(fd, NULL, NULL);
 
 					if (client_sock < 0) {
 						WARN("Unable to handle API connection: accept() fails. Error: %s", strerror(errno));
@@ -362,7 +393,7 @@ void connection_cleanup_http(cache_connection_node* connection, bool toFree = fa
 }
 
 void connection_cleanup(){
-	if (listenfd != -1){
+	if (listeners.fds != NULL){
 		connection_close_listener();
 	}
 

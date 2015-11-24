@@ -51,4 +51,10 @@ struct cache_connection_node {
 	struct cache_connection_node* next;
 };
 
+struct cache_listeners
+{
+	int* fds;
+	int fd_count;
+};
+
 #endif

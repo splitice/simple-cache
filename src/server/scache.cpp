@@ -148,7 +148,7 @@ int main(int argc, char** argv)
 	//Setup
 	http_templates_init();
 	db_open(settings.db_file_path);
-	connection_setup();
+	connection_setup(settings.bind, settings.bind_num);
 	install_signal_handlers();
 
 	//Connection handling
