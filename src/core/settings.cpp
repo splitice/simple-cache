@@ -67,6 +67,7 @@ static void parse_binds(const char* optarg_const)
 	}
 	settings.bind_num = num;
 	settings.bind = (scache_bind*)malloc(sizeof(scache_bind) * num);
+	memset(settings.bind, 0, sizeof(scache_bind) * num);
 	scache_bind* current = settings.bind;
 	for (int i = 0; i <= len; i++)
 	{
