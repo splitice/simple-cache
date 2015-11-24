@@ -2,14 +2,18 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
+struct scache_bind
+{
+	int af;
+	char addr[sizeof(struct in6_addr)];//Largest IP address format supported
+	int port;
+};
+
 struct scache_settings {
     uint64_t max_size;
     char* db_file_path;
     float db_lru_clear;
-
-	int bind_af;
-	char bind_addr[sizeof(struct in6_addr)];//Largest IP address format supported
-    int bind_port;
+	scache_bind bind;
 	char* pidfile;
 	bool daemon_mode;
 	bool daemon_output;

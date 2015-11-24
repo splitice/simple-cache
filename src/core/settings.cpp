@@ -10,9 +10,7 @@ struct scache_settings settings {
 	.max_size = 0,
 	.db_file_path = NULL,
 	.db_lru_clear = 0.2,
-	.bind_af = AF_INET,
-	.bind_addr = { 0 },
-	.bind_port = 8000,
+	.bind = { .af = AF_INET, .addr = { 0 }, .port = 8000 },
 	.pidfile = NULL,
 	.daemon_mode = false,
 	.daemon_output = false
@@ -50,22 +48,36 @@ char* string_allocate(const char* s)
 
 enum bind_parse_state
 {
-	ip, port
+	first, ipv4, ipv6, port
 };
 static void parse_binds(char* optarg)
 {
 	int len = strlen(optarg);
-	bind_parse_state state = bind_parse_state::ip;
+	bind_parse_state state = bind_parse_state::first;
 	int state_start = 0;
 	for (int i = 0; i <= len; i++)
 	{
 		switch (state)
 		{
-		case bind_parse_state::ip:
+		case bind_parse_state::first:
+			if (optarg[i] == '[')
+			{
+				settings.bind.af = AF_INET6;
+				state = bind_parse_state::ipv6;
+				state_start++;
+				break;
+			}
+			else
+			{
+				settings.bind.af = AF_INET;
+				state = bind_parse_state::ipv4;
+			}
+		case bind_parse_state::ipv6:
+		case bind_parse_state::ipv4:
 			if (optarg[i] == ':')
 			{
 				optarg[i] = 0;
-				if (inet_pton(settings.bind_af, optarg + state_start, settings.bind_addr) < 0) {
+				if (inet_pton(settings.bind.af, optarg + state_start, settings.bind.addr) < 0) {
 					PFATAL("Error parsing bind address");
 				}
 				state = bind_parse_state::port;
@@ -76,7 +88,7 @@ static void parse_binds(char* optarg)
 			
 			if (optarg[i] == 0)
 			{
-				settings.bind_port = atoi(optarg + state_start);
+				settings.bind.port = atoi(optarg + state_start);
 			}
 			break;
 		}
@@ -98,12 +110,11 @@ void settings_parse_arguments(int argc, char** argv){
 
 	//Defaults
 	settings.db_file_path = NULL;
-	settings.bind_af = AF_INET;
 	//By default bind to any IPv4
-	memset(settings.bind_addr, htonl(INADDR_ANY), sizeof(uint32_t));//INADDR_ANY
+	memset(settings.bind.addr, htonl(INADDR_ANY), sizeof(uint32_t));//INADDR_ANY
 
 	int r = 0, option_index = 0;
-	while ((r = getopt_long(argc, argv, "46dom:s:r:l:b:p:", long_options, &option_index)) != -1) {
+	while ((r = getopt_long(argc, argv, "dom:s:r:l:b:", long_options, &option_index)) != -1) {
 		switch (r) {
 		case 0:
 			if (long_options[option_index].flag != 0)
@@ -133,12 +144,6 @@ void settings_parse_arguments(int argc, char** argv){
 			break;
 		case 'l':
 			settings.db_lru_clear = atof(optarg)/100;
-			break;
-		case '4': //flags
-			settings.bind_af = AF_INET;
-			break;
-		case '6': //flags
-			settings.bind_af = AF_INET6;
 			break;
 		default:
 		case '?':
