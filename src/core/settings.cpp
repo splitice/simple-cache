@@ -70,6 +70,7 @@ static void parse_binds(const char* optarg_const)
 	scache_bind* current = settings.bind;
 	for (int i = 0; i <= len; i++)
 	{
+		char copy = optarg[i];
 		switch (state)
 		{
 		case bind_parse_state::first:
@@ -121,7 +122,7 @@ static void parse_binds(const char* optarg_const)
 			{
 				optarg[i] = 0;
 				current->port = atoi(optarg + state_start);
-				if (optarg[i] == ',')
+				if (copy == ',')
 				{
 					current++;
 					state = bind_parse_state::first;

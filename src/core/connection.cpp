@@ -106,15 +106,21 @@ void connection_close_listener(){
 int connection_open_listener(struct scache_bind ibind) {
 	int res;
 	int listenfd;
+	int on = 1;
+	
 	/* Set up to be a daemon listening on port 8000 */
 	listenfd = socket(ibind.af, SOCK_STREAM, 0);
-
+	if (listenfd < 0) {
+		goto fail;
+	}
 
 	/* Enable address reuse */
-	int on = 1;
-	res = setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
-	if (res < 0){
-		goto fail;
+	if (ibind.af == AF_INET || ibind.af == AF_INET6)
+	{
+		res = setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+		if (res < 0) {
+			goto fail;
+		}
 	}
 
 	//bind1
