@@ -124,41 +124,39 @@ int connection_open_listener(struct scache_bind ibind) {
 	}
 
 	//bind1
-	sockaddr* tobind;
+	union {
+		struct sockaddr_in servaddr;
+		struct sockaddr_in6 servaddr6;
+		struct sockaddr_un unaddr;
+	} tobind;
 	int tobind_len;
 	switch (ibind.af)
 	{
 	case AF_INET:
-		struct sockaddr_in servaddr;
-		tobind = (sockaddr*)&servaddr;
-		tobind_len = sizeof(servaddr);
-		memset(&servaddr, 0, sizeof(servaddr));
-		servaddr.sin_family = ibind.af;
-		memcpy(&servaddr.sin_addr.s_addr, &ibind.addr, sizeof(servaddr.sin_addr.s_addr));
-		servaddr.sin_port = htons(ibind.port);
+		tobind_len = sizeof(tobind.servaddr);
+		memset(&tobind.servaddr, 0, sizeof(tobind.servaddr));
+		tobind.servaddr.sin_family = ibind.af;
+		memcpy(&tobind.servaddr.sin_addr.s_addr, &ibind.addr, sizeof(tobind.servaddr.sin_addr.s_addr));
+		tobind.servaddr.sin_port = htons(ibind.port);
 		
 	case AF_INET6:
-		struct sockaddr_in6 servaddr6;
-		tobind = (sockaddr*)&servaddr6;
-		tobind_len = sizeof(servaddr6);
-		memset(&servaddr6, 0, sizeof(servaddr6));
-		servaddr6.sin6_family = ibind.af;
-		memcpy(&servaddr6.sin6_addr.__in6_u, &ibind.addr, sizeof(servaddr6.sin6_addr.__in6_u));
-		servaddr6.sin6_port = htons(ibind.port);
+		tobind_len = sizeof(tobind.servaddr6);
+		memset(&tobind.servaddr6, 0, sizeof(tobind.servaddr6));
+		tobind.servaddr6.sin6_family = ibind.af;
+		memcpy(&tobind.servaddr6.sin6_addr.__in6_u, &ibind.addr, sizeof(tobind.servaddr6.sin6_addr.__in6_u));
+		tobind.servaddr6.sin6_port = htons(ibind.port);
 		
 	case AF_UNIX:
-		struct sockaddr_un unaddr;
-		tobind = (sockaddr*)&unaddr;
-		tobind_len = sizeof(unaddr);
-		memset(&unaddr, 0, sizeof(unaddr));
-		unaddr.sun_family = ibind.af;
-		memcpy(&unaddr.sun_path, &ibind.addr, sizeof(unaddr.sun_path));
+		tobind_len = sizeof(tobind.unaddr);
+		memset(&tobind.unaddr, 0, sizeof(tobind.unaddr));
+		tobind.unaddr.sun_family = ibind.af;
+		memcpy(&tobind.unaddr.sun_path, &ibind.addr, sizeof(tobind.unaddr.sun_path));
 		
 	default:
 		FATAL("Unknown address family, cant bind");
 	}
 	
-	res = bind(listenfd, tobind, tobind_len);
+	res = bind(listenfd, (sockaddr*)&tobind, tobind_len);
 	if (res < 0){
 		goto fail;
 	}
