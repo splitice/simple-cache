@@ -49,7 +49,7 @@ char* string_allocate(const char* s)
 
 enum bind_parse_state
 {
-	first, ipv4, ipv6, port
+	first, ipv4, ipv6, unix_path, port
 };
 static void parse_binds(char* optarg)
 {
@@ -79,6 +79,11 @@ static void parse_binds(char* optarg)
 				state_start++;
 				break;
 			}
+			else if (optarg[i] == '/')
+			{
+				current->af = AF_UNIX;
+				state = bind_parse_state::unix_path;
+			}
 			else
 			{
 				current->af = AF_INET;
@@ -94,6 +99,18 @@ static void parse_binds(char* optarg)
 				}
 				state = bind_parse_state::port;
 				state_start = i + 1;
+			}
+			break;
+		case bind_parse_state::unix_path:
+			if (optarg[i] == 0 || optarg[i] == ',')
+			{
+				memcpy(current->addr, optarg + state_start, i - state_start);
+				if (optarg[i] == ',')
+				{
+					current++;
+					state = bind_parse_state::first;
+					state_start = i + 1;				
+				}
 			}
 			break;
 		case bind_parse_state::port:
