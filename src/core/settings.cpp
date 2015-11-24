@@ -51,8 +51,9 @@ enum bind_parse_state
 {
 	first, ipv4, ipv6, unix_path, port
 };
-static void parse_binds(char* optarg)
+static void parse_binds(const char* optarg_const)
 {
+	char* optarg = strdup(optarg_const);
 	int len = strlen(optarg);
 	bind_parse_state state = bind_parse_state::first;
 	int state_start = 0;
@@ -105,6 +106,7 @@ static void parse_binds(char* optarg)
 			if (optarg[i] == 0 || optarg[i] == ',')
 			{
 				memcpy(current->addr, optarg + state_start, i - state_start);
+				current->port = 0;
 				if (optarg[i] == ',')
 				{
 					current++;
@@ -115,18 +117,22 @@ static void parse_binds(char* optarg)
 			break;
 		case bind_parse_state::port:
 			
-			if (optarg[i] == 0)
+			if (optarg[i] == 0 || optarg[i] == ',')
 			{
+				optarg[i] = 0;
 				current->port = atoi(optarg + state_start);
+				if (optarg[i] == ',')
+				{
+					current++;
+					state = bind_parse_state::first;
+					state_start = i + 1;				
+				}
 			}
-			else if (optarg[i] == ',')
-			{
-				current++;
-				state = bind_parse_state::first;
-				state_start = i + 1;				
-			}
+			
 			break;
 		}
+		
+		free(optarg);
 	}
 }
 
