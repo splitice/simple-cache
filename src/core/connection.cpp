@@ -173,7 +173,7 @@ int connection_open_listener(struct scache_bind ibind) {
 	
 	if (ibind.af == AF_UNIX)
 	{
-		chmod(tobind.unaddr, 0777);
+		chmod(tobind.unaddr.sun_path, 0777);
 	}
 
 
