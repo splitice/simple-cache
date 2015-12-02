@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <sys/un.h>
+#include <fcntl.h>
 #include <sys/fcntl.h>
 #include <sys/stat.h>
 #include <sys/file.h>
@@ -168,6 +169,11 @@ int connection_open_listener(struct scache_bind ibind) {
 	res = connection_non_blocking(listenfd);
 	if (res < 0){
 		goto fail;
+	}
+	
+	if (ibind.af == AF_UNIX)
+	{
+		chmod(tobind.unaddr, 0777);
 	}
 
 
