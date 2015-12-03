@@ -56,7 +56,7 @@ bool connection_register_read(int epfd, int fd){
 	return connection_event_update(epfd, fd, EPOLLIN | EPOLLHUP | EPOLLRDHUP);
 }
 
-void connection_setup(struct scache_bind* binds, int num_binds) {
+void connection_setup(struct scache_bind* binds, uint32_t num_binds) {
 	for (int i = 0; i < CONNECTION_HASH_ENTRIES; i++){
 		ctable[i].connection.client_sock = -1;
 	}
@@ -96,7 +96,7 @@ static int connection_non_blocking(int fd)
 
 
 void connection_close_listener(){
-	for (int i = 0; i < listeners.fd_count; i++)
+	for (uint32_t i = 0; i < listeners.fd_count; i++)
 	{
 		close(listeners.fds[i]);
 		listeners.fds[i] = -1;	
@@ -304,7 +304,7 @@ static int connection_count(cache_connection_node* ctable){
 static bool is_listener(int fd)
 {
 	
-	for (int i = 0; i < listeners.fd_count; i++)
+	for (uint32_t i = 0; i < listeners.fd_count; i++)
 	{
 		if (listeners.fds[i] == fd)
 		{
@@ -320,7 +320,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 	int max_listener = 0;
 	int res;
 	
-	for (int i = 0; i < listeners.fd_count; i++)
+	for (uint32_t i = 0; i < listeners.fd_count; i++)
 	{
 		ev.events = EPOLLIN | EPOLLERR | EPOLLHUP;
 		ev.data.fd = listeners.fds[i];

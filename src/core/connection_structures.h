@@ -28,20 +28,15 @@ typedef enum {
 
 struct cache_connection {
 	utarget target;
-	//todo: fill with something
-	int client_sock;
-
-	//Reading from socket buffers
-	struct read_buffer input;
-
 	//Writing to socket buffers
 	const char* output_buffer;
 	int output_length;
 	char* output_buffer_free;
-
-
 	state_action(*handler)(int epfd, cache_connection* connection);
 	uint32_t state;
+	int client_sock;
+	struct read_buffer input;
+	
 	unsigned int type : 8;
 	bool writing;
 };
@@ -54,7 +49,7 @@ struct cache_connection_node {
 struct cache_listeners
 {
 	int* fds;
-	int fd_count;
+	uint32_t fd_count;
 };
 
 #endif
