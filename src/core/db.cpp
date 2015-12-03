@@ -483,7 +483,7 @@ int db_entry_open(struct cache_entry* e, mode_t modes){
 	return fd;
 }
 
-void db_target_open(struct cache_target* target){
+void db_target_open(struct cache_target* target, bool write) {
 	if (IS_SINGLE_FILE(target->entry)){
 		target->position = 0;
 		target->fd = db_entry_open(target->entry, write ? O_CREAT : 0);
@@ -497,7 +497,7 @@ void db_target_open(struct cache_target* target){
 
 void db_target_setup(struct cache_target* target, struct cache_entry* entry, bool write){
 	if (!write){
-		db_target_open(target);
+		db_target_open(target, write);
 	}
 	else{
 		target->fd = -1;
@@ -604,53 +604,88 @@ cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length)
 	return entry;
 }
 
+/**
+Get table entry, if it does not exist return NULL. Will free name parameter
+*/
 struct db_table* db_table_get_read(char* name, int length){
 	uint32_t hash = hash_string(name, length);
-
-	khiter_t k = kh_get(table, db.tables, hash);
-
-	if (k == kh_end(db.tables)){
-		free(name);
-		return NULL;
-	}
-
-	db_table* entry = kh_value(db.tables, k);
-
-	free(name);
-	assert(entry != NULL);
-
-	db_table_incref(entry);
-
-	return entry;
-}
-struct db_table* db_table_get_write(char* name, int length){
-	uint32_t hash = hash_string(name, length);
-
-	khiter_t k = kh_get(table, db.tables, hash);
+	khiter_t k;
 	db_table* table;
+	bool while_condition;
 
-	if (k == kh_end(db.tables)){
-		table = (db_table*)malloc(sizeof(db_table));
-		table->hash = hash;
-		table->key = name;
-		table->refs = 1;
-		table->deleted = false;
-		table->cache_hash_set = kh_init(entry);
+	//Open addressing for table hash collision
+	do
+	{
+		k = kh_get(table, db.tables, hash);
+		if (k == kh_end(db.tables)) {
+			table = NULL;
+			goto end;
+		}
 
-		int ret;
-		k = kh_put(table, db.tables, hash, &ret);
-		kh_value(db.tables, k) = table;
-		//db_table_incref(table);
-		return table;
-	}
-
-	table = kh_value(db.tables, k);
-
-	free(name);
-	assert(table != NULL);
+		table = kh_value(db.tables, k);
+		assert(table != NULL);
+		
+		//Check table key, cache key collision handling
+		while_condition = strncmp(table->key, name, length) != 0;
+		if (while_condition)
+		{
+			hash++;
+		}
+	} while (while_condition);
 
 	db_table_incref(table);
 
+end:
+	free(name);
+	return table;
+}
+
+/**
+Get Database table, if it does not exist - create.
+
+This function will assume responsibility for freeing name if a table is found, else it will be used.
+
+Returns NULL in case of cache collision
+*/
+struct db_table* db_table_get_write(char* name, int length){
+	uint32_t hash = hash_string(name, length);
+	khiter_t k = kh_get(table, db.tables, hash);
+	db_table* table;
+	int ret;
+	bool while_condition;
+	
+	//Open addressing for table hash collision
+	do
+	{
+		//Create table if not exists
+		if (k == kh_end(db.tables)) {
+			table = (db_table*)malloc(sizeof(db_table));
+			table->hash = hash;
+			table->key = name;
+			table->refs = 1;
+			table->deleted = false;
+			table->cache_hash_set = kh_init(entry);
+
+			k = kh_put(table, db.tables, hash, &ret);
+			kh_value(db.tables, k) = table;
+			return table;
+		}
+
+		table = kh_value(db.tables, k);
+		assert(table != NULL);
+	
+		//Check table key, cache key collision handling
+		while_condition = strncmp(table->key, name, length) != 0;
+		if (while_condition)
+		{
+			hash++;
+		}
+	} while (while_condition);
+
+	free(name);
+	db_table_incref(table);
+	
+end:
 	return table;
 }
 
@@ -946,7 +981,7 @@ void db_target_write_allocate(struct cache_target* target, uint32_t data_length)
 	
 	entry->data_length = data_length;
 
-	db_target_open(target);
+	db_target_open(target, true);
 
 	if (IS_SINGLE_FILE(entry)){
 		//Lengthen file to required size

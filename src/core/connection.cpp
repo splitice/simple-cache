@@ -34,7 +34,6 @@ cache_listeners listeners = { .fds = NULL, .fd_count = 0 };
 struct epoll_event ev;
 struct cache_connection_node ctable[CONNECTION_HASH_ENTRIES] = { 0 };
 
-//Misc
 volatile sig_atomic_t stop_soon = 0;
 
 /* Methods */
@@ -78,7 +77,7 @@ without waiting.
 If no data can be read or written, they return -1 and set errno
 to EAGAIN (or EWOULDBLOCK).
 Thanks to Bjorn Reese for this code. */
-int connection_non_blocking(int fd)
+static int connection_non_blocking(int fd)
 {
 	int flags;
 
@@ -104,33 +103,16 @@ void connection_close_listener(){
 	}
 }
 
-int connection_open_listener(struct scache_bind ibind) {
-	int res;
-	int listenfd;
-	int on = 1;
-	
-	/* Set up to be a daemon listening on port 8000 */
-	listenfd = socket(ibind.af, SOCK_STREAM, 0);
-	if (listenfd < 0) {
-		goto fail;
-	}
-
-	/* Enable address reuse */
-	if (ibind.af == AF_INET || ibind.af == AF_INET6)
-	{
-		res = setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
-		if (res < 0) {
-			goto fail;
-		}
-	}
-
-	//bind1
+static int connection_open_bind(struct scache_bind ibind, int listenfd)
+{
 	union {
 		struct sockaddr_in servaddr;
 		struct sockaddr_in6 servaddr6;
 		struct sockaddr_un unaddr;
 	} tobind;
 	int tobind_len;
+	int res;
+	
 	switch (ibind.af)
 	{
 	case AF_INET:
@@ -162,20 +144,54 @@ int connection_open_listener(struct scache_bind ibind) {
 	}
 	
 	res = bind(listenfd, (sockaddr*)&tobind, tobind_len);
-	if (res < 0){
+	if (res < 0) {
+		return res;
+	}
+	
+	if (ibind.af == AF_UNIX)
+	{
+		res = chmod(tobind.unaddr.sun_path, 0777);
+		if (res < 0) {
+			return res;
+		}
+	}
+	
+	return 0;
+}
+
+int connection_open_listener(struct scache_bind ibind) {
+	int res;
+	int listenfd;
+	int on = 1;
+	
+	/* Set up to be a daemon listening on port 8000 */
+	listenfd = socket(ibind.af, SOCK_STREAM, 0);
+	if (listenfd < 0) {
 		goto fail;
 	}
+
+	/* Enable address reuse */
+	if (ibind.af == AF_INET || ibind.af == AF_INET6)
+	{
+		res = setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+		if (res < 0) {
+			goto fail;
+		}
+	}
+
+	//bind
+	res = connection_open_bind(ibind, listenfd);
+	if (res < 0)
+	{
+		goto fail;
+	}
+	
+	
 	/* Force the network socket into nonblocking mode */
 	res = connection_non_blocking(listenfd);
 	if (res < 0){
 		goto fail;
 	}
-	
-	if (ibind.af == AF_UNIX)
-	{
-		chmod(tobind.unaddr.sun_path, 0777);
-	}
-
 
 	res = listen(listenfd, 10);
 	if (res < 0){
