@@ -10,18 +10,18 @@ struct db_table;
 
 struct cache_entry
 {
+	db_table* table;
 	uint32_t hash;
 	char* key;
-	struct cache_entry* lru_next;
-	struct cache_entry* lru_prev;
+	uint16_t key_length : 14;
+	bool writing : 1;
+	bool deleted : 1;
+	uint16_t refs;
 	uint32_t data_length;
 	uint32_t block;
 	__time_t expires;
-	uint16_t key_length;
-	uint16_t refs;
-	db_table* table;
-	bool writing : 1;
-	bool deleted : 1;
+	struct cache_entry* lru_next;
+	struct cache_entry* lru_prev;
 #ifdef DEBUG_BUILD
 	bool lru_found : 1;
 	bool lru_removed : 1;
@@ -35,7 +35,7 @@ struct db_table {
 	char* key;
 
 	khash_t(entry) *cache_hash_set;
-	uint16_t refs;
+	uint16_t refs: 15;
 	bool deleted : 1;
 };
 
