@@ -436,14 +436,14 @@ void db_complete_writing(cache_entry* entry){
 	}
 }
 
-uint32_t hash_string(const char* str, int length){
+static uint32_t hash_string(const char* str, int length){
 	uint32_t out;
-	MurmurHash3_x86_32(str, length, 13, &out);
+	MurmurHash3_x86_32(str, length, HASH_SEED, &out);
 	return out;
 }
 
-void get_key_path(cache_entry* e, char* out){
-	snprintf(out, MAX_PATH, "%s%c%c/%x", db.path_single, DEC2ALPH(e->hash), DEC2ALPH(e->hash >> 8), e->hash);
+static void get_key_path(cache_entry* e, char* out){
+	snprintf(out, MAX_PATH, "%s%c%c/%x%x", db.path_single, DEC2ALPH(e->hash), DEC2ALPH(e->hash >> 8), e->table->hash, e->hash);
 }
 
 bool db_open(const char* path){
