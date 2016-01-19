@@ -185,6 +185,23 @@ void db_block_free(uint32_t block){
 	}
 }
 
+uint32_t db_block_allocate_new(){
+	uint32_t block_num;
+	block_free_node* free_node;
+	if (db.free_blocks != NULL){
+		free_node = db.free_blocks;
+		block_num = free_node->block_number;
+		db.free_blocks = free_node->next;
+		free(free_node);
+	}
+	else{
+		block_num = db.blocks_exist;
+		db.blocks_exist++;
+		db_block_size();
+	}
+	return block_num;
+}
+
 void db_entry_actually_delete(cache_entry* entry){
 	DEBUG("[#] Cleaning key up reference due to refcount == 0\n");
 #ifdef DEBUG_BUILD
@@ -362,37 +379,6 @@ void db_lru_gc(){
 	else
 	{
 		db_expire_cursor();
-	}
-}
-
-int db_block_allocate_new(){
-	uint32_t block_num;
-	block_free_node* free_node;
-	if (db.free_blocks != NULL){
-		free_node = db.free_blocks;
-		block_num = free_node->block_number;
-		db.free_blocks = free_node->next;
-		free(free_node);
-	}
-	else{
-		block_num = db.blocks_exist;
-		db.blocks_exist++;
-		db_block_size();
-	}
-	return block_num;
-}
-
-int db_block_get_write(){
-	if (db.free_blocks != NULL){
-		int ret;
-		block_free_node* block = db.free_blocks;
-		db.free_blocks = db.free_blocks->next;
-		ret = block->block_number;
-		free(block);
-		return ret;
-	}
-	else{
-		return -2;
 	}
 }
 
@@ -758,7 +744,7 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	}
 
 	entry = db_entry_new(table);
-	entry->block = db_block_get_write();
+	entry->block = db_block_allocate_new();
 	entry->data_length = 0;
 	entry->key = key;
 	entry->key_length = length;
