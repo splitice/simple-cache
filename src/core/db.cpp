@@ -165,11 +165,24 @@ void db_lru_hit(cache_entry* entry){
 	db_validate_lru();
 }
 
+static void db_block_size(){
+	if (ftruncate(db.fd_blockfile, db.blocks_exist*BLOCK_LENGTH) < 0){
+		PWARN("File truncation failed (length: %d)", db.blocks_exist);
+	}
+}
+
 void db_block_free(uint32_t block){
-	block_free_node* old = db.free_blocks;
-	db.free_blocks = (block_free_node*)malloc(sizeof(block_free_node));
-	db.free_blocks->block_number = block;
-	db.free_blocks->next = old;
+	block_free_node* old;
+	assert(block + 1 <= db.blocks_exist);
+	if (block + 1 == db.blocks_exist){
+		db.blocks_exist--;
+		db_block_size();
+	}else{
+		old = db.free_blocks;
+		db.free_blocks = (block_free_node*)malloc(sizeof(block_free_node));
+		db.free_blocks->block_number = block;
+		db.free_blocks->next = old;
+	}
 }
 
 void db_entry_actually_delete(cache_entry* entry){
@@ -349,12 +362,6 @@ void db_lru_gc(){
 	else
 	{
 		db_expire_cursor();
-	}
-}
-
-static void db_block_size(){
-	if (ftruncate(db.fd_blockfile, db.blocks_exist*BLOCK_LENGTH) < 0){
-		PWARN("File truncation failed (length: %d)", db.blocks_exist);
 	}
 }
 
