@@ -27,7 +27,7 @@
 #include "http_parse.h"
 #include "http_respond.h"
 
-void copy_to_outputbuffer(cache_connection* connection, char* header, int length){
+static void copy_to_outputbuffer(cache_connection* connection, char* header, int length){
 	connection->output_buffer = connection->output_buffer_free = (char*)malloc(length);
 	memcpy(connection->output_buffer_free, header, length);
 	connection->output_length = length;
