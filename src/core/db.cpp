@@ -48,6 +48,7 @@ struct db_details db {
 	.lru_tail = NULL,
 	.free_blocks = NULL,
 	.blocks_exist = 0,
+	.blocks_free = 0,
 	.db_size_bytes = 0,
 	.db_keys = 0,
 	.db_stats_inserts = 0,
@@ -174,7 +175,7 @@ static void db_block_size(){
 void db_block_free(uint32_t block){
 	block_free_node* old;
 	assert(block + 1 <= db.blocks_exist);
-	if (block + 1 == db.blocks_exist){
+	if (block + 1 == db.blocks_exist && db.blocks_free > 256){
 		db.blocks_exist--;
 		db_block_size();
 	}else{
@@ -182,6 +183,7 @@ void db_block_free(uint32_t block){
 		db.free_blocks = (block_free_node*)malloc(sizeof(block_free_node));
 		db.free_blocks->block_number = block;
 		db.free_blocks->next = old;
+		db.blocks_free++;
 	}
 }
 
@@ -193,6 +195,7 @@ uint32_t db_block_allocate_new(){
 		block_num = free_node->block_number;
 		db.free_blocks = free_node->next;
 		free(free_node);
+		db.blocks_free--;
 	}
 	else{
 		block_num = db.blocks_exist;
@@ -460,6 +463,7 @@ bool db_open(const char* path){
 		db_block_free(i / BLOCK_LENGTH);
 		db.blocks_exist++;
 	}
+	db.blocks_free = db.blocks_exist;
 
 	//cache entries
 	//db.cache_hash_set = (cache_entry**)calloc(HASH_ENTRIES, sizeof(cache_entry*));

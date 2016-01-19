@@ -31,6 +31,7 @@ struct db_details {
 	//block file
 	struct block_free_node* free_blocks;
 	uint32_t blocks_exist;
+	uint32_t blocks_free;
 
 	//resource utilization
 	uint64_t db_size_bytes;
