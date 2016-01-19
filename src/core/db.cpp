@@ -198,6 +198,7 @@ uint32_t db_block_allocate_new(){
 		db.blocks_free--;
 	}
 	else{
+		assert(db.blocks_free == 0);
 		block_num = db.blocks_exist;
 		db.blocks_exist++;
 		db_block_size();
