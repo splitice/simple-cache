@@ -363,7 +363,7 @@ static void* connection_handle_accept(void *arg)
 					client_sock = accept(fd, NULL, NULL);
 
 					if (client_sock < 0) {
-						if (client_sock = -EAGAIN || client_sock == -EWOULDBLOCK)
+						if (errno == EAGAIN || errno == EWOULDBLOCK)
 						{
 							break;
 						}
@@ -412,6 +412,7 @@ static void* connection_handle_accept(void *arg)
 			} else if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP){
 				FATAL("listener socket is down.");
 			}
+			n++;
 		}
 	}
 }
@@ -429,24 +430,24 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 		PFATAL("mutex init failed");
 	}
 	
-	connection_thread_arg thread_arg;
-	thread_arg.connection_handler = connection_handler;
-	thread_arg.eventfd = eventfd(0, 0);
-	res = pthread_create(&tid, NULL, &connection_handle_accept, &connection_handler);
+	connection_thread_arg* thread_arg = (connection_thread_arg*)malloc(sizeof(connection_thread_arg)) ;
+	thread_arg->connection_handler = connection_handler;
+	thread_arg->eventfd = eventfd(0, 0);
+	res = pthread_create(&tid, NULL, &connection_handle_accept, (void*)thread_arg);
 	if (res != 0)
 		PFATAL("can't create accept thread");
 	
 	
 	ev.events = EPOLLIN;
-	ev.data.fd = thread_arg.eventfd;
-	res = epoll_ctl(epfd, EPOLL_CTL_ADD, thread_arg.eventfd, &ev);
+	ev.data.fd = thread_arg->eventfd;
+	res = epoll_ctl(epfd, EPOLL_CTL_ADD, thread_arg->eventfd, &ev);
 
 	while (!stop_soon) {
 		int nfds = epoll_wait(epfd, events, NUM_EVENTS, 500);
 		int n = 0;
 		while (n < nfds) {
 			int fd = events[n].data.fd;
-			if (fd == thread_arg.eventfd)
+			if (fd == thread_arg->eventfd)
 			{				
 				res = read(fd, &u, sizeof(uint64_t));
 				if (res != sizeof(uint64_t))
@@ -528,6 +529,8 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 	close(epfd);
 	
 	pthread_join(tid, NULL);
+	
+	free(thread_arg);
 }
 
 /*
