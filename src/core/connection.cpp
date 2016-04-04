@@ -329,6 +329,7 @@ struct connections_queued
 
 static connections_queued* cq_head = NULL;
 static connections_queued* cq_tail = NULL;
+pthread_mutex_t cq_lock;
 
 static void* connection_handle_accept(void *arg)
 {
@@ -391,6 +392,7 @@ static void* connection_handle_accept(void *arg)
 						q->connection = connection;
 						q->next = cq_tail;
 						
+						pthread_mutex_lock(&cq_lock);
 						if (cq_tail == NULL)
 						{
 							assert(cq_head == NULL);
@@ -402,6 +404,7 @@ static void* connection_handle_accept(void *arg)
 							cq_tail->next = q;
 							cq_tail = q;
 						}
+						pthread_mutex_unlock(&cq_lock);
 						
 						write(thread_arg->eventfd, &u, sizeof(uint64_t));
 					}
@@ -420,6 +423,11 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 	int res;
 	pthread_t tid;
 	uint64_t u;
+	
+	if (pthread_mutex_init(&cq_lock, NULL) != 0)
+	{
+		PFATAL("mutex init failed");
+	}
 	
 	connection_thread_arg thread_arg;
 	thread_arg.connection_handler = connection_handler;
@@ -451,11 +459,13 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					//Dequeue
 					cache_connection* connection = cq_head->connection;
 					connections_queued* temp = cq_head;
+					pthread_mutex_lock(&cq_lock);
 					cq_head = cq_head->next;
 					if (cq_head == NULL)
 					{
 						cq_tail = NULL;
 					}
+					pthread_mutex_unlock(&cq_lock);
 					free(cq_head);
 					
 					//Add socket to epoll
