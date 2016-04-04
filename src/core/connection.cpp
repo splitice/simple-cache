@@ -193,7 +193,7 @@ int connection_open_listener(struct scache_bind ibind) {
 		goto fail;
 	}
 
-	res = listen(listenfd, 10);
+	res = listen(listenfd, 4096);
 	if (res < 0){
 		goto fail;
 	}
