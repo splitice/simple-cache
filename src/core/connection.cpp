@@ -18,6 +18,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <sys/eventfd.h>
+#include <pthread.h>
 #include <fcntl.h>
 #include <errno.h>
 #include "connection.h"
@@ -186,7 +188,6 @@ int connection_open_listener(struct scache_bind ibind) {
 		goto fail;
 	}
 	
-	
 	/* Force the network socket into nonblocking mode */
 	res = connection_non_blocking(listenfd);
 	if (res < 0){
@@ -314,70 +315,160 @@ static bool is_listener(int fd)
 	return false;
 }
 
-void connection_event_loop(void (*connection_handler)(cache_connection* connection)){
+struct connection_thread_arg
+{
+	void(*connection_handler)(cache_connection* connection);
+	int eventfd;
+};
+
+struct connections_queued
+{
+	cache_connection* connection;
+	connections_queued* next;
+};
+
+static connections_queued* cq_head = NULL;
+static connections_queued* cq_tail = NULL;
+
+static void* connection_handle_accept(void *arg)
+{
 	int epfd = epoll_create(MAXCLIENTS);
 	struct epoll_event events[NUM_EVENTS];
-	int max_listener = 0;
 	int res;
+	connection_thread_arg* thread_arg = (connection_thread_arg*)arg;
+	uint64_t u = 1;
 	
 	for (uint32_t i = 0; i < listeners.fd_count; i++)
 	{
 		ev.events = EPOLLIN | EPOLLERR | EPOLLHUP;
 		ev.data.fd = listeners.fds[i];
-		if (max_listener < listeners.fds[i])
-		{
-			max_listener = listeners.fds[i];
-		}
 		res = epoll_ctl(epfd, EPOLL_CTL_ADD, listeners.fds[i], &ev);
 		if (res != 0) {
 			PFATAL("epoll_ctl() failed.");
 		}
 	}
+	
+	while (!stop_soon) {
+		int nfds = epoll_wait(epfd, events, NUM_EVENTS, 500);
+		int n = 0;
+		while (n < nfds) {
+			int fd = events[n].data.fd;
+			if (events[n].events & EPOLLIN) {
+				DEBUG("[#] Accepting connection\n");
+				int client_sock;
+					
+				do
+				{
+					client_sock = accept(fd, NULL, NULL);
+
+					if (client_sock < 0) {
+						if (client_sock = -EAGAIN || client_sock == -EWOULDBLOCK)
+						{
+							break;
+						}
+						WARN("Unable to handle API connection: accept() fails. Error: %s", strerror(errno));
+					}
+					else {
+						DEBUG("[#] Accepted connection %d\n", client_sock);
+
+																			//Connection will be non-blocking
+						if (connection_non_blocking(client_sock) < 0)
+							PFATAL("Setting connection to non blocking failed.");
+
+																					//Enable TCP CORK
+						int state = 1;
+						setsockopt(client_sock, IPPROTO_TCP, TCP_CORK, &state, sizeof(state));
+
+							
+
+																			//Store connection
+						cache_connection* connection = connection_add(client_sock, ctable);
+
+																			//Handle event
+						thread_arg->connection_handler(connection);
+						
+						connections_queued* q = (connections_queued*)malloc(sizeof(connections_queued)) ;
+						q->connection = connection;
+						q->next = cq_tail;
+						
+						if (cq_tail == NULL)
+						{
+							assert(cq_head == NULL);
+							cq_tail = q;
+							cq_head = q;
+						}
+						else
+						{
+							cq_tail->next = q;
+							cq_tail = q;
+						}
+						
+						write(thread_arg->eventfd, &u, sizeof(uint64_t));
+					}
+				} while (true);
+			} else if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP){
+				FATAL("listener socket is down.");
+			}
+		}
+	}
+}
+
+void connection_event_loop(void (*connection_handler)(cache_connection* connection)){
+	int epfd = epoll_create(MAXCLIENTS);
+	struct epoll_event events[NUM_EVENTS];
+	int max_listener = 0;
+	int res;
+	pthread_t tid;
+	uint64_t u;
+	
+	connection_thread_arg thread_arg;
+	thread_arg.connection_handler = connection_handler;
+	thread_arg.eventfd = eventfd(0, 0);
+	res = pthread_create(&tid, NULL, &connection_handle_accept, &connection_handler);
+	if (res != 0)
+		PFATAL("can't create accept thread");
+	
+	
+	ev.events = EPOLLIN;
+	ev.data.fd = thread_arg.eventfd;
+	res = epoll_ctl(epfd, EPOLL_CTL_ADD, thread_arg.eventfd, &ev);
 
 	while (!stop_soon) {
 		int nfds = epoll_wait(epfd, events, NUM_EVENTS, 500);
 		int n = 0;
 		while (n < nfds) {
 			int fd = events[n].data.fd;
-			if (fd <= max_listener && is_listener(fd)) {
-				if (events[n].events & EPOLLIN){
-					DEBUG("[#] Accepting connection\n");
-					int client_sock = accept(fd, NULL, NULL);
-
-					if (client_sock < 0) {
-						WARN("Unable to handle API connection: accept() fails. Error: %s", strerror(errno));
-					}
-					else {
-						DEBUG("[#] Accepted connection %d\n", client_sock);
-
-						//Connection will be non-blocking
-						if (connection_non_blocking(client_sock) < 0)
-							PFATAL("Setting connection to non blocking failed.");
-
-						//Enable TCP CORK
-						int state = 1;
-						setsockopt(client_sock, IPPROTO_TCP, TCP_CORK, &state, sizeof(state));
-
-						//Add socket to epoll
-						ev.events = EPOLLIN | EPOLLHUP | EPOLLRDHUP;
-						ev.data.fd = client_sock;
-						res = epoll_ctl(epfd, EPOLL_CTL_ADD, client_sock, &ev);
-						if (res != 0){
-							PFATAL("epoll_ctl() failed.");
-						}
-
-						//Store connection
-						cache_connection* connection = connection_add(client_sock, ctable);
-
-						//Handle event
-						connection_handler(connection);
-					}
+			if (fd == thread_arg.eventfd)
+			{				
+				res = read(fd, &u, sizeof(uint64_t));
+				if (res != sizeof(uint64_t))
+				{
+					PFATAL("efd read() failed.");
 				}
-				else if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP){
-					FATAL("listener socket is down.");
+				
+				for (uint64_t i = 0; i < u; i++)
+				{
+					//Dequeue
+					cache_connection* connection = cq_head->connection;
+					connections_queued* temp = cq_head;
+					cq_head = cq_head->next;
+					if (cq_head == NULL)
+					{
+						cq_tail = NULL;
+					}
+					free(cq_head);
+					
+					//Add socket to epoll
+					ev.events = EPOLLIN | EPOLLHUP | EPOLLRDHUP;
+					ev.data.fd = connection->client_sock;
+					res = epoll_ctl(epfd, EPOLL_CTL_ADD, connection->client_sock, &ev);
+					if (res != 0) {
+						PFATAL("epoll_ctl() failed.");
+					}
 				}
 			}
-			else{
+			else
+			{
 				DEBUG("[#%d] Got socket event %d\n", fd, events[n].events);
 				cache_connection* connection = connection_get(fd, ctable);
 				if (connection != NULL){
@@ -405,12 +496,12 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 						close(fd);
 						connection_remove(epfd, fd, ctable);
 						assert(connection_get(fd, ctable) == NULL);
-#ifdef DEBUG_BUILD
+	#ifdef DEBUG_BUILD
 						int num_connections = connection_count(ctable);
 						if (num_connections == 0){
 							db_check_table_refs();
 						}
-#endif
+	#endif
 					}
 				}
 				else{
@@ -418,12 +509,15 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					assert(fd != 0 || settings.daemon_mode);
 					close(fd);
 				}
+				
 			}
 			n++;
 		}
 	}
 
 	close(epfd);
+	
+	pthread_join(tid, NULL);
 }
 
 /*

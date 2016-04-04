@@ -5,23 +5,23 @@
 BINARYDIR := Debug
 
 #Toolchain
-CC := gcc
+CC := g++
 CXX := g++
 LD := $(CXX)
 AR := ar
 OBJCOPY := objcopy
 
 #Additional flags
-PREPROCESSOR_MACROS := DEBUG
-INCLUDE_DIRS := /home/splitice/simple-cache/src
+PREPROCESSOR_MACROS := DEBUG_BUILD
+INCLUDE_DIRS := ../src/core
 LIBRARY_DIRS := 
 LIBRARY_NAMES := 
-ADDITIONAL_LINKER_INPUTS := /home/splitice/simple-cache/src/!(scache).o
+ADDITIONAL_LINKER_INPUTS :=
 MACOS_FRAMEWORKS := 
 LINUX_PACKAGES := 
 
-CFLAGS := -ggdb -ffunction-sections -O0
-CXXFLAGS := -ggdb -ffunction-sections -O0
+CFLAGS := -ggdb -ffunction-sections -O0 -std=c++11
+CXXFLAGS := -ggdb -ffunction-sections -O0 -std=c++11
 ASFLAGS := 
 LDFLAGS := -Wl,-gc-sections
 COMMONFLAGS := 
