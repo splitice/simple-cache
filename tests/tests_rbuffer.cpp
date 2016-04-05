@@ -216,6 +216,62 @@ static const char * test_overflow_rbcmp() {
 	return 0;
 }
 
+static const char * test_regular_rbcmp_insufficient() {
+	struct read_buffer rb;
+	rbuf_init(&rb);
+	rb.read_position = 65536 - 6;
+	rb.write_position = 65535;
+
+	rb.buffer[BUFFER_SIZE - 6] = 'a';
+	rb.buffer[BUFFER_SIZE - 5] = 'b';
+	rb.buffer[BUFFER_SIZE - 4] = 'c';
+
+	rb.buffer[BUFFER_SIZE - 3] = 'd';
+	rb.buffer[BUFFER_SIZE - 2] = 'e';
+
+	mu_assert("test_regular_rbcmp_insufficient rbuf_cmpn matches", rbuf_cmpn(&rb, "abcdefg", 7) == -1);
+	mu_assert("test_regular_rbcmp_insufficient rbuf_cmpn doesnt match", rbuf_cmpn(&rb, "abcdeeg", 7) == -1);
+	return 0;
+}
+
+static const char * test_overflow1_rbcmp_insufficient() {
+	struct read_buffer rb;
+	rbuf_init(&rb);
+	rb.read_position = 65536 - 5;
+	rb.write_position = 0;
+
+	rb.buffer[BUFFER_SIZE - 5] = 'a';
+	rb.buffer[BUFFER_SIZE - 4] = 'b';
+	rb.buffer[BUFFER_SIZE - 3] = 'c';
+
+	rb.buffer[BUFFER_SIZE - 2] = 'd';
+	rb.buffer[BUFFER_SIZE - 1] = 'e';
+
+	mu_assert("test_overflow1_rbcmp_insufficient rbuf_cmpn matches", rbuf_cmpn(&rb, "abcdefg", 7) == -1);
+	mu_assert("test_overflow1_rbcmp_insufficient rbuf_cmpn doesnt match", rbuf_cmpn(&rb, "abcdeeg", 7) == -1);
+	return 0;
+}
+
+static const char * test_overflow2_rbcmp_insufficient() {
+	struct read_buffer rb;
+	rbuf_init(&rb);
+	rb.read_position = 65536 - 5;
+	rb.write_position = 1;
+
+	rb.buffer[BUFFER_SIZE - 5] = 'a';
+	rb.buffer[BUFFER_SIZE - 4] = 'b';
+	rb.buffer[BUFFER_SIZE - 3] = 'c';
+
+	rb.buffer[BUFFER_SIZE - 2] = 'd';
+	rb.buffer[BUFFER_SIZE - 1] = 'e';
+	rb.buffer[0] = 'f';
+
+	mu_assert("test_overflow2_rbcmp_insufficient rbuf_cmpn matches", rbuf_cmpn(&rb, "abcdefg", 7) == -1);
+	mu_assert("test_overflow2_rbcmp_insufficient rbuf_cmpn doesnt match", rbuf_cmpn(&rb, "abcdeeg", 7) == -1);
+	return 0;
+}
+
+
 static const char * test_rbuffer() {
 	//Basic tests
 	mu_run_test(test_high_rb);
@@ -233,5 +289,8 @@ static const char * test_rbuffer() {
 	mu_run_test(test_rollover_rbcmp);
 	mu_run_test(test_rolloverhigh_rbcmp);
 	mu_run_test(test_overflow_rbcmp);
+	mu_run_test(test_regular_rbcmp_insufficient);
+	mu_run_test(test_overflow1_rbcmp_insufficient);
+	mu_run_test(test_overflow2_rbcmp_insufficient);
 	return 0;
 }

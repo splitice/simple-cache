@@ -83,14 +83,12 @@ int rbuf_cmpn(struct read_buffer* buffer, const char* with, int n) {
 
 	//Second memcpy, read the roll over
 	to_end = rbuf_read_remaining(buffer) - to_end;
-	if (to_end != 0){
-		//Dont read more than needed
-		if (to_end < n){
-			return -1;
-		}
-
-		return strncmp(with, RBUF_STARTPTR(buffer), n);
+	//Dont read more than needed
+	if (to_end < n){
+		return -1;
 	}
+
+	return strncmp(with, RBUF_STARTPTR(buffer), n);
 
 	//Shouldnt happen
 	return result;
