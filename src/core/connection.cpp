@@ -421,11 +421,13 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 	pthread_t tid;
 	uint64_t u;
 	
+	//Init Mutex
 	if (pthread_mutex_init(&cq_lock, NULL) != 0)
 	{
 		PFATAL("mutex init failed");
 	}
 	
+	//Init Acceptor thread
 	connection_thread_arg* thread_arg = (connection_thread_arg*)malloc(sizeof(connection_thread_arg)) ;
 	efd = eventfd(0, 0);
 	thread_arg->eventfd = efd;
@@ -433,7 +435,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 	if (res != 0)
 		PFATAL("can't create accept thread");
 	
-	
+	//Add messaging socket
 	ev.events = EPOLLIN;
 	ev.data.fd = efd;
 	res = epoll_ctl(epfd, EPOLL_CTL_ADD, efd, &ev);
@@ -453,10 +455,11 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 				
 				while (u -- != 0)
 				{
-					//Dequeue
+					assert(cq_head != NULL);
 					int client_sock = cq_head->client_sock;
 					assert(client_sock >= 0);
 					
+					//Dequeue
 					connections_queued* temp = cq_head;
 					pthread_mutex_lock(&cq_lock);
 					cq_head = cq_head->next;
@@ -467,10 +470,8 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					pthread_mutex_unlock(&cq_lock);
 					free(cq_head);
 					
-					//Store connection
+					//Handle connection
 					cache_connection* connection = connection_add(client_sock, ctable);
-
-					//Handle event
 					connection_handler(connection);
 					
 					//Add socket to epoll
