@@ -372,14 +372,14 @@ static void* connection_handle_accept(void *arg)
 					else {
 						DEBUG("[#] Accepted connection %d\n", client_sock);
 
-																			//Connection will be non-blocking
+						//Connection will be non-blocking
 						if (connection_non_blocking(client_sock) < 0)
 							PFATAL("Setting connection to non blocking failed.");
 
-																					//Enable TCP CORK
+						
+						//Enable TCP CORK
 						int state = 1;
 						setsockopt(client_sock, IPPROTO_TCP, TCP_CORK, &state, sizeof(state));
-
 							
 						
 						connections_queued* q = (connections_queued*)malloc(sizeof(connections_queued)) ;
@@ -452,10 +452,12 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					PFATAL("efd read() failed.");
 				}
 				
-				for (uint64_t i = 0; i < u; i++)
+				while (u -- == 0)
 				{
 					//Dequeue
 					int client_sock = cq_head->client_sock;
+					assert(client_sock > 0);
+					
 					connections_queued* temp = cq_head;
 					pthread_mutex_lock(&cq_lock);
 					cq_head = cq_head->next;
