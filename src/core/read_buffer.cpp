@@ -8,6 +8,9 @@ void rbuf_debug_check(struct read_buffer* buffer){
 }
 
 int rbuf_copyn(struct read_buffer* buffer, char* dest, int n) {
+	assert(n >= 0);
+	assert(buffer != NULL);
+	assert(dest != NULL);
 	rbuf_debug_check(buffer);
 	assert(n <= BUFFER_SIZE);
 	int to_end = rbuf_read_to_end(buffer);
@@ -49,6 +52,9 @@ int rbuf_copyn(struct read_buffer* buffer, char* dest, int n) {
 }
 
 int rbuf_cmpn(struct read_buffer* buffer, const char* with, int n) {
+	assert(n >= 0);
+	assert(buffer != NULL);
+	assert(with != NULL);
 	rbuf_debug_check(buffer);
 	assert(n <= BUFFER_SIZE);
 	int to_end = rbuf_read_to_end(buffer);
@@ -75,16 +81,15 @@ int rbuf_cmpn(struct read_buffer* buffer, const char* with, int n) {
 		return result;
 	}
 
-	//TODO: how to handle insufficient bytes?
 	//Second memcpy, read the roll over
 	to_end = rbuf_read_remaining(buffer) - to_end;
 	if (to_end != 0){
 		//Dont read more than needed
-		if (to_end > n){
-			to_end = n;
+		if (to_end < n){
+			return -1;
 		}
 
-		return strncmp(with, RBUF_STARTPTR(buffer), to_end);
+		return strncmp(with, RBUF_STARTPTR(buffer), n);
 	}
 
 	//Shouldnt happen

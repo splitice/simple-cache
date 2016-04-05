@@ -38,6 +38,22 @@ struct cache_connection_node ctable[CONNECTION_HASH_ENTRIES] = { 0 };
 
 volatile sig_atomic_t stop_soon = 0;
 
+
+struct connection_thread_arg
+{
+	int eventfd;
+};
+
+struct connections_queued
+{
+	int client_sock;
+	connections_queued* next;
+};
+
+static connections_queued* cq_head = NULL;
+static connections_queued* cq_tail = NULL;
+static pthread_mutex_t cq_lock;
+
 /* Methods */
 static bool connection_event_update(int epfd, int fd, uint32_t events){
 	assert(fd != 0 || fd);
@@ -314,21 +330,6 @@ static bool is_listener(int fd)
 	}
 	return false;
 }
-
-struct connection_thread_arg
-{
-	int eventfd;
-};
-
-struct connections_queued
-{
-	int client_sock;
-	connections_queued* next;
-};
-
-static connections_queued* cq_head = NULL;
-static connections_queued* cq_tail = NULL;
-pthread_mutex_t cq_lock;
 
 static void* connection_handle_accept(void *arg)
 {
