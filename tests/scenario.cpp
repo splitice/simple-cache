@@ -15,6 +15,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
+#include <sys/wait.h>
 #include <map>
 #include "debug.h"
 
@@ -320,7 +321,7 @@ void stop_server(pid_t pid){
 	if (res != 0){
 		PFATAL("Unable to kill scache service");
 	}
-	sleep(1);
+	waitpid(pid, &res, 0);
 }
 
 void trim_last_nl(std::string* str){
