@@ -383,9 +383,9 @@ static void* connection_handle_accept(void *arg)
 						
 						connections_queued* q = (connections_queued*)malloc(sizeof(connections_queued)) ;
 						q->client_sock = client_sock;
+						q->next = NULL;
 						
 						pthread_mutex_lock(&cq_lock);
-						q->next = NULL;
 						if (cq_tail == NULL)
 						{
 							assert(cq_head == NULL);
