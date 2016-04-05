@@ -385,7 +385,7 @@ static void* connection_handle_accept(void *arg)
 						q->client_sock = client_sock;
 						
 						pthread_mutex_lock(&cq_lock);
-						q->next = cq_tail;
+						q->next = NULL;
 						if (cq_tail == NULL)
 						{
 							assert(cq_head == NULL);
