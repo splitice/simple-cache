@@ -375,7 +375,6 @@ static void* connection_handle_accept(void *arg)
 						//Connection will be non-blocking
 						if (connection_non_blocking(client_sock) < 0)
 							PFATAL("Setting connection to non blocking failed.");
-
 						
 						//Enable TCP CORK
 						int state = 1;
@@ -456,7 +455,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 				{
 					//Dequeue
 					int client_sock = cq_head->client_sock;
-					assert(client_sock > 0);
+					assert(client_sock >= 0);
 					
 					connections_queued* temp = cq_head;
 					pthread_mutex_lock(&cq_lock);
