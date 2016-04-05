@@ -468,7 +468,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 						cq_tail = NULL;
 					}
 					pthread_mutex_unlock(&cq_lock);
-					free(cq_head);
+					free(temp);
 					
 					//Handle connection
 					cache_connection* connection = connection_add(client_sock, ctable);
