@@ -383,9 +383,9 @@ static void* connection_handle_accept(void *arg)
 						
 						connections_queued* q = (connections_queued*)malloc(sizeof(connections_queued)) ;
 						q->client_sock = client_sock;
-						q->next = cq_tail;
 						
 						pthread_mutex_lock(&cq_lock);
+						q->next = cq_tail;
 						if (cq_tail == NULL)
 						{
 							assert(cq_head == NULL);
@@ -460,6 +460,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					assert(client_sock >= 0);
 					
 					//Dequeue
+					assert(cq_head != NULL);
 					connections_queued* temp = cq_head;
 					pthread_mutex_lock(&cq_lock);
 					cq_head = cq_head->next;
@@ -503,8 +504,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					else if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP || events[n].events & EPOLLRDHUP){
 						close_connection = 1;
 					}
-
-
+					
 					if (close_connection){
 						DEBUG("[#%d] Closing connection\n", fd);
 						http_cleanup(connection);
