@@ -16,6 +16,7 @@
 #include <arpa/inet.h>
 #include <sys/time.h>
 #include <sys/wait.h>
+#include <unistd.h>
 #include <map>
 #include "debug.h"
 
@@ -317,11 +318,17 @@ pid_t start_server(const char* binary_path, int port, const char* db, const char
 }
 
 void stop_server(pid_t pid){
+	char pid_path[128];
 	int res = kill(pid, SIGTERM);
 	if (res != 0){
 		PFATAL("Unable to kill scache service");
 	}
-	waitpid(pid, &res, 0);
+	
+	sprintf(pid_path, "/proc/%d", pid);
+	while (access(pid_path, F_OK) == 0)
+	{
+		usleep(100);
+	}
 }
 
 void trim_last_nl(std::string* str){

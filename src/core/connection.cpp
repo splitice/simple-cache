@@ -408,7 +408,7 @@ static void* connection_handle_accept(void *arg)
 						
 						write(thread_arg->eventfd, &u, sizeof(uint64_t));
 					}
-				} while (true);
+				} while (!stop_soon);
 			} else if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP){
 				FATAL("listener socket is down.");
 			}
