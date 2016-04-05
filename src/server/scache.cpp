@@ -54,7 +54,10 @@ int write_pid(char* pidFile, __pid_t pid){
 /* Handler for Ctrl-C and related signals */
 volatile extern sig_atomic_t stop_soon;
 static void abort_handler(int sig) {
-	if (stop_soon) exit(1);
+	if (stop_soon) {
+		FATAL("Force exit, second signal received");
+	}
+	WARN("Shutting down");
 	stop_soon = 1;
 }
 
@@ -155,6 +158,7 @@ int main(int argc, char** argv)
 	connection_event_loop(http_connection_handler);
 
 	//Cleanup
+	WARN("Starting Cleanup");
 	settings_cleanup();
 	connection_cleanup();
 	db_close();
