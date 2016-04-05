@@ -317,13 +317,12 @@ static bool is_listener(int fd)
 
 struct connection_thread_arg
 {
-	void(*connection_handler)(cache_connection* connection);
 	int eventfd;
 };
 
 struct connections_queued
 {
-	cache_connection* connection;
+	int client_sock;
 	connections_queued* next;
 };
 
@@ -381,15 +380,9 @@ static void* connection_handle_accept(void *arg)
 						setsockopt(client_sock, IPPROTO_TCP, TCP_CORK, &state, sizeof(state));
 
 							
-
-																			//Store connection
-						cache_connection* connection = connection_add(client_sock, ctable);
-
-																			//Handle event
-						thread_arg->connection_handler(connection);
 						
 						connections_queued* q = (connections_queued*)malloc(sizeof(connections_queued)) ;
-						q->connection = connection;
+						q->connection = client_sock;
 						q->next = cq_tail;
 						
 						pthread_mutex_lock(&cq_lock);
@@ -434,7 +427,6 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 	}
 	
 	connection_thread_arg* thread_arg = (connection_thread_arg*)malloc(sizeof(connection_thread_arg)) ;
-	thread_arg->connection_handler = connection_handler;
 	efd = eventfd(0, 0);
 	thread_arg->eventfd = efd;
 	res = pthread_create(&tid, NULL, &connection_handle_accept, (void*)thread_arg);
@@ -462,7 +454,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 				for (uint64_t i = 0; i < u; i++)
 				{
 					//Dequeue
-					cache_connection* connection = cq_head->connection;
+					int client_sock = cq_head->client_sock;
 					connections_queued* temp = cq_head;
 					pthread_mutex_lock(&cq_lock);
 					cq_head = cq_head->next;
@@ -472,6 +464,12 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					}
 					pthread_mutex_unlock(&cq_lock);
 					free(cq_head);
+					
+					//Store connection
+					cache_connection* connection = connection_add(client_sock, ctable);
+
+					//Handle event
+					connection_handler(connection);
 					
 					//Add socket to epoll
 					ev.events = EPOLLIN | EPOLLHUP | EPOLLRDHUP;
