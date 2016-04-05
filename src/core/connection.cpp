@@ -451,7 +451,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					PFATAL("efd read() failed.");
 				}
 				
-				while (u -- == 0)
+				while (u -- != 0)
 				{
 					//Dequeue
 					int client_sock = cq_head->client_sock;
