@@ -382,7 +382,7 @@ static void* connection_handle_accept(void *arg)
 							
 						
 						connections_queued* q = (connections_queued*)malloc(sizeof(connections_queued)) ;
-						q->connection = client_sock;
+						q->client_sock = client_sock;
 						q->next = cq_tail;
 						
 						pthread_mutex_lock(&cq_lock);
