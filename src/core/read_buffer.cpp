@@ -40,6 +40,7 @@ int rbuf_copyn(struct read_buffer* buffer, char* dest, int n) {
 	to_end = rbuf_read_remaining(buffer) - to_end;
 	if (to_end != 0){
 		//Dont read more than needed
+		assert(to_end <= n);
 		if (to_end > n){
 			to_end = n;
 		}
@@ -57,23 +58,28 @@ int rbuf_cmpn(struct read_buffer* buffer, const char* with, int n) {
 	assert(with != NULL);
 	rbuf_debug_check(buffer);
 	assert(n <= BUFFER_SIZE);
-	int to_end = rbuf_read_to_end(buffer);
+	int to_end;
 
 	if (n == 0){
 		//No bytes to be read
 		return 0;
 	}
+	
+	//Insufficient data for comparison
+	if (rbuf_read_remaining(buffer) < n)
+	{
+		return -1;
+	}
 
 	//Read the maximum we can / want
-	int to_read = n;
-	if (n > to_end){
-		to_read = to_end;
+	to_end = rbuf_read_to_end(buffer);
+	if (n < to_end){
+		to_end = n;
 	}
 
 	//Copy this ammount
-	int result = strncmp(with, RBUF_READPTR(buffer), to_read);
-	n -= to_read;
-	with += to_read;
+	int result = strncmp(with, RBUF_READPTR(buffer), to_end);
+	n -= to_end;
 
 	//Do we need more?
 	//Only continue if we are equal up to here
@@ -81,14 +87,7 @@ int rbuf_cmpn(struct read_buffer* buffer, const char* with, int n) {
 		return result;
 	}
 
-	//Second memcpy, read the roll over
-	to_end = rbuf_read_remaining(buffer) - to_end;
-	//Dont read more than needed
-	if (to_end < n){
-		return -1;
-	}
-
-	return strncmp(with, RBUF_STARTPTR(buffer), n);
+	return strncmp(with + to_end, RBUF_STARTPTR(buffer), n);
 
 	//Shouldnt happen
 	return result;
