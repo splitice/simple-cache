@@ -415,6 +415,8 @@ static void* connection_handle_accept(void *arg)
 			n++;
 		}
 	}
+	
+	close(epfd);
 }
 
 void connection_event_loop(void (*connection_handler)(cache_connection* connection)){
@@ -422,6 +424,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 	struct epoll_event events[NUM_EVENTS];
 	int max_listener = 0;
 	int res;
+	int efd;
 	pthread_t tid;
 	uint64_t u;
 	
@@ -432,22 +435,23 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 	
 	connection_thread_arg* thread_arg = (connection_thread_arg*)malloc(sizeof(connection_thread_arg)) ;
 	thread_arg->connection_handler = connection_handler;
-	thread_arg->eventfd = eventfd(0, 0);
+	efd = eventfd(0, 0);
+	thread_arg->eventfd = efd;
 	res = pthread_create(&tid, NULL, &connection_handle_accept, (void*)thread_arg);
 	if (res != 0)
 		PFATAL("can't create accept thread");
 	
 	
 	ev.events = EPOLLIN;
-	ev.data.fd = thread_arg->eventfd;
-	res = epoll_ctl(epfd, EPOLL_CTL_ADD, thread_arg->eventfd, &ev);
+	ev.data.fd = efd;
+	res = epoll_ctl(epfd, EPOLL_CTL_ADD, efd, &ev);
 
 	while (!stop_soon) {
 		int nfds = epoll_wait(epfd, events, NUM_EVENTS, 500);
 		int n = 0;
 		while (n < nfds) {
 			int fd = events[n].data.fd;
-			if (fd == thread_arg->eventfd)
+			if (fd == efd)
 			{				
 				res = read(fd, &u, sizeof(uint64_t));
 				if (res != sizeof(uint64_t))
@@ -530,6 +534,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 	
 	pthread_join(tid, NULL);
 	
+	close(efd);
 	free(thread_arg);
 }
 
