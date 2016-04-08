@@ -39,3 +39,17 @@ Connection: Keep-Alive
 Content-Length: 9
 
 BULK OK
+
+>>>>>
+BULK /t HTTP/1.1
+Connection: Keep-Alive
+X-Delete: a
+X-Delete: k
+
+
+-----
+HTTP/1.1 200 OK
+Connection: Keep-Alive
+Content-Length: 9
+
+BULK OK
