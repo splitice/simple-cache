@@ -532,7 +532,7 @@ cache_entry* db_entry_new(db_table* table){
 
 #ifdef DEBUG_BUILD
 	entry->lru_found = false;
-	entry->lru_removed = true;
+	entry->lru_removed = false;
 #endif
 	return entry;
 }
