@@ -854,10 +854,10 @@ static void db_entry_cleanup(cache_entry* entry){
 	}
 }
 
-void db_entry_handle_delete(cache_entry* entry){
+bool db_entry_handle_delete(cache_entry* entry){
 	khiter_t k = kh_get(entry, entry->table->cache_hash_set, entry->hash);
 
-	db_entry_handle_delete(entry, k);
+	return db_entry_handle_delete(entry, k);
 }
 
 void db_delete_table_entry(db_table* table, khiter_t k){
@@ -897,10 +897,10 @@ void db_table_handle_delete(db_table* table, khiter_t k){
 void db_table_handle_delete(db_table* table){
 	khiter_t k = kh_get(table, db.tables, table->hash);
 
-	db_table_handle_delete(table, k);
+	return db_table_handle_delete(table, k);
 }
 
-void db_entry_handle_delete(cache_entry* entry, khiter_t k){
+bool db_entry_handle_delete(cache_entry* entry, khiter_t k){
 	assert(!entry->deleted);
 
 	db_entry_cleanup(entry);
@@ -930,7 +930,9 @@ void db_entry_handle_delete(cache_entry* entry, khiter_t k){
 		k = kh_get(table, db.tables, entry->table->hash);
 		db_delete_table_entry(entry->table, k);
 		entry->table = NULL;
+		return true;
 	}
+	return false;
 }
 
 void db_target_write_allocate(struct cache_target* target, uint32_t data_length){

@@ -531,12 +531,15 @@ static state_action http_read_header_extraction(int epfd, cache_connection* conn
 			break;
 
 		case HEADER_XDELETE:
-			if (REQUEST_IS(connection->type, REQUEST_HTTPBULK | REQUEST_LEVELTABLE)){
+			if (REQUEST_IS(connection->type, REQUEST_HTTPBULK | REQUEST_LEVELTABLE) && connection->target.table.table != NULL) {
 				char* key = (char*)malloc(length);
 				rbuf_copyn(&connection->input, key, length);
 				cache_entry* entry = db_entry_get_delete(connection->target.table.table, key, length);
 				if (entry != NULL){
-					db_entry_handle_delete(entry);
+					if (db_entry_handle_delete(entry))
+					{
+						connection->target.table.table = NULL;
+					}
 					db_entry_deref(entry, false);
 				}
 			}

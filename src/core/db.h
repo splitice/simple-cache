@@ -71,8 +71,8 @@ void db_target_write_allocate(struct cache_target* target, uint32_t data_length)
 void db_complete_writing(cache_entry* entry);
 
 /* Delete an entry (request) */
-void db_entry_handle_delete(struct cache_entry* entry, khiter_t k);
-void db_entry_handle_delete(struct cache_entry* entry);
+bool db_entry_handle_delete(struct cache_entry* entry, khiter_t k);
+bool db_entry_handle_delete(struct cache_entry* entry);
 
 /* Close entry, close fd, deref etc */
 void db_table_close(struct db_table* table);
