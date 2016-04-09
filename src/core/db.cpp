@@ -532,7 +532,7 @@ cache_entry* db_entry_new(db_table* table){
 
 #ifdef DEBUG_BUILD
 	entry->lru_found = false;
-	entry->lru_removed = false;
+	entry->lru_removed = true;
 #endif
 	return entry;
 }
@@ -583,9 +583,6 @@ cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length)
 	//Free key text, not needed.
 	free(key);
 
-	//LRU hit
-	db_lru_hit(entry);
-
 	//Stats
 	db.db_stats_gets++;
 	db.db_stats_operations++;
@@ -595,6 +592,9 @@ cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length)
 		//TODO: possibly future, subscribe and writer handles data delivery
 		return NULL;
 	}
+
+	//LRU hit
+	db_lru_hit(entry);
 
 	//Refs
 	db_entry_incref(entry, false);
