@@ -688,7 +688,8 @@ end:
 }
 
 void db_entry_handle_softdelete(cache_entry* entry, khiter_t k){
-	assert(!entry->deleted);
+	//It is possible when over-writing for this to be called twice.
+	if(entry->deleted) return;
 
 	//If this is contained within a file, delete
 	if (IS_SINGLE_FILE(entry)){
