@@ -22,6 +22,7 @@ struct cache_entry
 	__time_t expires;
 	struct cache_entry* lru_next;
 	struct cache_entry* lru_prev;
+	uint16_t it;
 #ifdef DEBUG_BUILD
 	bool lru_found : 1;
 	bool lru_removed : 1;

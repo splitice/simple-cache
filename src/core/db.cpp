@@ -440,7 +440,7 @@ static uint32_t hash_string(const char* str, int length){
 }
 
 static void get_key_path(cache_entry* e, char* out){
-	snprintf(out, MAX_PATH, "%s%c%c/%x%x", db.path_single, DEC2ALPH(e->hash), DEC2ALPH(e->hash >> 8), e->table->hash, e->hash);
+	snprintf(out, MAX_PATH, "%s%c%c/%x%x_%d", db.path_single, DEC2ALPH(e->hash), DEC2ALPH(e->hash >> 8), e->table->hash, e->hash, e->it);
 }
 
 bool db_open(const char* path){
@@ -475,16 +475,35 @@ bool db_open(const char* path){
 int db_entry_open(struct cache_entry* e, mode_t modes){
 	get_key_path(e, filename_buffer);
 	int fd = open(filename_buffer, O_RDWR | modes, S_IRUSR | S_IWUSR);
-	if (fd <= 0){
-		WARN("Unable to open cache file: %s", filename_buffer);
-	}
 	return fd;
+}
+
+int db_entry_open_create(struct cache_entry* e){
+	int fd;
+	
+	e->it = 0;
+	for(int i=0;i<65500;i++){
+		fd = db_entry_open(e, O_CREAT | O_EXCL);
+		e->it++;
+		if(fd >= 0) {
+			return fd;
+		}
+	}
+	
+	return -1;
 }
 
 void db_target_open(struct cache_target* target, bool write) {
 	if (IS_SINGLE_FILE(target->entry)){
 		target->position = 0;
-		target->fd = db_entry_open(target->entry, write ? O_CREAT : 0);
+		if(write){
+			target->fd = db_entry_open_create(target->entry);
+		}else{
+			target->fd = db_entry_open(target->entry, 0);
+		}
+		if (target->fd <= 0){
+			WARN("Unable to open cache file: %d", target->entry);
+		}
 	}
 	else{
 		target->fd = db.fd_blockfile;
