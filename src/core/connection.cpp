@@ -459,6 +459,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					assert(cq_head != NULL);
 					int client_sock = cq_head->client_sock;
 					assert(client_sock >= 0);
+					DEBUG("[#%d] A new socket was accepted %d\n", fd, fd);
 					
 					//Dequeue
 					assert(cq_head != NULL);
