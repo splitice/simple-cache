@@ -489,29 +489,29 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 				DEBUG("[#%d] Got socket event %d\n", fd, events[n].events);
 				cache_connection* connection = connection_get(fd, ctable);
 				if (connection != NULL){
-					int close_connection = 0;
+					int do_close = 0;
 
 					if (events[n].events & EPOLLIN){
 						if (http_read_handle(epfd, connection) == close_connection){
-							close_connection = 1;
+							do_close = 1;
 						}
 					}
 					else if (events[n].events & EPOLLOUT){
 						if (http_write_handle(epfd, connection) == close_connection){
-							close_connection = 1;
+							do_close = 1;
 						}
 					}
 					else if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP || events[n].events & EPOLLRDHUP){
-						close_connection = 1;
+						do_close = 1;
 					}
 					
-					if (close_connection){
+					if (do_close){
 						DEBUG("[#%d] Closing connection\n", fd);
 						http_cleanup(connection);
 						assert(fd != 0 || settings.daemon_mode);
-						close(fd);
 						connection_remove(epfd, fd, ctable);
 						assert(connection_get(fd, ctable) == NULL);
+						close(fd);
 	#ifdef DEBUG_BUILD
 						int num_connections = connection_count(ctable);
 						if (num_connections == 0){
