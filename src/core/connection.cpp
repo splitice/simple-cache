@@ -244,6 +244,7 @@ static cache_connection* connection_add(int fd, cache_connection_node* ctable){
 	node->connection.client_sock = fd;
 	node->connection.output_buffer_free = NULL;
 	node->connection.writing = false;
+	node->connection.target = {};
 
 	return &node->connection;
 }
