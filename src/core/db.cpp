@@ -484,10 +484,10 @@ int db_entry_open_create(struct cache_entry* e){
 	e->it = 0;
 	for(int i=0;i<65500;i++){
 		fd = db_entry_open(e, O_CREAT | O_EXCL);
-		e->it++;
 		if(fd >= 0) {
 			return fd;
 		}
+		e->it++;
 	}
 	
 	return -1;
