@@ -220,6 +220,10 @@ int unit_connect(int port){
 
 bool run_unit(std::string& request, std::string& expect, int sockfd){
 	char recv_buffer[8096];
+	int one = 1;
+
+	// NO DELAY so we can form packets
+	setsockopt(sockfd, SOL_TCP, TCP_NODELAY, &one, sizeof(one));
 
 	//Send request
 	int len = request.length();
