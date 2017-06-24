@@ -13,6 +13,7 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
 #include <sys/wait.h>
