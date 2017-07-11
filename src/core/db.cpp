@@ -172,7 +172,7 @@ static void db_block_size(){
 	}
 }
 
-void db_block_free(uint32_t block){
+void db_block_free(int32_t block){
 	block_free_node* old;
 	assert(block + 1 <= db.blocks_exist);
 	if (block + 1 == db.blocks_exist && db.blocks_free > 256){
@@ -195,7 +195,7 @@ void db_block_free(uint32_t block){
 	}
 }
 
-uint32_t db_block_allocate_new(){
+int32_t db_block_allocate_new(){
 	uint32_t block_num;
 	block_free_node* free_node;
 	if (db.free_blocks != NULL){
@@ -226,7 +226,7 @@ void db_entry_actually_delete(cache_entry* entry){
 	assert(entry->lru_removed);
 #endif
 	//If is a block, can now free it
-	if (!IS_SINGLE_FILE(entry)){
+	if (!IS_SINGLE_FILE(entry) && entry->block >= 0){
 		db_block_free(entry->block);
 		entry->block = -1;
 	}
@@ -782,7 +782,7 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 		db.db_keys++;
 	}
 	
-	uint32_t block = db_block_allocate_new();
+	int32_t block = db_block_allocate_new();
 	if(block == -1) {
 		return NULL;
 	}
@@ -985,7 +985,7 @@ void db_target_write_allocate(struct cache_target* target, uint32_t data_length)
 	}
 	else if (data_length > BLOCK_LENGTH){
 		//If this is to be an entry stored in a file
-		if (!IS_SINGLE_FILE(entry)){
+		if (!IS_SINGLE_FILE(entry) && entry->block >= 0){
 			//We are going to use a file, and the entry is currently a block
 			db_block_free(entry->block);
 
