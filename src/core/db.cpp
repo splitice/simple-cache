@@ -205,12 +205,18 @@ uint32_t db_block_allocate_new(){
 		free(free_node);
 		db.blocks_free--;
 	}
-	else{
+	else if(db.blocks_exist == 2147483647)
+	{
+		return -1; // too many
+	}
+	else
+	{
 		assert(db.blocks_free == 0);
 		block_num = db.blocks_exist;
 		db.blocks_exist++;
 		db_block_size();
 	}
+	
 	return block_num;
 }
 
@@ -775,9 +781,14 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	else{
 		db.db_keys++;
 	}
+	
+	uint32_t block = db_block_allocate_new();
+	if(block == -1) {
+		return NULL;
+	}
 
 	entry = db_entry_new(table);
-	entry->block = db_block_allocate_new();
+	entry->block = block;
 	entry->data_length = 0;
 	entry->key = key;
 	entry->key_length = length;

@@ -18,7 +18,7 @@ struct cache_entry
 	bool deleted : 1;
 	uint16_t refs;
 	uint32_t data_length;
-	uint32_t block;
+	int32_t block;
 	__time_t expires;
 	struct cache_entry* lru_next;
 	struct cache_entry* lru_prev;
