@@ -222,8 +222,8 @@ void db_entry_actually_delete(cache_entry* entry){
 	//If is a block, can now free it
 	if (!IS_SINGLE_FILE(entry)){
 		db_block_free(entry->block);
+		entry->block = -1;
 	}
-
 
 	//Free key
 	free(entry->key);
