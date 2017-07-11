@@ -180,6 +180,14 @@ void db_block_free(uint32_t block){
 		db_block_size();
 	}else{
 		old = db.free_blocks;
+#ifdef DEBUG_BUILD
+		// Check only freed once
+		block_free_node* ptr = db.free_blocks;
+		while(ptr){
+			assert(ptr->block_number != block);
+			ptr = ptr->next;
+		}
+#endif
 		db.free_blocks = (block_free_node*)malloc(sizeof(block_free_node));
 		db.free_blocks->block_number = block;
 		db.free_blocks->next = old;
@@ -583,14 +591,14 @@ cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length)
 
 	assert(!entry->deleted);
 
-	if (entry->key_length != length || strncmp(key, entry->key, length)){
+	if (entry->key_length != length || strncmp(key, entry->key, length) != 0){
 		DEBUG("[#] Unable to look up key: ");
 
 		if (entry->key_length != length){
 			DEBUG("DB Key length does not match\n");
 		}
 		else{
-			if (strncmp(key, entry->key, length)){
+			if (strncmp(key, entry->key, length) != 0){
 				DEBUG("String Keys dont match\n");
 			}
 		}
