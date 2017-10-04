@@ -581,6 +581,7 @@ cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length)
 		free(key);
 		return NULL;
 	}
+	assert(entry->hash == hash);
 
 	if (entry->expires != 0){
 		DEBUG("[#] Key has ttl: %lu (%d from now)\n", (unsigned long)entry->expires, (int)(entry->expires - time_seconds));
@@ -655,6 +656,7 @@ struct db_table* db_table_get_read(char* name, int length){
 
 		table = kh_value(db.tables, k);
 		assert(table != NULL);
+		assert(table->hash == hash);
 		
 		//Check table key, cache key collision handling
 		while_condition = table->key_length != length || strncmp(table->key, name, length) != 0;
@@ -705,6 +707,7 @@ struct db_table* db_table_get_write(char* name, int length){
 
 		table = kh_value(db.tables, k);
 		assert(table != NULL);
+		assert(table->hash == hash);
 	
 		//Check table key, cache key collision handling
 		while_condition = table->key_length != length || strncmp(table->key, name, length) != 0;
@@ -768,7 +771,8 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	bool is_first_in_table = kh_size(table->cache_hash_set) == 0;
 
 	//This is a re-used entry
-	if (entry != NULL){
+	if (entry != NULL)
+	{
 		//If we are currently writing, then it will be mocked
 		if (entry->writing == true){
 			return NULL;
@@ -779,7 +783,9 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 
 		db_validate_lru();
 	}
-	else{
+	else
+	{
+		assert(entry->hash == hash);
 		db.db_keys++;
 	}
 	
@@ -829,7 +835,7 @@ cache_entry* db_entry_get_delete(struct db_table* table, char* key, size_t lengt
 	khiter_t k = kh_get(entry, table->cache_hash_set, hash);
 	cache_entry* entry = k == kh_end(table->cache_hash_set) ? NULL : kh_value(table->cache_hash_set, k);
 
-	if (entry == NULL || entry->key_length != length || strncmp(key, entry->key, length)){
+	if (entry == NULL || entry->key_length != length || strncmp(key, entry->key, length) != 0){
 		DEBUG("[#] Unable to look up key: ");
 
 		if (entry == NULL){
@@ -849,6 +855,7 @@ cache_entry* db_entry_get_delete(struct db_table* table, char* key, size_t lengt
 		free(key);
 		return NULL;
 	}
+	assert(entry->hash == hash);
 
 	//Free key text, not needed.
 	free(key);
