@@ -773,6 +773,7 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	//This is a re-used entry
 	if (entry != NULL)
 	{
+		assert(entry->hash == hash);
 		//If we are currently writing, then it will be mocked
 		if (entry->writing == true){
 			return NULL;
@@ -785,7 +786,6 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	}
 	else
 	{
-		assert(entry->hash == hash);
 		db.db_keys++;
 	}
 	
