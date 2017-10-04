@@ -657,7 +657,7 @@ struct db_table* db_table_get_read(char* name, int length){
 		assert(table != NULL);
 		
 		//Check table key, cache key collision handling
-		while_condition = strncmp(table->key, name, length) != 0;
+		while_condition = table->key_length != length || strncmp(table->key, name, length) != 0;
 		if (while_condition)
 		{
 			hash++;
@@ -693,6 +693,7 @@ struct db_table* db_table_get_write(char* name, int length){
 			table = (db_table*)malloc(sizeof(db_table));
 			table->hash = hash;
 			table->key = name;
+			table->key_length = length;
 			table->refs = 1;
 			table->deleted = false;
 			table->cache_hash_set = kh_init(entry);
@@ -706,7 +707,7 @@ struct db_table* db_table_get_write(char* name, int length){
 		assert(table != NULL);
 	
 		//Check table key, cache key collision handling
-		while_condition = strncmp(table->key, name, length) != 0;
+		while_condition = table->key_length != length || strncmp(table->key, name, length) != 0;
 		if (while_condition)
 		{
 			hash++;

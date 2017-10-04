@@ -34,6 +34,7 @@ KHASH_MAP_INIT_INT(entry, struct cache_entry*)
 struct db_table {
 	uint32_t hash;
 	char* key;
+	uint16_t key_length;
 
 	khash_t(entry) *cache_hash_set;
 	uint16_t refs: 15;
