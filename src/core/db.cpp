@@ -270,12 +270,12 @@ void db_table_deref(db_table* entry){
 }
 
 void db_table_incref(db_table* entry){
-	DEBUG("[#] Incrementing refcount - was: %d\n", entry->refs);
+	DEBUG("[#] Incrementing table refcount - was: %d\n", entry->refs);
 	entry->refs++;
 }
 
 void db_entry_deref(cache_entry* entry, bool table){
-	DEBUG("[#] Decrementing refcount - was: %d\n", entry->refs);
+	DEBUG("[#] Decrementing entry refcount - was: %d\n", entry->refs);
 	entry->refs--;
 
 	//Deref the table
@@ -302,8 +302,7 @@ void db_lru_cleanup_percent(int* bytes_to_remove){
 		cache_entry* l = db.lru_head;
 
 		//Skip if currently deleting
-		assert(!l->writing);
-		assert(!l->deleted);
+		if(l->writing || l->deleted) continue;
 
 		*bytes_to_remove -= l->data_length;
 
