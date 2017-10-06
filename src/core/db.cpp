@@ -212,7 +212,7 @@ int32_t db_block_allocate_new(){
 		free(free_node);
 		db.blocks_free--;
 	}
-	else if(db.blocks_exist == 2147483647)
+	else if(db.blocks_exist >= 2147483647)
 	{
 		return -1; // too many
 	}
@@ -516,6 +516,7 @@ int db_entry_open_create(struct cache_entry* e){
 			return fd;
 		}
 		e->it++;
+		close(fd);
 	}
 	
 	return -1;
