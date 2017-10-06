@@ -693,7 +693,7 @@ struct db_table* db_table_get_write(char* name, int length){
 	//Open addressing for table hash collision
 	do
 	{
-		k =  = kh_get(table, db.tables, hash);
+		k = kh_get(table, db.tables, hash);
 		//Create table if not exists
 		if (k == kh_end(db.tables)) {
 			table = (db_table*)malloc(sizeof(db_table));
