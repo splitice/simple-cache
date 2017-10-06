@@ -535,9 +535,9 @@ void db_target_open(struct cache_target* target, bool write) {
 	}
 	else{
 		target->fd = db.fd_blockfile;
-		target->position = target->entry->block * BLOCK_LENGTH;
+		target->position = ((off64_t)target->entry->block) * BLOCK_LENGTH;
 	}
-	target->end_position = ((off64_t)target->position) + target->entry->data_length;
+	target->end_position = target->position + target->entry->data_length;
 }
 
 void db_target_setup(struct cache_target* target, struct cache_entry* entry, bool write){
