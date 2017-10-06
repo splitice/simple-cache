@@ -290,6 +290,7 @@ void db_entry_incref(cache_entry* entry, bool table = true){
 }
 
 void db_lru_cleanup_percent(int* bytes_to_remove){
+	int debug_bytes = *bytes_to_remove;
 	while (db.lru_head != NULL && *bytes_to_remove > 0){
 		cache_entry* l = db.lru_head;
 
@@ -310,6 +311,8 @@ void db_lru_cleanup_percent(int* bytes_to_remove){
 			db_entry_handle_delete(l);
 		}
 	}
+	
+	DEBUG("[#] LRU attempted to remove %d bytes, %d bytes remaining\n", debug_bytes, *bytes_to_remove);
 }
 
 static int db_expire_cursor_table(db_table* table){
@@ -682,7 +685,7 @@ Returns NULL in case of cache collision
 */
 struct db_table* db_table_get_write(char* name, int length){
 	uint32_t hash = hash_string(name, length);
-	khiter_t k = kh_get(table, db.tables, hash);
+	khiter_t k;
 	db_table* table;
 	int ret;
 	bool while_condition;
@@ -690,6 +693,7 @@ struct db_table* db_table_get_write(char* name, int length){
 	//Open addressing for table hash collision
 	do
 	{
+		k =  = kh_get(table, db.tables, hash);
 		//Create table if not exists
 		if (k == kh_end(db.tables)) {
 			table = (db_table*)malloc(sizeof(db_table));
@@ -984,7 +988,7 @@ bool db_entry_handle_delete(cache_entry* entry, khiter_t k){
 
 void db_target_write_allocate(struct cache_target* target, uint32_t data_length){
 	cache_entry* entry = target->entry;
-	DEBUG("[#] Allocating space for entry, block is currently: %d and is single file: %d (was: %d)\n", entry->block, data_length > BLOCK_LENGTH, entry->block == -2?-1:(IS_SINGLE_FILE(entry)));
+	DEBUG("[#] Allocating space for entry, block is currently: %d and is single file: %s (was: %s)\n", entry->block, (data_length > BLOCK_LENGTH) ? "yes" : "no", (entry->block == -2?-1:(IS_SINGLE_FILE(entry)))? "yes":"no");
 	if (entry->block == -2){
 		//if this is a new entry, with nothing previously allocated.
 		if (data_length <= BLOCK_LENGTH){
