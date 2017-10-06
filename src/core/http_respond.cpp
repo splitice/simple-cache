@@ -128,7 +128,7 @@ state_action http_respond_contentbody(int epfd, cache_connection* connection){
 	DEBUG("[#%d] Sending response body\n", fd);
 	//The number of bytes to read
 	size_t temp = connection->target.key.end_position - connection->target.key.position;
-	DEBUG("[#%d] To send %d bytes to the socket (len: %d, pos: %d)\n", fd, temp, connection->target.key.entry->data_length, connection->target.key.position);
+	DEBUG("[#%d] To send %d bytes to the socket (len: %d, pos: %u)\n", fd, temp, connection->target.key.entry->data_length, connection->target.key.position);
 	assert(temp >= 0);
 	if (temp != 0){
 		off_t pos = connection->target.key.position;

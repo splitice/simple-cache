@@ -476,7 +476,7 @@ bool db_open(const char* path){
 
 	//Block file
 	snprintf(db.path_blockfile, MAX_PATH, "%s/blockfile.db", path);
-	db.fd_blockfile = open(db.path_blockfile, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+	db.fd_blockfile = open(db.path_blockfile, O_CREAT | O_RDWR | O_LARGEFILE , S_IRUSR | S_IWUSR);
 	if (db.fd_blockfile < 0){
 		PFATAL("Failed to open blockfile: %s", db.path_blockfile);
 	}
@@ -501,7 +501,7 @@ bool db_open(const char* path){
 
 int db_entry_open(struct cache_entry* e, mode_t modes){
 	get_key_path(e, filename_buffer);
-	int fd = open(filename_buffer, O_RDWR | modes, S_IRUSR | S_IWUSR);
+	int fd = open(filename_buffer, O_RDWR | modes | O_LARGEFILE, S_IRUSR | S_IWUSR);
 	return fd;
 }
 

@@ -718,7 +718,7 @@ state_action http_handle_request_body(int epfd, cache_connection* connection){
 	if (to_write != 0){
 		if (connection->writing){
 			// Write data
-			lseek(connection->target.key.fd, connection->target.key.position, SEEK_SET);
+			lseek64(connection->target.key.fd, connection->target.key.position, SEEK_SET);
 			int read_bytes = write(connection->target.key.fd, RBUF_READ(connection->input), to_write);
 
 			//Handle the bytes written

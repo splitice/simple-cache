@@ -14,3 +14,8 @@
 
 #define DEFAULT_LISTING_LIMIT 10000
 #define HASH_SEED 13
+
+#define _FILE_OFFSET_BITS 64
+#ifndef _LARGEFILE_SOURCE
+#define _LARGEFILE_SOURCE 1
+#endif
