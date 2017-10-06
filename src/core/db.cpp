@@ -476,10 +476,10 @@ bool db_open(const char* path){
 	}
 
 	//Mark all blocks that already exist in the block file as non-allocated
-	int size = lseek(db.fd_blockfile, 0L, SEEK_END);
-	db.blocks_exist = size / BLOCK_LENGTH;
-	for (uint32_t i = 0; i < size; i += BLOCK_LENGTH){
-		db_block_free(i / BLOCK_LENGTH);
+	off64_t size = lseek64(db.fd_blockfile, 0L, SEEK_END);
+	db.blocks_exist = (uint32_t)(size / BLOCK_LENGTH);
+	for (off64_t i = 0; i < size; i += BLOCK_LENGTH){
+		db_block_free((uint32_t)(i / BLOCK_LENGTH));
 	}
 	db.blocks_free = db.blocks_exist;
 
