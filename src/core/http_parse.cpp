@@ -718,7 +718,10 @@ state_action http_handle_request_body(int epfd, cache_connection* connection){
 	if (to_write != 0){
 		if (connection->writing){
 			// Write data
-			lseek64(connection->target.key.fd, connection->target.key.position, SEEK_SET);
+			if(connection->target.key.position && lseek64(connection->target.key.fd, connection->target.key.position, SEEK_SET) == -1){
+				PWARN("[#%d] Failed to seek for GET");
+				return http_write_response(epfd, connection, HTTPTEMPLATE_FULL404);				
+			}
 			int read_bytes = write(connection->target.key.fd, RBUF_READ(connection->input), to_write);
 
 			//Handle the bytes written
