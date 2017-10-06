@@ -36,6 +36,10 @@ LRU
 #include "settings.h"
 #include "timer.h"
 
+#ifdef DEBUG_BUILD
+#include <set>
+#endif
+
 #define DEC2ALPH(x) ('A' + (x)%26)
 
 /* Globals */
@@ -173,6 +177,9 @@ static void db_block_size(){
 }
 
 void db_block_free(int32_t block){
+#ifdef DEBUG_BUILD
+	std::set<uint32_t> block_check;
+#endif
 	block_free_node* old;
 	assert(block + 1 <= db.blocks_exist);
 	if (block + 1 == db.blocks_exist && db.blocks_free > 256){
@@ -184,7 +191,7 @@ void db_block_free(int32_t block){
 		// Check only freed once
 		block_free_node* ptr = db.free_blocks;
 		while(ptr){
-			assert(ptr->block_number != block);
+			assert(block_check.insert(block).second);
 			ptr = ptr->next;
 		}
 #endif
