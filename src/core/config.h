@@ -1,5 +1,6 @@
 #define MAXCLIENTS 10240
 #define BLOCK_LENGTH 4096
+#define BLOCK_MAX_LOAD 8192
 #define MAX_PATH 512
 #define NUM_EVENTS 32
 

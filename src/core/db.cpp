@@ -477,6 +477,10 @@ bool db_open(const char* path){
 
 	//Mark all blocks that already exist in the block file as non-allocated
 	off64_t size = lseek64(db.fd_blockfile, 0L, SEEK_END);
+	if(size > (BLOCK_MAX_LOAD * BLOCK_LENGTH)){
+		size = BLOCK_MAX_LOAD * BLOCK_LENGTH;
+		ftruncate(db.fd_blockfile, size);
+	}
 	db.blocks_exist = (uint32_t)(size / BLOCK_LENGTH);
 	for (off64_t i = 0; i < size; i += BLOCK_LENGTH){
 		db_block_free((uint32_t)(i / BLOCK_LENGTH));
