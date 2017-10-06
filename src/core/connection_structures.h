@@ -6,8 +6,8 @@
 
 struct cache_target {
 	struct cache_entry* entry;
-	uint32_t position;
-	uint32_t end_position;
+	size_t position;
+	size_t end_position;
 	int fd;
 };
 

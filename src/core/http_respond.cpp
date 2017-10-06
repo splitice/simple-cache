@@ -127,12 +127,12 @@ state_action http_respond_contentbody(int epfd, cache_connection* connection){
 	int fd = connection->client_sock;
 	DEBUG("[#%d] Sending response body\n", fd);
 	//The number of bytes to read
-	int temp = connection->target.key.end_position - connection->target.key.position;
+	size_t temp = connection->target.key.end_position - connection->target.key.position;
 	DEBUG("[#%d] To send %d bytes to the socket (len: %d, pos: %d)\n", fd, temp, connection->target.key.entry->data_length, connection->target.key.position);
 	assert(temp >= 0);
 	if (temp != 0){
 		off_t pos = connection->target.key.position;
-		ssize_t bytes_sent = sendfile(fd, connection->target.key.fd, &pos, temp);
+		ssize_t bytes_sent = sendfile64(fd, connection->target.key.fd, &pos, temp);
 		if (bytes_sent == 0) {
 			DEBUG("[#%d] EOF Reached\r\n", fd);
 			return close_connection;
