@@ -191,7 +191,7 @@ void db_block_free(int32_t block){
 		// Check only freed once
 		block_free_node* ptr = db.free_blocks;
 		while(ptr){
-			assert(block_check.insert(block).second);
+			assert(block_check.insert(ptr->block_number).second);
 			ptr = ptr->next;
 		}
 #endif
