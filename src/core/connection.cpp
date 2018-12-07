@@ -296,9 +296,9 @@ static bool connection_remove(int epfd, int fd, cache_connection_node* ctable) {
 	return true;
 }
 
-static int connection_count(cache_connection_node* ctable) {
-	int count = 0;
-	for (int i = 0; i < CONNECTION_HASH_ENTRIES; i++) {
+static unsigned int connection_count(cache_connection_node* ctable) {
+	unsigned count = 0;
+	for (unsigned int i = 0; i < CONNECTION_HASH_ENTRIES; i++) {
 		cache_connection_node* target = &ctable[i];
 		do {
 			if (target->connection.client_sock == -1) {
@@ -308,12 +308,21 @@ static int connection_count(cache_connection_node* ctable) {
 			target = target->next;
 		} while (target != NULL);
 	}
+
 	return count;
+}
+
+static unsigned int connection_any(cache_connection_node* ctable) {\
+	for (unsigned int i = 0; i < CONNECTION_HASH_ENTRIES; i++) {
+		cache_connection_node* target = &ctable[i];
+		if (target->connection.client_sock != -1) return true
+	}
+
+	return false;
 }
 
 static bool is_listener(int fd)
 {
-	
 	for (uint32_t i = 0; i < listeners.fd_count; i++)
 	{
 		if (listeners.fds[i] == fd)
@@ -507,8 +516,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 							assert(connection_get(fd, ctable) == NULL);
 							close(fd);
 		#ifdef DEBUG_BUILD
-							int num_connections = connection_count(ctable);
-							if (num_connections == 0) {
+							if (!connection_any(ctable)) {
 								db_check_table_refs();
 							}
 		#endif
