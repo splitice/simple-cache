@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include "config.h"
 
 /* Based off p0f error handling macros */
@@ -53,7 +54,7 @@
     ERRORF("\n        Location : %s(), %s:%u\n", \
            __FUNCTION__, __FILE__, __LINE__); \
     perror("      OS message "); \
-    ERRORF("\n"); \
+    ERRORF(" (%d)\n", errno); \
     exit(1); \
   } while (0)
 
@@ -62,7 +63,7 @@
       ERRORF("\n        Location : %s(), %s:%u\n", \
              __FUNCTION__, __FILE__, __LINE__); \
       perror("      OS message "); \
-      ERRORF("\n"); \
+      ERRORF(" (%d)\n", errno); \
     } while (0)
 
 #endif
