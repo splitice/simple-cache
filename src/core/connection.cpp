@@ -483,20 +483,20 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 				DEBUG("[#%d] Got socket event %d\n", fd, events[n].events);
 				cache_connection* connection = connection_get(fd, ctable);
 				if (connection != NULL) {
-					int do_close = 0;
+					bool do_close = false;
 
 					if (events[n].events & EPOLLIN) {
 						if (http_read_handle(epfd, connection) == close_connection) {
-							do_close = 1;
+							do_close = true;
 						}
 					}
-					else if (events[n].events & EPOLLOUT) {
+					if (events[n].events & EPOLLOUT) {
 						if (http_write_handle(epfd, connection) == close_connection) {
-							do_close = 1;
+							do_close = true;
 						}
 					}
-					else if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP || events[n].events & EPOLLRDHUP) {
-						do_close = 1;
+					if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP || events[n].events & EPOLLRDHUP) {
+						do_close = true;
 					}
 					
 					if (do_close) {
@@ -517,7 +517,8 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 						}
 					}
 				}
-				else{
+				else
+				{
 					WARN("Unknown connection %d", fd);
 					assert(fd != 0 || settings.daemon_mode);
 					close(fd);
