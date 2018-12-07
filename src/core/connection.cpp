@@ -492,7 +492,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 				DEBUG("[#%d] Got socket event %d\n", fd, events[n].events);
 				cache_connection* connection = connection_get(fd, ctable);
 				if (connection != NULL) {
-					bool do_close = false;
+					bool do_close = events[n].events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP);
 
 					if (events[n].events & EPOLLIN) {
 						if (http_read_handle(epfd, connection) == close_connection) {
@@ -503,9 +503,6 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 						if (http_write_handle(epfd, connection) == close_connection) {
 							do_close = true;
 						}
-					}
-					if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP || events[n].events & EPOLLRDHUP) {
-						do_close = true;
 					}
 					
 					if (do_close) {
