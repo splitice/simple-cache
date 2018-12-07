@@ -137,7 +137,7 @@ state_action http_respond_contentbody(int epfd, cache_connection* connection) {
 			DEBUG("[#%d] EOF Reached\r\n", fd);
 			return close_connection;
 		}else if (bytes_sent == -1) {
-			if (bytes_sent == EINTR || bytes_sent == EWOULDBLOCK) {
+			if (errno == EINTR || bytes_sent == EWOULDBLOCK) {
 				return continue_processing;
 			}
 			PWARN("Error sending bytes with sendfile. Closing connection.");
