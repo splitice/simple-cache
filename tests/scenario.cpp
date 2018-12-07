@@ -96,7 +96,7 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 			else{
 				if (*line == 'c'){
 					if (strncmp(line+1, UNIT_DELAY, 5) == 0){
-						printf("Close connection after step\n", line);
+						printf("Close connection after step: %c\n", line);
 						close = true;
 						line = NULL;
 					}
