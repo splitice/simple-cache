@@ -17,7 +17,7 @@ struct scache_settings settings {
 	.daemon_output = false
 };
 
-static void print_usage(){
+static void print_usage() {
 	printf("Usage: scache [ ...options... ]\n"
 "\n"
 "Networking options:\n"
@@ -141,7 +141,7 @@ static void parse_binds(const char* optarg_const)
 	free(optarg);
 }
 
-void settings_parse_arguments(int argc, char** argv){
+void settings_parse_arguments(int argc, char** argv) {
 	static struct option long_options[] =
 	{
 		/* These options set a flag. */
@@ -196,10 +196,10 @@ void settings_parse_arguments(int argc, char** argv){
 		}
     }
 
-	if (settings.db_file_path == NULL){
+	if (settings.db_file_path == NULL) {
 		settings.db_file_path = "/var/lib/scache/";
 	}
 }
 
-void settings_cleanup(){
+void settings_cleanup() {
 }

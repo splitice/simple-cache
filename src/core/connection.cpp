@@ -55,27 +55,27 @@ static connections_queued* cq_tail = NULL;
 static pthread_mutex_t cq_lock;
 
 /* Methods */
-static bool connection_event_update(int epfd, int fd, uint32_t events){
+static bool connection_event_update(int epfd, int fd, uint32_t events) {
 	assert(fd != 0 || fd);
 	ev.events = events;
 	ev.data.fd = fd;
 	int res = epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev);
-	if (res != 0){
+	if (res != 0) {
 		DEBUG("[#] epoll_ctl() update failed on fd: %d.\n", fd);
 	}
 	return res == 0;
 }
 
-bool connection_register_write(int epfd, int fd){
+bool connection_register_write(int epfd, int fd) {
 	return connection_event_update(epfd, fd, EPOLLOUT | EPOLLHUP);
 }
 
-bool connection_register_read(int epfd, int fd){
+bool connection_register_read(int epfd, int fd) {
 	return connection_event_update(epfd, fd, EPOLLIN | EPOLLHUP | EPOLLRDHUP);
 }
 
 void connection_setup(struct scache_bind* binds, uint32_t num_binds) {
-	for (int i = 0; i < CONNECTION_HASH_ENTRIES; i++){
+	for (int i = 0; i < CONNECTION_HASH_ENTRIES; i++) {
 		ctable[i].connection.client_sock = -1;
 	}
 	
@@ -113,7 +113,7 @@ static int connection_non_blocking(int fd)
 }
 
 
-void connection_close_listener(){
+void connection_close_listener() {
 	for (uint32_t i = 0; i < listeners.fd_count; i++)
 	{
 		close(listeners.fds[i]);
@@ -206,12 +206,12 @@ int connection_open_listener(struct scache_bind ibind) {
 	
 	/* Force the network socket into nonblocking mode */
 	res = connection_non_blocking(listenfd);
-	if (res < 0){
+	if (res < 0) {
 		goto fail;
 	}
 
 	res = listen(listenfd, 4096);
-	if (res < 0){
+	if (res < 0) {
 		goto fail;
 	}
 
@@ -222,9 +222,9 @@ fail:
 	PFATAL("error opening listener (:%d)", ibind.port);
 }
 
-static cache_connection* connection_add(int fd, cache_connection_node* ctable){
+static cache_connection* connection_add(int fd, cache_connection_node* ctable) {
 	cache_connection_node* node = &ctable[CONNECTION_HASH_KEY(fd)];
-	if (node->connection.client_sock != -1){
+	if (node->connection.client_sock != -1) {
 		while (node->next != NULL) {
 			assert(node->connection.client_sock != -1);
 			node = node->next;
@@ -232,32 +232,27 @@ static cache_connection* connection_add(int fd, cache_connection_node* ctable){
 
 		cache_connection_node* newNode = (cache_connection_node*)malloc(sizeof(cache_connection_node));
 		node->next = newNode;
-		newNode->next = NULL;
 		node = newNode;
 	}
-	else{
-		node->next = NULL;
-	}
-
+	
+	// Initialize connection
+	memset(node, 0, sizeof(node)); /* .connection = {}, .next = NULL */
 	rbuf_init(&node->connection.input);
-	node->connection.state = 0;
 	node->connection.client_sock = fd;
-	node->connection.output_buffer_free = NULL;
-	node->connection.writing = false;
-	node->connection.target = {};
 
 	return &node->connection;
 }
 
-static cache_connection* connection_get(int fd, cache_connection_node* ctable){
+static cache_connection* connection_get(int fd, cache_connection_node* ctable) {
 	cache_connection_node* node = &ctable[CONNECTION_HASH_KEY(fd)];
-	if (node->connection.client_sock == -1){
+	if (node->connection.client_sock == -1) {
 		return NULL;
 	}
-	while (node->connection.client_sock != fd){
+	
+	while (node->connection.client_sock != fd) {
 		assert(node->connection.client_sock != -1);
 		node = node->next;
-		if (node == NULL){
+		if (node == NULL) {
 			return NULL;
 		}
 	}
@@ -265,51 +260,48 @@ static cache_connection* connection_get(int fd, cache_connection_node* ctable){
 	return &node->connection;
 }
 
-static void connection_remove(int epfd, int fd, cache_connection_node* ctable){
-	cache_connection_node* prev = NULL;
+static bool connection_remove(int epfd, int fd, cache_connection_node* ctable) {
+	cache_connection_node* temp = NULL;
 	cache_connection_node* node = &ctable[CONNECTION_HASH_KEY(fd)];
-	if (node->connection.client_sock == -1){
+	if (node->connection.client_sock == -1) {
 		WARN("Unable to find fd: %d connection entry to remove", fd);
-		return;
+		return false;
 	}
-	while (node->connection.client_sock != fd){
+	while (node->connection.client_sock != fd) {
 		assert(node->connection.client_sock != -1);
-		prev = node;
+		temp = node; /* prev */
 		node = node->next;
-		if (node == NULL){
+		if (node == NULL) {
 			WARN("Unable to find fd: %d connection entry to remove, reached end of list", fd);
-			return;
+			return false;
 		}
 	}
 
-	if (prev){
+	node->connection.client_sock = -1;
+	if (temp) { /* prev */
 		//Not the first node in a linked list
-		prev->next = node->next;
+		temp->next = node->next;
 		free(node);
 	}
-	else{
-		if (node->next){
-			//Has nodes after it, but is the first node
-			memcpy(&node->connection, &node->next->connection, sizeof(cache_connection));
+	else if (node->next) { /* Has nodes after it, but is the first node */
+		// Copy next node into current node connection (static memory)
+		memcpy(&node->connection, &node->next->connection, sizeof(cache_connection));
 
-			//Set node->next to node->next->next then free next->next (temp var: prev)
-			prev = node->next;
-			node->next = prev->next;
-			free(prev);
-		}
-		else{
-			//Is a single entry in table
-			node->connection.client_sock = -1;
-		}
-	}
+		//Set node->next to node->next->next then free next->next
+		temp = node->next;
+		node->next = temp->next;
+		free(temp);
+	} //Else: Is a single entry in table and setting to -1 will suffice
+
+	return true
 }
 
-static int connection_count(cache_connection_node* ctable){
+static int connection_count(cache_connection_node* ctable) {
 	int count = 0;
-	for (int i = 0; i < CONNECTION_HASH_ENTRIES; i++){
+	for (int i = 0; i < CONNECTION_HASH_ENTRIES; i++) {
 		cache_connection_node* target = &ctable[i];
 		do {
-			if (target->connection.client_sock == -1){
+			if (target->connection.client_sock == -1) {
 				break;
 			}
 			count++;
@@ -403,7 +395,7 @@ static void* connection_handle_accept(void *arg)
 						write(thread_arg->eventfd, &u, sizeof(uint64_t));
 					}
 				} while (!stop_soon);
-			} else if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP){
+			} else if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP) {
 				FATAL("listener socket is down.");
 			}
 			n++;
@@ -413,7 +405,7 @@ static void* connection_handle_accept(void *arg)
 	close(epfd);
 }
 
-void connection_event_loop(void (*connection_handler)(cache_connection* connection)){
+void connection_event_loop(void (*connection_handler)(cache_connection* connection)) {
 	int epfd = epoll_create(MAXCLIENTS);
 	struct epoll_event events[NUM_EVENTS];
 	int max_listener = 0;
@@ -490,24 +482,24 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 			{
 				DEBUG("[#%d] Got socket event %d\n", fd, events[n].events);
 				cache_connection* connection = connection_get(fd, ctable);
-				if (connection != NULL){
+				if (connection != NULL) {
 					int do_close = 0;
 
-					if (events[n].events & EPOLLIN){
-						if (http_read_handle(epfd, connection) == close_connection){
+					if (events[n].events & EPOLLIN) {
+						if (http_read_handle(epfd, connection) == close_connection) {
 							do_close = 1;
 						}
 					}
-					else if (events[n].events & EPOLLOUT){
-						if (http_write_handle(epfd, connection) == close_connection){
+					else if (events[n].events & EPOLLOUT) {
+						if (http_write_handle(epfd, connection) == close_connection) {
 							do_close = 1;
 						}
 					}
-					else if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP || events[n].events & EPOLLRDHUP){
+					else if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP || events[n].events & EPOLLRDHUP) {
 						do_close = 1;
 					}
 					
-					if (do_close){
+					if (do_close) {
 						DEBUG("[#%d] Closing connection\n", fd);
 						http_cleanup(connection);
 						assert(fd != 0 || settings.daemon_mode);
@@ -516,7 +508,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 						close(fd);
 	#ifdef DEBUG_BUILD
 						int num_connections = connection_count(ctable);
-						if (num_connections == 0){
+						if (num_connections == 0) {
 							db_check_table_refs();
 						}
 	#endif
@@ -544,33 +536,33 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 /*
 On close connection cleanup routine
 */
-void connection_cleanup_http(cache_connection_node* connection, bool toFree = false){
+void connection_cleanup_http(cache_connection_node* connection, bool toFree = false) {
 	assert(connection != NULL);
 
 	//Close socket to client
-	if (connection->connection.client_sock != -1){
+	if (connection->connection.client_sock != -1) {
 		http_cleanup(&connection->connection);
 		close(connection->connection.client_sock);
 		connection->connection.client_sock = -1;
 	}
 
 	//Handle chained connections
-	if (connection->next != NULL){
+	if (connection->next != NULL) {
 		connection_cleanup_http(connection->next, true);
 	}
 
 	//Free up the connection if dynamically allocated
-	if (toFree){
+	if (toFree) {
 		free(connection);
 	}
 }
 
-void connection_cleanup(){
-	if (listeners.fds != NULL){
+void connection_cleanup() {
+	if (listeners.fds != NULL) {
 		connection_close_listener();
 	}
 
-	for (int i = 0; i < CONNECTION_HASH_ENTRIES; i++){
+	for (int i = 0; i < CONNECTION_HASH_ENTRIES; i++) {
 		connection_cleanup_http(&ctable[i]);
 	}
 }

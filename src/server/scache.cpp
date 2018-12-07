@@ -25,7 +25,7 @@
 #include "settings.h"
 #include "timer.h"
 
-int write_pid(char* pidFile, __pid_t pid){
+int write_pid(char* pidFile, __pid_t pid) {
 	int fd;
 	char buf[1024];
 
@@ -61,7 +61,7 @@ static void abort_handler(int sig) {
 	stop_soon = 1;
 }
 
-static void install_signal_handlers(){
+static void install_signal_handlers() {
 	signal(SIGPIPE, SIG_IGN);
 	signal(SIGINT, abort_handler);
 	signal(SIGTERM, abort_handler);
@@ -80,7 +80,7 @@ static __pid_t fork_off() {
 	if (npid < 0) PFATAL("fork() failed.");
 
 	if (!npid) {
-		if (!settings.daemon_output){
+		if (!settings.daemon_output) {
 			/* Let's assume all this is fairly unlikely to fail, so we can live
 			with the parent possibly proclaiming success prematurely. */
 
@@ -141,7 +141,7 @@ int main(int argc, char** argv)
 		pid = getpid();
 	}
 
-	if (settings.pidfile){
+	if (settings.pidfile) {
 		pidfd = write_pid(settings.pidfile, pid);
 	}
 
@@ -164,7 +164,7 @@ int main(int argc, char** argv)
 	db_close();
 
 	//PID file cleanup
-	if (settings.pidfile){
+	if (settings.pidfile) {
 		close(pidfd);
 		unlink(settings.pidfile);
 	}

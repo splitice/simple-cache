@@ -10,7 +10,7 @@ static void timer_store_current_time()
 {
 	timeval current_time;
 	int err = gettimeofday(&current_time, NULL);
-	if (err == -1){
+	if (err == -1) {
 		PFATAL("Failed to get system time");
 	}
 	time_seconds = current_time.tv_sec;
@@ -42,7 +42,7 @@ void timer_setup()
 	timer.it_interval.tv_usec = 500000;
 
 	/* Start a timer. */
-	if (setitimer(ITIMER_REAL, &timer, NULL) < 0){
+	if (setitimer(ITIMER_REAL, &timer, NULL) < 0) {
 		PFATAL("Error setting timer");
 	}
 }

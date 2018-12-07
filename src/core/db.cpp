@@ -70,11 +70,11 @@ db_details* db_get_details() {
 }
 
 #ifdef DEBUG_BUILD
-void db_validate_lru_flags(){
-	for (khiter_t k = kh_begin(db.tables); k != kh_end(db.tables); ++k){
+void db_validate_lru_flags() {
+	for (khiter_t k = kh_begin(db.tables); k != kh_end(db.tables); ++k) {
 		if (kh_exist(db.tables, k)) {
 			db_table* table = kh_val(db.tables, k);
-			for (khiter_t ke = kh_begin(table->cache_hash_set); ke != kh_end(table->cache_hash_set); ++ke){
+			for (khiter_t ke = kh_begin(table->cache_hash_set); ke != kh_end(table->cache_hash_set); ++ke) {
 				if (kh_exist(table->cache_hash_set, ke)) {
 					cache_entry* entry = kh_val(table->cache_hash_set, ke);
 					//Assert that this entry in in the LRU like it should be
@@ -87,10 +87,10 @@ void db_validate_lru_flags(){
 }
 #endif
 
-void db_validate_lru(){
+void db_validate_lru() {
 #ifdef DEBUG_BUILD
 	cache_entry* entry = db.lru_head;
-	while (entry != NULL){
+	while (entry != NULL) {
 		assert(!entry->lru_found);
 		entry->lru_found = true;
 		entry = entry->lru_next;
@@ -98,7 +98,7 @@ void db_validate_lru(){
 	db_validate_lru_flags();
 
 	entry = db.lru_tail;
-	while (entry != NULL){
+	while (entry != NULL) {
 		assert(!entry->lru_found);
 		entry->lru_found = true;
 		entry = entry->lru_prev;
@@ -107,9 +107,9 @@ void db_validate_lru(){
 #endif
 }
 
-void db_lru_remove_node(cache_entry* entry){
+void db_lru_remove_node(cache_entry* entry) {
 	assert(!entry->lru_removed);
-	if (entry->lru_prev != NULL){
+	if (entry->lru_prev != NULL) {
 		assert(db.lru_head != entry);
 		entry->lru_prev->lru_next = entry->lru_next;
 	}
@@ -119,7 +119,7 @@ void db_lru_remove_node(cache_entry* entry){
 		db.lru_head = entry->lru_next;
 	}
 
-	if (entry->lru_next != NULL){
+	if (entry->lru_next != NULL) {
 		assert(db.lru_tail != entry);
 		entry->lru_next->lru_prev = entry->lru_prev;
 	}
@@ -135,7 +135,7 @@ void db_lru_remove_node(cache_entry* entry){
 }
 
 
-void db_lru_insert(cache_entry* entry){
+void db_lru_insert(cache_entry* entry) {
 	assert(entry->lru_removed);
 	assert(entry != db.lru_tail);
 	assert(entry->lru_next == NULL);
@@ -143,13 +143,13 @@ void db_lru_insert(cache_entry* entry){
 
 	//insert @ tail
 	entry->lru_prev = db.lru_tail;
-	if (db.lru_tail != NULL){
+	if (db.lru_tail != NULL) {
 		assert(db.lru_tail->lru_next == NULL);
 		db.lru_tail->lru_next = entry;
 	}
 	entry->lru_next = NULL;
 	db.lru_tail = entry;
-	if (db.lru_head == NULL){
+	if (db.lru_head == NULL) {
 		db.lru_head = entry;
 	}
 
@@ -158,7 +158,7 @@ void db_lru_insert(cache_entry* entry){
 #endif
 }
 
-void db_lru_hit(cache_entry* entry){
+void db_lru_hit(cache_entry* entry) {
 	assert(!entry->lru_removed);
 
 	//Remove from current position
@@ -170,19 +170,19 @@ void db_lru_hit(cache_entry* entry){
 	db_validate_lru();
 }
 
-static void db_block_size(){
-	if (ftruncate(db.fd_blockfile, db.blocks_exist*BLOCK_LENGTH) < 0){
+static void db_block_size() {
+	if (ftruncate(db.fd_blockfile, db.blocks_exist*BLOCK_LENGTH) < 0) {
 		PWARN("File truncation failed (length: %d)", db.blocks_exist);
 	}
 }
 
-void db_block_free(int32_t block){
+void db_block_free(int32_t block) {
 #ifdef DEBUG_BUILD
 	std::set<uint32_t> block_check;
 #endif
 	block_free_node* old;
 	assert(block + 1 <= db.blocks_exist);
-	if (block + 1 == db.blocks_exist && db.blocks_free > 256){
+	if (block + 1 == db.blocks_exist && db.blocks_free > 256) {
 		db.blocks_exist--;
 		db_block_size();
 	}else{
@@ -190,7 +190,7 @@ void db_block_free(int32_t block){
 #ifdef DEBUG_BUILD
 		// Check only freed once
 		block_free_node* ptr = db.free_blocks;
-		while(ptr){
+		while(ptr) {
 			assert(block_check.insert(ptr->block_number).second);
 			ptr = ptr->next;
 		}
@@ -202,10 +202,10 @@ void db_block_free(int32_t block){
 	}
 }
 
-int32_t db_block_allocate_new(){
+int32_t db_block_allocate_new() {
 	uint32_t block_num;
 	block_free_node* free_node;
-	if (db.free_blocks != NULL){
+	if (db.free_blocks != NULL) {
 		free_node = db.free_blocks;
 		block_num = free_node->block_number;
 		db.free_blocks = free_node->next;
@@ -227,13 +227,13 @@ int32_t db_block_allocate_new(){
 	return block_num;
 }
 
-void db_entry_actually_delete(cache_entry* entry){
+void db_entry_actually_delete(cache_entry* entry) {
 	DEBUG("[#] Cleaning key up reference due to refcount == 0\n");
 #ifdef DEBUG_BUILD
 	assert(entry->lru_removed);
 #endif
 	//If is a block, can now free it
-	if (!IS_SINGLE_FILE(entry) && entry->block >= 0){
+	if (!IS_SINGLE_FILE(entry) && entry->block >= 0) {
 		db_block_free(entry->block);
 		entry->block = -1;
 	}
@@ -243,12 +243,12 @@ void db_entry_actually_delete(cache_entry* entry){
 	free(entry);
 }
 
-void db_table_actually_delete(db_table* entry){
+void db_table_actually_delete(db_table* entry) {
 	DEBUG("[#] Cleaning table up reference due to refcount == 0\n");
 
 	//Remove table from database
 	khiter_t k = kh_get(table, db.tables, entry->hash);
-	if (k != kh_end(db.tables)){
+	if (k != kh_end(db.tables)) {
 		kh_del(table, db.tables, k);
 	}
 
@@ -257,48 +257,48 @@ void db_table_actually_delete(db_table* entry){
 	free(entry);
 }
 
-void db_table_deref(db_table* entry){
+void db_table_deref(db_table* entry) {
 	DEBUG("[#] Decrementing table refcount - was: %d\n", entry->refs);
 	assert(entry->refs > 0);
 	entry->refs--;
 	 
 	//Actually clean up the entry
-	if (entry->refs == 0 && entry->deleted){
+	if (entry->refs == 0 && entry->deleted) {
 		//Remove table from hash set
 		db_table_actually_delete(entry);
 	}
 }
 
-void db_table_incref(db_table* entry){
+void db_table_incref(db_table* entry) {
 	DEBUG("[#] Incrementing table refcount - was: %d\n", entry->refs);
 	entry->refs++;
 }
 
-void db_entry_deref(cache_entry* entry, bool table){
+void db_entry_deref(cache_entry* entry, bool table) {
 	DEBUG("[#] Decrementing entry refcount - was: %d\n", entry->refs);
 	entry->refs--;
 
 	//Deref the table
-	if (table && entry->table){
+	if (table && entry->table) {
 		db_table_deref(entry->table);
 	}
 
 	//Actually clean up the entry
-	if (entry->refs == 0 && entry->deleted){
+	if (entry->refs == 0 && entry->deleted) {
 		db_entry_actually_delete(entry);
 	}
 }
 
-void db_entry_incref(cache_entry* entry, bool table = true){
+void db_entry_incref(cache_entry* entry, bool table = true) {
 	DEBUG("[#] Incrementing entry refcount - was: %d\n", entry->refs);
 	entry->refs++;
 	if (table)
 		db_table_incref(entry->table);
 }
 
-void db_lru_cleanup_percent(int* bytes_to_remove){
+void db_lru_cleanup_percent(int* bytes_to_remove) {
 	int debug_bytes = *bytes_to_remove;
-	while (db.lru_head != NULL && *bytes_to_remove > 0){
+	while (db.lru_head != NULL && *bytes_to_remove > 0) {
 		cache_entry* l = db.lru_head;
 
 		//Skip if currently deleting
@@ -321,14 +321,14 @@ void db_lru_cleanup_percent(int* bytes_to_remove){
 	DEBUG("[#] LRU attempted to remove %d bytes, %d bytes remaining\n", debug_bytes, *bytes_to_remove);
 }
 
-static int db_expire_cursor_table(db_table* table){
+static int db_expire_cursor_table(db_table* table) {
 	int ret = 0;
 
-	for (khiter_t ke = kh_begin(table->cache_hash_set); ke < kh_end(table->cache_hash_set); ++ke){
+	for (khiter_t ke = kh_begin(table->cache_hash_set); ke < kh_end(table->cache_hash_set); ++ke) {
 		if (kh_exist(table->cache_hash_set, ke)) {
 			ret++;
 			cache_entry* l = kh_value(table->cache_hash_set, ke);
-			if (!l->deleted && l->expires != 0 && l->expires < time_seconds){
+			if (!l->deleted && l->expires != 0 && l->expires < time_seconds) {
 				bool end_early = kh_size(table->cache_hash_set) == 1;
 				if (l->refs == 0)
 				{
@@ -342,7 +342,7 @@ static int db_expire_cursor_table(db_table* table){
 					end_early = false;
 				}
 
-				if (end_early){
+				if (end_early) {
 					break;
 				}
 			}
@@ -351,30 +351,30 @@ static int db_expire_cursor_table(db_table* table){
 	return ret;
 }
 
-bool db_expire_cursor(){
+bool db_expire_cursor() {
 	db_table* table;
 	int done = 0;
 	khiter_t start = db.table_gc;
 
 	//Make sure tables havent been reduced
-	if (start >= kh_end(db.tables)){
+	if (start >= kh_end(db.tables)) {
 		start = kh_begin(db.tables);
 		db.table_gc = start;
 	}
 
 	//Empty table
-	if (start == kh_end(db.tables)){
+	if (start == kh_end(db.tables)) {
 		return true;
 	}
 
 	//Lets try and do atleast 1,000 keys, or the whole db (whichever first)
 	do {
-		if (kh_exist(db.tables, db.table_gc)){
+		if (kh_exist(db.tables, db.table_gc)) {
 			table = kh_value(db.tables, db.table_gc);
 			done += db_expire_cursor_table(table);
 		}
 		db.table_gc++;
-		if (db.table_gc >= kh_end(db.tables)){
+		if (db.table_gc >= kh_end(db.tables)) {
 			db.table_gc = kh_begin(db.tables);
 		}
 	} while (db.table_gc != start && done < 4096);
@@ -382,7 +382,7 @@ bool db_expire_cursor(){
 	return db.table_gc == start;
 }
 
-void db_lru_gc(){
+void db_lru_gc() {
 	if (settings.max_size > 0 && settings.max_size < db.db_size_bytes)
 	{
 		int bytes_to_remove;
@@ -399,7 +399,7 @@ void db_lru_gc(){
 		
 		//Apply LRU
 		bytes_to_remove = (db.db_size_bytes - settings.max_size) + (settings.max_size * settings.db_lru_clear);
-		if (bytes_to_remove > 0){
+		if (bytes_to_remove > 0) {
 			db_lru_cleanup_percent(&bytes_to_remove);
 		}
 	}
@@ -409,7 +409,7 @@ void db_lru_gc(){
 	}
 }
 
-static void db_clear_directory(const char* directory){
+static void db_clear_directory(const char* directory) {
 	char file_buffer[MAX_PATH];
 	struct dirent *next_file;
 	DIR *theFolder = opendir(directory);
@@ -422,16 +422,16 @@ static void db_clear_directory(const char* directory){
 		sprintf(file_buffer, "%s/%s", directory, next_file->d_name);
 		unlink(file_buffer);
 	}
-	if (closedir(theFolder) < 0){
+	if (closedir(theFolder) < 0) {
 		PFATAL("Unable to close directory.");
 	}
 }
 
-void db_init_folders(){
+void db_init_folders() {
 	mkdir(db.path_single, 0777);
 
-	for (char folder1 = 'A'; folder1 <= 'Z'; folder1++){
-		for (char folder2 = 'A'; folder2 <= 'Z'; folder2++){
+	for (char folder1 = 'A'; folder1 <= 'Z'; folder1++) {
+		for (char folder2 = 'A'; folder2 <= 'Z'; folder2++) {
 			snprintf(filename_buffer, MAX_PATH, "%s%c%c", db.path_single, folder1, folder2);
 
 			if (access(filename_buffer, F_OK) == -1)
@@ -446,27 +446,27 @@ void db_init_folders(){
 	}
 }
 
-void db_complete_writing(cache_entry* entry){
+void db_complete_writing(cache_entry* entry) {
 	assert(entry->writing);
 	entry->writing = false;
 
-	if (!entry->deleted){
+	if (!entry->deleted) {
 		//LRU: insert
 		db_lru_insert(entry);
 	}
 }
 
-static uint32_t hash_string(const char* str, int length){
+static uint32_t hash_string(const char* str, int length) {
 	uint32_t out;
 	MurmurHash3_x86_32(str, length, HASH_SEED, &out);
 	return out;
 }
 
-static void get_key_path(cache_entry* e, char* out){
+static void get_key_path(cache_entry* e, char* out) {
 	snprintf(out, MAX_PATH, "%s%c%c/%x%x_%d", db.path_single, DEC2ALPH(e->hash), DEC2ALPH(e->hash >> 8), e->table->hash, e->hash, e->it);
 }
 
-bool db_open(const char* path){
+bool db_open(const char* path) {
 	//Create paths as char*'s
 	snprintf(db.path_root, MAX_PATH, "%s/", path);
 	snprintf(db.path_single, MAX_PATH, "%s/files/", path);
@@ -477,18 +477,18 @@ bool db_open(const char* path){
 	//Block file
 	snprintf(db.path_blockfile, MAX_PATH, "%s/blockfile.db", path);
 	db.fd_blockfile = open(db.path_blockfile, O_CREAT | O_RDWR | O_LARGEFILE , S_IRUSR | S_IWUSR);
-	if (db.fd_blockfile < 0){
+	if (db.fd_blockfile < 0) {
 		PFATAL("Failed to open blockfile: %s", db.path_blockfile);
 	}
 
 	//Mark all blocks that already exist in the block file as non-allocated
 	off64_t size = lseek64(db.fd_blockfile, 0L, SEEK_END);
-	if(size > (BLOCK_MAX_LOAD * BLOCK_LENGTH)){
+	if(size > (BLOCK_MAX_LOAD * BLOCK_LENGTH)) {
 		size = BLOCK_MAX_LOAD * BLOCK_LENGTH;
 		ftruncate(db.fd_blockfile, size);
 	}
 	db.blocks_exist = (uint32_t)(size / BLOCK_LENGTH);
-	for (off64_t i = 0; i < size; i += BLOCK_LENGTH){
+	for (off64_t i = 0; i < size; i += BLOCK_LENGTH) {
 		db_block_free((uint32_t)(i / BLOCK_LENGTH));
 	}
 	db.blocks_free = db.blocks_exist;
@@ -499,17 +499,17 @@ bool db_open(const char* path){
 	db.table_gc = kh_begin(db.tables);
 }
 
-int db_entry_open(struct cache_entry* e, mode_t modes){
+int db_entry_open(struct cache_entry* e, mode_t modes) {
 	get_key_path(e, filename_buffer);
 	int fd = open(filename_buffer, O_RDWR | modes | O_LARGEFILE, S_IRUSR | S_IWUSR);
 	return fd;
 }
 
-int db_entry_open_create(struct cache_entry* e){
+int db_entry_open_create(struct cache_entry* e) {
 	int fd;
 	
 	e->it = 0;
-	for(int i=0;i<65500;i++){
+	for(int i=0;i<65500;i++) {
 		fd = db_entry_open(e, O_CREAT | O_EXCL);
 		if(fd >= 0) {
 			return fd;
@@ -522,14 +522,14 @@ int db_entry_open_create(struct cache_entry* e){
 }
 
 void db_target_open(struct cache_target* target, bool write) {
-	if (IS_SINGLE_FILE(target->entry)){
+	if (IS_SINGLE_FILE(target->entry)) {
 		target->position = 0;
-		if(write){
+		if(write) {
 			target->fd = db_entry_open_create(target->entry);
 		}else{
 			target->fd = db_entry_open(target->entry, 0);
 		}
-		if (target->fd <= 0){
+		if (target->fd <= 0) {
 			WARN("Unable to open cache file: %d", target->entry);
 		}
 	}
@@ -540,8 +540,8 @@ void db_target_open(struct cache_target* target, bool write) {
 	target->end_position = target->position + target->entry->data_length;
 }
 
-void db_target_setup(struct cache_target* target, struct cache_entry* entry, bool write){
-	if (!write){
+void db_target_setup(struct cache_target* target, struct cache_entry* entry, bool write) {
+	if (!write) {
 		db_target_open(target, write);
 	}
 	else{
@@ -549,9 +549,9 @@ void db_target_setup(struct cache_target* target, struct cache_entry* entry, boo
 	}
 }
 
-void db_target_entry_close(cache_target* target){
-	if (target->entry != NULL){
-		if (target->fd != db.fd_blockfile && target->fd != -1){
+void db_target_entry_close(cache_target* target) {
+	if (target->entry != NULL) {
+		if (target->fd != db.fd_blockfile && target->fd != -1) {
 			assert(target->fd > 0 || settings.daemon_mode);
 			close(target->fd);
 		}
@@ -563,11 +563,11 @@ void db_target_entry_close(cache_target* target){
 	target->position = 0;
 }
 
-void db_table_close(db_table* table){
+void db_table_close(db_table* table) {
 	db_table_deref(table);
 }
 
-cache_entry* db_entry_new(db_table* table){
+cache_entry* db_entry_new(db_table* table) {
 	cache_entry* entry = (cache_entry*)malloc(sizeof(cache_entry));
 	entry->refs = 0;
 	entry->writing = false;
@@ -584,24 +584,24 @@ cache_entry* db_entry_new(db_table* table){
 	return entry;
 }
 
-cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length){
+cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length) {
 	uint32_t hash = hash_string(key, length);
 
 	khiter_t k = kh_get(entry, table->cache_hash_set, hash);
 	cache_entry* entry = k == kh_end(table->cache_hash_set) ? NULL : kh_value(table->cache_hash_set, k);
 
-	if (entry == NULL){
+	if (entry == NULL) {
 		DEBUG("[#] Key does not exist\n");
 		free(key);
 		return NULL;
 	}
 	assert(entry->hash == hash);
 
-	if (entry->expires != 0){
+	if (entry->expires != 0) {
 		DEBUG("[#] Key has ttl: %lu (%d from now)\n", (unsigned long)entry->expires, (int)(entry->expires - time_seconds));
 	}
 
-	if (entry->expires != 0 && entry->expires < time_seconds){
+	if (entry->expires != 0 && entry->expires < time_seconds) {
 		DEBUG("[#] Key expired\n");
 		free(key);
 		db_entry_incref(entry, false);
@@ -612,14 +612,14 @@ cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length)
 
 	assert(!entry->deleted);
 
-	if (entry->key_length != length || strncmp(key, entry->key, length) != 0){
+	if (entry->key_length != length || strncmp(key, entry->key, length) != 0) {
 		DEBUG("[#] Unable to look up key: ");
 
-		if (entry->key_length != length){
+		if (entry->key_length != length) {
 			DEBUG("DB Key length does not match\n");
 		}
 		else{
-			if (strncmp(key, entry->key, length) != 0){
+			if (strncmp(key, entry->key, length) != 0) {
 				DEBUG("String Keys dont match\n");
 			}
 		}
@@ -636,7 +636,7 @@ cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length)
 	db.db_stats_operations++;
 
 	//Check if currently writing (unfinished)
-	if (entry->writing){
+	if (entry->writing) {
 		//TODO: possibly future, subscribe and writer handles data delivery
 		return NULL;
 	}
@@ -653,7 +653,7 @@ cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length)
 /**
 Get table entry, if it does not exist return NULL. Will free name parameter
 */
-struct db_table* db_table_get_read(char* name, int length){
+struct db_table* db_table_get_read(char* name, int length) {
 	uint32_t hash = hash_string(name, length);
 	khiter_t k;
 	db_table* table;
@@ -694,7 +694,7 @@ This function will assume responsibility for freeing name if a table is found, e
 
 Returns NULL in case of cache collision
 */
-struct db_table* db_table_get_write(char* name, int length){
+struct db_table* db_table_get_write(char* name, int length) {
 	uint32_t hash = hash_string(name, length);
 	khiter_t k;
 	db_table* table;
@@ -739,12 +739,12 @@ end:
 	return table;
 }
 
-void db_entry_handle_softdelete(cache_entry* entry, khiter_t k){
+void db_entry_handle_softdelete(cache_entry* entry, khiter_t k) {
 	//It is possible when over-writing for this to be called twice.
 	if(entry->deleted) return;
 
 	//If this is contained within a file, delete
-	if (IS_SINGLE_FILE(entry)){
+	if (IS_SINGLE_FILE(entry)) {
 		get_key_path(entry, filename_buffer);
 		unlink(filename_buffer);
 	}
@@ -757,12 +757,12 @@ void db_entry_handle_softdelete(cache_entry* entry, khiter_t k){
 	db.db_size_bytes -= entry->data_length;
 
 	//Remove from LRU, but only if not writing (as not, yet added)
-	if (!entry->writing){
+	if (!entry->writing) {
 		db_lru_remove_node(entry);
 	}
 
 	//Assertion check
-	if (entry->refs == 0){
+	if (entry->refs == 0) {
 		DEBUG("[#] Entry can be immediately cleaned up\n");
 		db_entry_actually_delete(entry);
 	}
@@ -771,7 +771,7 @@ void db_entry_handle_softdelete(cache_entry* entry, khiter_t k){
 /*
 Get a Cache Entry to write
 */
-cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length){
+cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length) {
 	assert(table->refs >= 1); //If not, it wouldnt be existing
 
 	uint32_t hash = hash_string(key, length);
@@ -790,7 +790,7 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	{
 		assert(entry->hash == hash);
 		//If we are currently writing, then it will be mocked
-		if (entry->writing == true){
+		if (entry->writing == true) {
 			return NULL;
 		}
 
@@ -817,7 +817,7 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	entry->hash = hash;
 
 	//Take a reference if this is the first entry (released when size == 0)
-	if (is_first_in_table){
+	if (is_first_in_table) {
 		db_table_incref(table);
 	}
 	assert(table->refs >= 2 || (table->refs >= 1 && table->deleted)); //If not, it wouldnt be storing
@@ -834,7 +834,7 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	assert(!entry->deleted);
 
 	//LRU
-	if ((db.db_stats_inserts % DB_LRU_EVERY) == 0){
+	if ((db.db_stats_inserts % DB_LRU_EVERY) == 0) {
 		DEBUG("[#] Do LRU GC check.\n");
 		db_lru_gc();
 	}
@@ -845,23 +845,23 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 /*
 Get a Cache Entry to delete
 */
-cache_entry* db_entry_get_delete(struct db_table* table, char* key, size_t length){
+cache_entry* db_entry_get_delete(struct db_table* table, char* key, size_t length) {
 	uint32_t hash = hash_string(key, length);
 	khiter_t k = kh_get(entry, table->cache_hash_set, hash);
 	cache_entry* entry = k == kh_end(table->cache_hash_set) ? NULL : kh_value(table->cache_hash_set, k);
 
-	if (entry == NULL || entry->key_length != length || strncmp(key, entry->key, length) != 0){
+	if (entry == NULL || entry->key_length != length || strncmp(key, entry->key, length) != 0) {
 		DEBUG("[#] Unable to look up key: ");
 
-		if (entry == NULL){
+		if (entry == NULL) {
 			DEBUG("DB Key is null\n");
 		}
 		else{
-			if (entry->key_length != length){
+			if (entry->key_length != length) {
 				DEBUG("DB Key length does not match\n");
 			}
 			else{
-				if (strncmp(key, entry->key, length)){
+				if (strncmp(key, entry->key, length)) {
 					DEBUG("String Keys dont match\n");
 				}
 			}
@@ -891,10 +891,10 @@ cache_entry* db_entry_get_delete(struct db_table* table, char* key, size_t lengt
 /*
 DEBUG ONLY: Test the refcounts of each table, expects nothing to be open (refs==1)
 */
-void db_check_table_refs(){
+void db_check_table_refs() {
 	db_table* table;
 
-	for (khiter_t ke = kh_begin(db.tables); ke != kh_end(db.tables); ++ke){
+	for (khiter_t ke = kh_begin(db.tables); ke != kh_end(db.tables); ++ke) {
 		if (kh_exist(db.tables, ke)) {
 			table = kh_val(db.tables, ke);
 
@@ -909,24 +909,24 @@ void db_check_table_refs(){
 }
 #endif
 
-static void db_entry_cleanup(cache_entry* entry){
-	if (IS_SINGLE_FILE(entry)){
+static void db_entry_cleanup(cache_entry* entry) {
+	if (IS_SINGLE_FILE(entry)) {
 		get_key_path(entry, filename_buffer);
 		unlink(filename_buffer);
 	}
 }
 
-bool db_entry_handle_delete(cache_entry* entry){
+bool db_entry_handle_delete(cache_entry* entry) {
 	khiter_t k = kh_get(entry, entry->table->cache_hash_set, entry->hash);
 
 	return db_entry_handle_delete(entry, k);
 }
 
-void db_delete_table_entry(db_table* table, khiter_t k){
+void db_delete_table_entry(db_table* table, khiter_t k) {
 	kh_destroy(entry, table->cache_hash_set);
 
 	//If not fully de-refed remove now, not later
-	if (table->refs != 0){
+	if (table->refs != 0) {
 		assert(k != kh_end(db.tables));
 		kh_del(table, db.tables, k);
 	}
@@ -936,16 +936,16 @@ void db_delete_table_entry(db_table* table, khiter_t k){
 }
 
 
-void db_table_handle_delete(db_table* table, khiter_t k){
+void db_table_handle_delete(db_table* table, khiter_t k) {
 	//Set deleted
 	assert(!table->deleted);
 	table->deleted = true;
 
 	//Delete keys from table
-	for (khiter_t ke = kh_begin(table->cache_hash_set); ke != kh_end(table->cache_hash_set); ++ke){
+	for (khiter_t ke = kh_begin(table->cache_hash_set); ke != kh_end(table->cache_hash_set); ++ke) {
 		if (kh_exist(table->cache_hash_set, ke)) {
 			cache_entry* ce = kh_val(table->cache_hash_set, ke);
-			if (!ce->deleted){
+			if (!ce->deleted) {
 				db_entry_handle_softdelete(ce, ke);
 				db_entry_cleanup(ce);
 			}
@@ -956,13 +956,13 @@ void db_table_handle_delete(db_table* table, khiter_t k){
 }
 
 
-void db_table_handle_delete(db_table* table){
+void db_table_handle_delete(db_table* table) {
 	khiter_t k = kh_get(table, db.tables, table->hash);
 
 	return db_table_handle_delete(table, k);
 }
 
-bool db_entry_handle_delete(cache_entry* entry, khiter_t k){
+bool db_entry_handle_delete(cache_entry* entry, khiter_t k) {
 	assert(!entry->deleted);
 
 	db_entry_cleanup(entry);
@@ -977,7 +977,7 @@ bool db_entry_handle_delete(cache_entry* entry, khiter_t k){
 	//Dont need the key any more, deleted
 	entry->deleted = true;
 
-	if (!entry->writing){
+	if (!entry->writing) {
 		//Remove from LRU
 		db_lru_remove_node(entry);
 	}
@@ -986,7 +986,7 @@ bool db_entry_handle_delete(cache_entry* entry, khiter_t k){
 	assert(entry->refs != 0);
 
 	//If table entry, cleanup table
-	if (kh_size(entry->table->cache_hash_set) == 0){
+	if (kh_size(entry->table->cache_hash_set) == 0) {
 		assert(!entry->table->deleted);
 		entry->table->deleted = true;
 		k = kh_get(table, db.tables, entry->table->hash);
@@ -997,18 +997,18 @@ bool db_entry_handle_delete(cache_entry* entry, khiter_t k){
 	return false;
 }
 
-void db_target_write_allocate(struct cache_target* target, uint32_t data_length){
+void db_target_write_allocate(struct cache_target* target, uint32_t data_length) {
 	cache_entry* entry = target->entry;
 	DEBUG("[#] Allocating space for entry, block is currently: %d and is single file: %s (was: %s)\n", entry->block, (data_length > BLOCK_LENGTH) ? "yes" : "no", (entry->block == -2?-1:(IS_SINGLE_FILE(entry)))? "yes":"no");
-	if (entry->block == -2){
+	if (entry->block == -2) {
 		//if this is a new entry, with nothing previously allocated.
-		if (data_length <= BLOCK_LENGTH){
+		if (data_length <= BLOCK_LENGTH) {
 			entry->block = db_block_allocate_new();
 		}
 	}
-	else if (data_length > BLOCK_LENGTH){
+	else if (data_length > BLOCK_LENGTH) {
 		//If this is to be an entry stored in a file
-		if (!IS_SINGLE_FILE(entry) && entry->block >= 0){
+		if (!IS_SINGLE_FILE(entry) && entry->block >= 0) {
 			//We are going to use a file, and the entry is currently a block
 			db_block_free(entry->block);
 
@@ -1018,7 +1018,7 @@ void db_target_write_allocate(struct cache_target* target, uint32_t data_length)
 	}
 	else{
 		//If this is to be an entry stored in a block
-		if (IS_SINGLE_FILE(entry)){
+		if (IS_SINGLE_FILE(entry)) {
 			//We are going to store in a block, and the entry is currently a file
 			get_key_path(entry, filename_buffer);
 
@@ -1045,21 +1045,21 @@ void db_target_write_allocate(struct cache_target* target, uint32_t data_length)
 
 	db_target_open(target, true);
 
-	if (IS_SINGLE_FILE(entry)){
+	if (IS_SINGLE_FILE(entry)) {
 		//Lengthen file to required size
-		if (ftruncate(target->fd, data_length)<0){
+		if (ftruncate(target->fd, data_length)<0) {
 			PWARN("File truncation failed (fd: %d, length: %d)", target->fd, data_length);
 		}
 	}
 }
 
-static void db_close_table_key_space(){
+static void db_close_table_key_space() {
 	db_table* table;
 
 	//make 128 attempts to clear the tablespace
 	//table deletions can cause resizing and tables to be skipped in the iteration (todo: really?)
-	for (int i = 0; i < 128 && kh_size(db.tables); i++){
-		for (khiter_t ke = kh_begin(db.tables); ke < kh_end(db.tables); ++ke){
+	for (int i = 0; i < 128 && kh_size(db.tables); i++) {
+		for (khiter_t ke = kh_begin(db.tables); ke < kh_end(db.tables); ++ke) {
 			if (kh_exist(db.tables, ke)) {
 				table = kh_val(db.tables, ke);
 
@@ -1078,10 +1078,10 @@ static void db_close_table_key_space(){
 	kh_destroy(table, db.tables);
 }
 
-static void db_close_blockfile(){
+static void db_close_blockfile() {
 	block_free_node* bf = db.free_blocks;
 	block_free_node* bf2;
-	while (bf != NULL){
+	while (bf != NULL) {
 		bf2 = bf;
 		bf = bf->next;
 		free(bf2);
@@ -1092,7 +1092,7 @@ static void db_close_blockfile(){
 /*
 Close the database engine
 */
-void db_close(){
+void db_close() {
 	db_close_table_key_space();
 	db_close_blockfile();
 }
