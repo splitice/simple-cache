@@ -315,7 +315,7 @@ static unsigned int connection_count(cache_connection_node* ctable) {
 static unsigned int connection_any(cache_connection_node* ctable) {\
 	for (unsigned int i = 0; i < CONNECTION_HASH_ENTRIES; i++) {
 		cache_connection_node* target = &ctable[i];
-		if (target->connection.client_sock != -1) return true
+		if (target->connection.client_sock != -1) return true;
 	}
 
 	return false;
