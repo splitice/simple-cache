@@ -17,7 +17,7 @@ static const char * test_simple_put_get() {
 	result |= !run_scenarios(binary_path, "interruptions", testcases_path, port ? port : 8001, port == 0, "");
 	result |= !run_scenarios(binary_path, "complex-system", testcases_path, port ? port : 8001, port == 0, "");
 
-	return result ? "System Tests failed" : 0;
+	return result ? "System Tests failed" : NULL;
 }
 
 static const char * test_simple(const char* a_binary_path, const char* a_testcases_path, int a_port) {

@@ -8,7 +8,7 @@ int tests_run = 0;
 
 #define TESTSET(x, func) result = func; \
 if (result != 0) { \
-	printf("[%s] Assertion Failure: %s\n", x, result); \
+	printf("[%s] Test Set Failure: %s\n", x, result); \
 }\
 else { \
 	printf("[%s] ALL TESTS PASSED\n", x); \
