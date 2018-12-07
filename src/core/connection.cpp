@@ -293,7 +293,7 @@ static bool connection_remove(int epfd, int fd, cache_connection_node* ctable) {
 		free(temp);
 	} //Else: Is a single entry in table and setting to -1 will suffice
 
-	return true
+	return true;
 }
 
 static int connection_count(cache_connection_node* ctable) {
@@ -503,15 +503,18 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 						DEBUG("[#%d] Closing connection\n", fd);
 						http_cleanup(connection);
 						assert(fd != 0 || settings.daemon_mode);
-						connection_remove(epfd, fd, ctable);
-						assert(connection_get(fd, ctable) == NULL);
-						close(fd);
-	#ifdef DEBUG_BUILD
-						int num_connections = connection_count(ctable);
-						if (num_connections == 0) {
-							db_check_table_refs();
+						if(connection_remove(epfd, fd, ctable)){
+							assert(connection_get(fd, ctable) == NULL);
+							close(fd);
+		#ifdef DEBUG_BUILD
+							int num_connections = connection_count(ctable);
+							if (num_connections == 0) {
+								db_check_table_refs();
+							}
+		#endif
+						} else {
+							WARN("Unable to remove connection %d (not found in table)", fd);
 						}
-	#endif
 					}
 				}
 				else{
