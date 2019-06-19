@@ -1217,6 +1217,7 @@ void db_target_write_allocate(struct cache_target* target, uint32_t data_length)
 		//if this is a new entry, with nothing previously allocated.
 		if (data_length <= BLOCK_LENGTH) {
 			entry->block = db_block_allocate_new();
+			DEBUG("[#] block for entry is now %d\n", entry->block);
 		}
 	}
 	else if (data_length > BLOCK_LENGTH) {
@@ -1248,6 +1249,7 @@ void db_target_write_allocate(struct cache_target* target, uint32_t data_length)
 	if (entry->block == -2)
 	{
 		db.db_size_bytes += data_length;
+		entry->block = -1; // must be file
 	}
 	else
 	{

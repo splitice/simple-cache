@@ -524,7 +524,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 				}
 				else
 				{
-					WARN("Unknown connection %d", fd);
+					WARN("Unknown connection %d\n", fd);
 					assert(fd != 0 || settings.daemon_mode);
 					close(fd);
 				}
