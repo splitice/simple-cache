@@ -574,7 +574,7 @@ static bool db_load_from_save(){
 	bool ret = false;
 	size_t len = 0;
 	uint32_t u1, u2, u3, u4;
-	db_table* table;
+	db_table* table = NULL;
 	cache_entry* entry;
 	int d1;
 	ssize_t read;
@@ -657,6 +657,11 @@ static bool db_load_from_save(){
 free_loop:
 		free(bp);
     }
+
+	if(table != NULL){
+		db_table_deref(table);
+		table = NULL;
+	}
 
 	// move over block file (via link to preserve save)
 	snprintf(buffer, sizeof(buffer), "%s/blockfile.db.save", db.path_root);
