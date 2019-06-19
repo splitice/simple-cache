@@ -28,6 +28,7 @@ LRU
 #include <sys/types.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <assert.h>
 #include "db.h"
@@ -61,6 +62,10 @@ struct db_details db {
 	.db_stats_operations = 0,
 	.tables = NULL
 };
+
+pid_t current_flush = 0;
+
+static pid_t db_index_flush(bool copyOnWrite = true);
 
 //Buffers
 static char filename_buffer[MAX_PATH];
@@ -382,6 +387,22 @@ bool db_expire_cursor() {
 	return db.table_gc == start;
 }
 
+static bool currently_flushing(int flags){
+	if(current_flush == 0) return false;
+	int status, w;
+	w = waitpid(current_flush, &status, flags);
+	if (w) {
+		if (WIFEXITED(status)) {
+			current_flush = 0;
+			return false;
+		}
+	} else if(w == -1) {
+		current_flush = 0;
+		return false;
+	}
+	return true;
+}
+
 void db_lru_gc() {
 	if (settings.max_size > 0 && settings.max_size < db.db_size_bytes)
 	{
@@ -407,6 +428,17 @@ void db_lru_gc() {
 	{
 		db_expire_cursor();
 	}
+
+	// Check for running flush
+	if(currently_flushing(WNOHANG)) return;
+
+	// Flush index
+	pid_t pid = db_index_flush(true);
+	if(pid == -1){
+		PWARN("Unable to fork");
+		return;
+	}
+	current_flush = pid;
 }
 
 static void db_clear_directory(const char* directory) {
@@ -1089,10 +1121,106 @@ static void db_close_blockfile() {
 	db.free_blocks = NULL;
 }
 
+static bool full_write(int fd, char* buffer, int buffer_length){
+	int ret;
+	do {
+		ret = write(fd, buffer, buffer_length);
+		if(ret == -1){
+			return false;
+		}
+		buffer_length -= ret;
+		buffer += ret;
+	} while(buffer_length > 0);
+	return true;
+}
+
+static pid_t db_index_flush(bool copyOnWrite){
+	pid_t pid = 0;
+	char buffer[1024], buffer2[1024];
+	db_table* table;
+	cache_entry* ce;
+	int temp;
+
+	//Create hardlink to blockfile
+	snprintf(buffer, 1024, "%s.save", db.path_blockfile);
+	link(db.path_blockfile, buffer);
+
+	//If we are forking we can do so now
+	if(copyOnWrite){
+		pid = fork();
+		if(pid != 0) return pid; // includes -1
+	}
+
+	//Open temporary index file
+	snprintf(buffer, 1024, "%s/db.temp", db.path_root);
+	int fd = open(buffer, O_RDWR | O_CREAT | O_TRUNC | O_LARGEFILE, S_IRUSR | S_IWUSR);
+	if(fd == -1){
+		PWARN("Unable to flush index, unable to open file");
+		return false;
+	}
+
+	//Write index
+	for (int i = 0; i < 128 && kh_size(db.tables); i++) {
+		for (khiter_t ke = kh_begin(db.tables); ke < kh_end(db.tables); ++ke) {
+			if (kh_exist(db.tables, ke)) {
+				//Write table to index
+				table = kh_val(db.tables, ke);
+				if(!full_write(fd, "t:", 2)) goto close_fd;
+				if(!full_write(fd, table->key, table->key_length)) goto close_fd;
+				if(!full_write(fd, "\n", 1)) goto close_fd;
+
+				//Iterate entries in table
+				for (khiter_t kee = kh_begin(table->cache_hash_set); ke != kh_end(table->cache_hash_set); ++ke) {
+					if (kh_exist(table->cache_hash_set, kee)) {
+						ce = kh_val(table->cache_hash_set, kee);
+						if(ce->writing || ce->deleted) continue;
+
+						//Write entry key to index
+						temp = snprintf(buffer, 1024, "%s:%u:%u:%u", ce->block ? "b":"e", ce->data_length, ce->expires, ce->it);
+						if(!full_write(fd, buffer, temp)) goto close_fd;
+						if(!full_write(fd, ce->key, ce->key_length)) goto close_fd;
+						if(!full_write(fd, "\n", 1)) goto close_fd;
+					}
+				}
+
+			}
+		}
+	}
+
+	close(fd);
+
+	// db.temp -> db.index
+	snprintf(buffer, 1024, "%s/db.temp", db.path_root);
+	snprintf(buffer2, 1024, "%s/db.index", db.path_root);
+	unlink(buffer2);
+	rename(buffer, buffer2);
+
+	pid = 0;
+	
+	close_fd:
+	if(fd != -1) {
+		close(fd);
+	}
+
+	if(copyOnWrite){
+		if(pid){
+			PWARN("Unable to write index due to error");
+			
+			snprintf(buffer2, 1024, "%s/db.temp", db.path_root);
+			unlink(buffer2);
+		}
+		exit(0);
+	}
+
+	return pid;
+}
+
 /*
 Close the database engine
 */
 void db_close() {
+	currently_flushing(0);
+	db_index_flush(false);
 	db_close_table_key_space();
 	db_close_blockfile();
 }
