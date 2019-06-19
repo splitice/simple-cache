@@ -589,17 +589,17 @@ static bool db_load_from_save(){
 	FILE* fp = fdopen(fd, "r");
 
 	while ((read = getline(&bp, &len, fp)) != -1) {
-        if(read <= 2 || buffer[1] != ':') continue;
-		switch(buffer[0]){
+        if(read <= 2 || bp[1] != ':') continue;
+		switch(bp[0]){
 			case 'f':
-				if(sscanf(buffer, "f:%u", &u1) != 1){
+				if(sscanf(bp, "f:%u", &u1) != 1){
 					WARN("Free block parsing error");
 					goto free_loop;
 				}
 				db_block_free(u1);
 			break;
 			case 't':
-				if(sscanf(buffer, "t:%s", &buffer2) != 1){
+				if(sscanf(bp, "t:%s", &buffer2) != 1){
 					WARN("Table parsing error");
 					goto free_loop;
 				}
@@ -615,7 +615,7 @@ static bool db_load_from_save(){
 					WARN("File entry must be after table");
 					goto free_loop;
 				}
-				if(sscanf(buffer+1, ":%u:%u:%u:%u:%s", &u1, &u2, &u3, &u4, &buffer2) != 5){
+				if(sscanf(bp+1, ":%u:%u:%u:%u:%s", &u1, &u2, &u3, &u4, &buffer2) != 5){
 					WARN("Entry parsing error");
 					goto free_loop;
 				}
@@ -625,7 +625,7 @@ static bool db_load_from_save(){
 				}
 			
 				//>block, ce->data_length, ce->expires, ce->it
-				db_load_from_save_entry(table, strdup(buffer2), strlen(buffer2), u1, u2, u3, u4);
+				entry = db_load_from_save_entry(table, strdup(buffer2), strlen(buffer2), u1, u2, u3, u4);
 
 				db_lru_insert(entry);
 				break;
