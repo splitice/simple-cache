@@ -233,7 +233,7 @@ int32_t db_block_allocate_new() {
 }
 
 void db_entry_actually_delete(cache_entry* entry) {
-	DEBUG("[#] Cleaning key up reference due to refcount == 0\n");
+	DEBUG("[#] Cleaning up key due to refcount == 0\n");
 #ifdef DEBUG_BUILD
 	assert(entry->lru_removed);
 #endif
@@ -249,7 +249,7 @@ void db_entry_actually_delete(cache_entry* entry) {
 }
 
 void db_table_actually_delete(db_table* entry) {
-	DEBUG("[#] Cleaning table up reference due to refcount == 0\n");
+	DEBUG("[#] Cleaning up table due to refcount == 0\n");
 
 	//Remove table from database
 	khiter_t k = kh_get(table, db.tables, entry->hash);
@@ -483,10 +483,6 @@ void db_init_folders() {
 			if (access(filename_buffer, F_OK) == -1)
 			{
 				mkdir(filename_buffer, 0777);
-			}
-			else
-			{
-				db_clear_directory(filename_buffer);
 			}
 		}
 	}
@@ -734,6 +730,9 @@ bool db_open(const char* path) {
 
 int db_entry_open(struct cache_entry* e, mode_t modes) {
 	get_key_path(e, filename_buffer);
+	if(modes | O_CREAT){
+		DEBUG("Opening %s\n", filename_buffer);
+	}
 	int fd = open(filename_buffer, O_RDWR | modes | O_LARGEFILE, S_IRUSR | S_IWUSR);
 	return fd;
 }
@@ -741,12 +740,13 @@ int db_entry_open(struct cache_entry* e, mode_t modes) {
 int db_entry_open_create(struct cache_entry* e) {
 	int fd;
 	
-	e->it = 0;
 	for(int i=0;i<65500;i++) {
 		fd = db_entry_open(e, O_CREAT | O_EXCL);
 		if(fd >= 0) {
 			return fd;
 		}
+		// This will rollover -- and that's expected
+		// it ensures safety after saving
 		e->it++;
 		close(fd);
 	}
@@ -962,6 +962,7 @@ void db_entry_handle_softdelete(cache_entry* entry, khiter_t k) {
 	//If this is contained within a file, delete
 	if (IS_SINGLE_FILE(entry)) {
 		get_key_path(entry, filename_buffer);
+		DEBUG("Deleting %s\n", filename_buffer);
 		unlink(filename_buffer);
 	}
 
@@ -1416,6 +1417,4 @@ Close the database engine
 void db_close() {
 	currently_flushing(0);
 	db_index_flush(false);
-	db_close_table_key_space();
-	db_close_blockfile();
 }
