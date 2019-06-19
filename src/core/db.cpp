@@ -326,6 +326,18 @@ void db_lru_cleanup_percent(int* bytes_to_remove) {
 	DEBUG("[#] LRU attempted to remove %d bytes, %d bytes remaining\n", debug_bytes, *bytes_to_remove);
 }
 
+static void force_link(const char* fileThatExists, const char* fileThatDoesNotExist){
+	int ret = link(fileThatExists, fileThatDoesNotExist);
+	char buffer[8096];
+	if(ret != 0){
+		PWARN("Unable to hard link");
+		//Really bad! Temporary.
+		snprintf(buffer, sizeof(buffer), "cp %s %s", fileThatExists, fileThatDoesNotExist);
+		printf("Executing %s\n", buffer);
+		system(buffer);
+	}
+}
+
 static int db_expire_cursor_table(db_table* table) {
 	int ret = 0;
 
@@ -517,32 +529,11 @@ cache_entry* db_entry_new(db_table* table) {
 	return entry;
 }
 
-
-static cache_entry* db_load_from_save_entry(db_table* table, char* key, uint16_t length, int32_t block, uint32_t data_length, time_t expires, uint16_t it){
-	assert(table->refs >= 1); //If not, it wouldnt be existing
-
-	uint32_t hash = hash_string(key, length);
+static void db_load_from_save_insert(db_table* table, cache_entry* entry){
 	khiter_t k;
-	cache_entry* entry;
-
-	//Stats
-	db.db_stats_inserts++;
-	db.db_stats_operations++;
-
+	db.db_keys++;
 	//Must be checked before softdelete removes an entry being replaced
 	bool is_first_in_table = kh_size(table->cache_hash_set) == 0;
-
-	db.db_keys++;
-
-	entry = db_entry_new(table);
-	entry->block = block;
-	entry->data_length = data_length;
-	entry->key = key;
-	entry->key_length = length;
-	entry->hash = hash;
-	entry->expires = expires;
-	entry->it = it;
-
 	//Take a reference if this is the first entry (released when size == 0)
 	if (is_first_in_table) {
 		db_table_incref(table);
@@ -558,27 +549,43 @@ static cache_entry* db_load_from_save_entry(db_table* table, char* key, uint16_t
 	db_entry_incref(entry, false);
 
 	assert(!entry->deleted);
+}
 
+static cache_entry* db_load_from_save_entry(db_table* table, char* key, uint16_t length, int32_t block, uint32_t data_length, time_t expires, uint16_t it){
+	assert(table->refs >= 1); //If not, it wouldnt be existing
+
+	uint32_t hash = hash_string(key, length);
+	cache_entry* entry;
+
+	entry = db_entry_new(table);
+	entry->block = block;
+	entry->data_length = data_length;
+	entry->key = key;
+	entry->key_length = length;
+	entry->hash = hash;
+	entry->expires = expires;
+	entry->it = it;
 	return entry;
 }
 
 static bool db_load_from_save(){
-	char buffer[2048], buffer2[2048];
+	char buffer[MAX_PATH], buffer2[2048];
 	char *bp;
 	bool ret = false;
 	size_t len = 0;
 	uint32_t u1, u2, u3, u4;
 	db_table* table;
 	cache_entry* entry;
+	int d1;
 	ssize_t read;
 
-	snprintf(buffer, 1024, "%s/index.save", db.path_root);
+	snprintf(buffer, sizeof(buffer), "%s/index.save", db.path_root);
 	int fd = open(buffer, O_RDONLY | O_LARGEFILE, S_IRUSR | S_IWUSR);
 	if (fd == -1){
 		return false; //it's ok
 	}
 
-	snprintf(buffer, MAX_PATH, "%s/blockfile.db.save", db.path_root);
+	snprintf(buffer, sizeof(buffer), "%s/blockfile.db.save", db.path_root);
 	db.fd_blockfile = open(buffer, O_RDWR | O_LARGEFILE , S_IRUSR | S_IWUSR);
 	if(db.fd_blockfile == -1){
 		PWARN("Unable to open saved block file");
@@ -615,19 +622,35 @@ static bool db_load_from_save(){
 					WARN("File entry must be after table");
 					goto free_loop;
 				}
-				if(sscanf(bp+1, ":%u:%u:%u:%u:%s", &u1, &u2, &u3, &u4, &buffer2) != 5){
+				if(sscanf(bp+1, ":%d:%u:%u:%u:%s", &d1, &u2, &u3, &u4, &buffer2) != 5){
 					WARN("Entry parsing error");
-					goto free_loop;
-				}
-				if( u1 < 0 && access( buffer2, F_OK ) == -1 ) {
-					DEBUG("skipping as file %s does not exist", buffer2);
 					goto free_loop;
 				}
 			
 				//>block, ce->data_length, ce->expires, ce->it
 				entry = db_load_from_save_entry(table, strdup(buffer2), strlen(buffer2), u1, u2, u3, u4);
 
+				if(d1 < 0){
+					// Test file existance
+					get_key_path(entry, buffer);
+					
+					if( access( buffer, F_OK ) == -1 ) {
+						DEBUG("skipping as file %s does not exist", buffer);
+						free(entry);
+						goto free_loop;
+					}
+				}else{
+					// Test size of blockfile
+					if(d1 >= db.blocks_exist){
+						DEBUG("skipping as block %d does not exist", d1);
+						free(entry);
+						goto free_loop;
+					}
+				}
+
+				db_load_from_save_insert(table, entry);
 				db_lru_insert(entry);
+
 				break;
 		}
 
@@ -636,9 +659,9 @@ free_loop:
     }
 
 	// move over block file (via link to preserve save)
-	snprintf(buffer, MAX_PATH, "%s/blockfile.save", db.path_root);
+	snprintf(buffer, sizeof(buffer), "%s/blockfile.db.save", db.path_root);
 	unlink(db.path_blockfile);
-	link(buffer, db.path_blockfile);
+	force_link(buffer, db.path_blockfile);
 
 	ret = true;
 close_fd:
@@ -1289,7 +1312,8 @@ static pid_t db_index_flush(bool copyOnWrite){
 
 	//Create hardlink to blockfile
 	snprintf(buffer, sizeof(buffer), "%s.temp", db.path_blockfile);
-	link(db.path_blockfile, buffer);
+	unlink(buffer);
+	force_link(db.path_blockfile, buffer);
 
 	//If we are forking we can do so now
 	if(copyOnWrite){
@@ -1329,7 +1353,7 @@ static pid_t db_index_flush(bool copyOnWrite){
 					if(ce->writing || ce->deleted) continue;
 
 					//Write entry key to index
-					temp = snprintf(buffer, sizeof(buffer), "%s:%u:%u:%u:%u:", ce->block >= 0 ? "b":"e", ce->block, ce->data_length, ce->expires, ce->it);
+					temp = snprintf(buffer, sizeof(buffer), "%s:%d:%u:%u:%u:", ce->block >= 0 ? "b":"e", ce->block, ce->data_length, ce->expires, ce->it);
 					if(!full_write(fd, buffer, temp)) goto close_fd;
 					if(!full_write(fd, ce->key, ce->key_length)) goto close_fd;
 					if(!full_write(fd, "\n", 1)) goto close_fd;
@@ -1348,6 +1372,8 @@ static pid_t db_index_flush(bool copyOnWrite){
 	snprintf(buffer4, sizeof(buffer4), "%s.save", db.path_blockfile);
 	rename(buffer, buffer2);
 	rename(buffer3, buffer4);
+	unlink(buffer3);
+	unlink(buffer);
 
 	pid = 0;
 	
