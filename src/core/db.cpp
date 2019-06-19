@@ -569,7 +569,7 @@ static cache_entry* db_load_from_save_entry(db_table* table, char* key, uint16_t
 
 static bool db_load_from_save(){
 	char buffer[MAX_PATH], buffer2[2048];
-	char *bp;
+	char *bp = NULL;
 	bool ret = false;
 	size_t len = 0;
 	uint32_t u1, u2, u3, u4;
@@ -602,14 +602,14 @@ static bool db_load_from_save(){
 			case 'f':
 				if(sscanf(bp, "f:%u", &u1) != 1){
 					WARN("Free block parsing error\n");
-					goto free_loop;
+					continue;
 				}
 				db_block_free(u1);
 			break;
 			case 't':
 				if(sscanf(bp, "t:%s", &buffer2) != 1){
 					WARN("Table parsing error\n");
-					goto free_loop;
+					continue;
 				}
 				if(table != NULL){
 					db_table_deref(table, true);
@@ -622,11 +622,11 @@ static bool db_load_from_save(){
 			case 'e':
 				if(!table){
 					WARN("File entry must be after table\n");
-					goto free_loop;
+					continue;
 				}
 				if(sscanf(bp+1, ":%d:%u:%u:%u:%s", &d1, &u2, &u3, &u4, &buffer2) != 5){
 					WARN("Entry parsing error\n");
-					goto free_loop;
+					continue;
 				}
 			
 				//>block, ce->data_length, ce->expires, ce->it
@@ -639,14 +639,14 @@ static bool db_load_from_save(){
 					if( access( buffer, F_OK ) == -1 ) {
 						DEBUG("skipping as file %s does not exist\n", buffer);
 						free(entry);
-						goto free_loop;
+						continue;
 					}
 				}else{
 					// Test size of blockfile
 					if(d1 >= db.blocks_exist){
 						DEBUG("skipping as block %d does not exist\n", d1);
 						free(entry);
-						goto free_loop;
+						continue;
 					}
 				}
 
@@ -658,9 +658,11 @@ static bool db_load_from_save(){
 				printf("Unknown line type %c\n", bp[0]);
 		}
 
-free_loop:
-		free(bp);
     }
+
+	if(bp != NULL){
+		free(bp);
+	}
 
 	if(table != NULL){
 		db_table_deref(table, true);
