@@ -1325,6 +1325,7 @@ static pid_t db_index_flush(bool copyOnWrite){
 	int temp;
 
 	//Create hardlink to blockfile
+	sync(db.fd_blockfile);
 	snprintf(buffer, sizeof(buffer), "%s.temp", db.path_blockfile);
 	unlink(buffer);
 	force_link(db.path_blockfile, buffer);
