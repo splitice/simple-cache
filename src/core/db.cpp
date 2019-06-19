@@ -327,15 +327,15 @@ void db_lru_cleanup_percent(int* bytes_to_remove) {
 }
 
 static void force_link(const char* fileThatExists, const char* fileThatDoesNotExist){
-	int ret = link(fileThatExists, fileThatDoesNotExist);
+	/*int ret = link(fileThatExists, fileThatDoesNotExist);
 	char buffer[8096];
 	if(ret != 0){
-		PWARN("Unable to hard link");
+		PWARN("Unable to hard link");*/
 		//Really bad! Temporary.
 		snprintf(buffer, sizeof(buffer), "cp %s %s", fileThatExists, fileThatDoesNotExist);
 		printf("Executing %s\n", buffer);
 		system(buffer);
-	}
+	//}
 }
 
 static int db_expire_cursor_table(db_table* table) {
