@@ -262,13 +262,13 @@ void db_table_actually_delete(db_table* entry) {
 	free(entry);
 }
 
-void db_table_deref(db_table* entry) {
+static void db_table_deref(db_table* entry, bool actually_delete = false) {
 	DEBUG("[#] Decrementing table refcount - was: %d\n", entry->refs);
 	assert(entry->refs > 0);
 	entry->refs--;
 	 
 	//Actually clean up the entry
-	if (entry->refs == 0 && entry->deleted) {
+	if (entry->refs == 0 && (actually_delete || entry->deleted)) {
 		//Remove table from hash set
 		db_table_actually_delete(entry);
 	}
@@ -592,6 +592,8 @@ static bool db_load_from_save(){
 		close(fd);
 		return ret;
 	}
+	off64_t size = lseek64(db.fd_blockfile, 0L, SEEK_END);
+	db.blocks_exist = (uint32_t)(size / BLOCK_LENGTH);
 
 	FILE* fp = fdopen(fd, "r");
 
@@ -600,49 +602,50 @@ static bool db_load_from_save(){
 		switch(bp[0]){
 			case 'f':
 				if(sscanf(bp, "f:%u", &u1) != 1){
-					WARN("Free block parsing error");
+					WARN("Free block parsing error\n");
 					goto free_loop;
 				}
 				db_block_free(u1);
 			break;
 			case 't':
 				if(sscanf(bp, "t:%s", &buffer2) != 1){
-					WARN("Table parsing error");
+					WARN("Table parsing error\n");
 					goto free_loop;
 				}
 				if(table != NULL){
-					db_table_deref(table);
+					db_table_deref(table, true);
 					table = NULL;
 				}
 				table = db_table_get_write(strdup(buffer2), strlen(buffer2));
+				entry = NULL;
 				break;
 			case 'b':
 			case 'e':
 				if(!table){
-					WARN("File entry must be after table");
+					WARN("File entry must be after table\n");
 					goto free_loop;
 				}
 				if(sscanf(bp+1, ":%d:%u:%u:%u:%s", &d1, &u2, &u3, &u4, &buffer2) != 5){
-					WARN("Entry parsing error");
+					WARN("Entry parsing error\n");
 					goto free_loop;
 				}
 			
 				//>block, ce->data_length, ce->expires, ce->it
-				entry = db_load_from_save_entry(table, strdup(buffer2), strlen(buffer2), u1, u2, u3, u4);
+				entry = db_load_from_save_entry(table, strdup(buffer2), strlen(buffer2), d1, u2, u3, u4);
 
 				if(d1 < 0){
 					// Test file existance
 					get_key_path(entry, buffer);
 					
 					if( access( buffer, F_OK ) == -1 ) {
-						DEBUG("skipping as file %s does not exist", buffer);
+						DEBUG("skipping as file %s does not exist\n", buffer);
 						free(entry);
 						goto free_loop;
 					}
 				}else{
 					// Test size of blockfile
 					if(d1 >= db.blocks_exist){
-						DEBUG("skipping as block %d does not exist", d1);
+						DEBUG("skipping as block %d does not exist\n", d1);
 						free(entry);
 						goto free_loop;
 					}
@@ -652,6 +655,8 @@ static bool db_load_from_save(){
 				db_lru_insert(entry);
 
 				break;
+			default:
+				printf("Unknown line type %c\n", bp[0]);
 		}
 
 free_loop:
@@ -659,7 +664,7 @@ free_loop:
     }
 
 	if(table != NULL){
-		db_table_deref(table);
+		db_table_deref(table, true);
 		table = NULL;
 	}
 
@@ -671,6 +676,8 @@ free_loop:
 	ret = true;
 close_fd:
 	fclose(fp);
+	close(db.fd_blockfile);
+
 	close(fd);
 	return ret;
 }
@@ -691,6 +698,7 @@ bool db_open(const char* path) {
 
 	//Load from index if available
 	snprintf(db.path_blockfile, MAX_PATH, "%s/blockfile.db", path);
+	
 	if(!db_load_from_save()){
 		PWARN("Unable to load index from disk, will blank database");
 		will_black = true;
