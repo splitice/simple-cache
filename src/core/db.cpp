@@ -327,6 +327,7 @@ void db_lru_cleanup_percent(int* bytes_to_remove) {
 }
 
 static void force_link(const char* fileThatExists, const char* fileThatDoesNotExist){
+	char buffer[8096];
 	//TODO: reflink
 	/*int ret = link(fileThatExists, fileThatDoesNotExist);
 	char buffer[8096];
