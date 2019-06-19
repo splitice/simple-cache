@@ -185,6 +185,7 @@ void db_block_free(int32_t block) {
 #ifdef DEBUG_BUILD
 	std::set<uint32_t> block_check;
 #endif
+	assert(block >= 0);
 	block_free_node* old;
 	assert(block + 1 <= db.blocks_exist);
 	if (block + 1 == db.blocks_exist && db.blocks_free > 256) {
@@ -1020,14 +1021,9 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	{
 		db.db_keys++;
 	}
-	
-	int32_t block = db_block_allocate_new();
-	if(block == -1) {
-		return NULL;
-	}
 
 	entry = db_entry_new(table);
-	entry->block = block;
+	entry->block = -2;
 	entry->data_length = 0;
 	entry->key = key;
 	entry->key_length = length;
@@ -1228,10 +1224,10 @@ void db_target_write_allocate(struct cache_target* target, uint32_t data_length)
 		if (!IS_SINGLE_FILE(entry) && entry->block >= 0) {
 			//We are going to use a file, and the entry is currently a block
 			db_block_free(entry->block);
-
-			//No longer using a block
-			entry->block = -1;
 		}
+
+		//No longer using a block
+		entry->block = -1;
 	}
 	else{
 		//If this is to be an entry stored in a block
