@@ -498,7 +498,158 @@ static void get_key_path(cache_entry* e, char* out) {
 	snprintf(out, MAX_PATH, "%s%c%c/%x%x_%d", db.path_single, DEC2ALPH(e->hash), DEC2ALPH(e->hash >> 8), e->table->hash, e->hash, e->it);
 }
 
+
+
+cache_entry* db_entry_new(db_table* table) {
+	cache_entry* entry = (cache_entry*)malloc(sizeof(cache_entry));
+	entry->refs = 0;
+	entry->writing = false;
+	entry->deleted = false;
+	entry->expires = 0;
+	entry->table = table;
+	entry->lru_next = NULL;
+	entry->lru_prev = NULL;
+
+#ifdef DEBUG_BUILD
+	entry->lru_found = false;
+	entry->lru_removed = true;
+#endif
+	return entry;
+}
+
+
+static cache_entry* db_load_from_save_entry(db_table* table, char* key, uint16_t length, int32_t block, uint32_t data_length, time_t expires, uint16_t it){
+	assert(table->refs >= 1); //If not, it wouldnt be existing
+
+	uint32_t hash = hash_string(key, length);
+	khiter_t k;
+	cache_entry* entry;
+
+	//Stats
+	db.db_stats_inserts++;
+	db.db_stats_operations++;
+
+	//Must be checked before softdelete removes an entry being replaced
+	bool is_first_in_table = kh_size(table->cache_hash_set) == 0;
+
+	db.db_keys++;
+
+	entry = db_entry_new(table);
+	entry->block = block;
+	entry->data_length = data_length;
+	entry->key = key;
+	entry->key_length = length;
+	entry->hash = hash;
+	entry->expires = expires;
+	entry->it = it;
+
+	//Take a reference if this is the first entry (released when size == 0)
+	if (is_first_in_table) {
+		db_table_incref(table);
+	}
+	assert(table->refs >= 2 || (table->refs >= 1 && table->deleted)); //If not, it wouldnt be storing
+
+	//Store entry
+	int ret;
+	k = kh_put(entry, table->cache_hash_set, entry->hash, &ret);
+	kh_value(table->cache_hash_set, k) = entry;
+
+	//Refs
+	db_entry_incref(entry, false);
+
+	assert(!entry->deleted);
+
+	return entry;
+}
+
+static bool db_load_from_save(){
+	char buffer[2048], buffer2[2048];
+	char *bp;
+	bool ret = false;
+	size_t len = 0;
+	uint32_t u1, u2, u3, u4;
+	db_table* table;
+	cache_entry* entry;
+	ssize_t read;
+
+	snprintf(buffer, 1024, "%s/index.save", db.path_root);
+	int fd = open(buffer, O_RDONLY | O_LARGEFILE, S_IRUSR | S_IWUSR);
+	if (fd == -1){
+		return false; //it's ok
+	}
+
+	snprintf(buffer, MAX_PATH, "%s/blockfile.db.save", db.path_root);
+	db.fd_blockfile = open(buffer, O_RDWR | O_LARGEFILE , S_IRUSR | S_IWUSR);
+	if(db.fd_blockfile == -1){
+		PWARN("Unable to open saved block file");
+		close(fd);
+		return ret;
+	}
+
+	FILE* fp = fdopen(fd, "r");
+
+	while ((read = getline(&bp, &len, fp)) != -1) {
+        if(read <= 2 || buffer[1] != ':') continue;
+		switch(buffer[0]){
+			case 'f':
+				if(sscanf(buffer, "f:%u", &u1) != 1){
+					WARN("Free block parsing error");
+					goto free_loop;
+				}
+				db_block_free(u1);
+			break;
+			case 't':
+				if(sscanf(buffer, "t:%s", &buffer2) != 1){
+					WARN("Table parsing error");
+					goto free_loop;
+				}
+				if(table != NULL){
+					db_table_deref(table);
+					table = NULL;
+				}
+				table = db_table_get_write(strdup(buffer2), strlen(buffer2));
+				break;
+			case 'b':
+			case 'e':
+				if(!table){
+					WARN("File entry must be after table");
+					goto free_loop;
+				}
+				if(sscanf(buffer+1, ":%u:%u:%u:%u:%s", &u1, &u2, &u3, &u4, &buffer2) != 5){
+					WARN("Entry parsing error");
+					goto free_loop;
+				}
+				if( u1 < 0 && access( buffer2, F_OK ) == -1 ) {
+					DEBUG("skipping as file %s does not exist", buffer2);
+					goto free_loop;
+				}
+			
+				//>block, ce->data_length, ce->expires, ce->it
+				db_load_from_save_entry(table, strdup(buffer2), strlen(buffer2), u1, u2, u3, u4);
+
+				db_lru_insert(entry);
+				break;
+		}
+
+free_loop:
+		free(bp);
+    }
+
+	// move over block file (via link to preserve save)
+	snprintf(buffer, MAX_PATH, "%s/blockfile.save", db.path_root);
+	unlink(db.path_blockfile);
+	link(buffer, db.path_blockfile);
+
+	ret = true;
+close_fd:
+	fclose(fp);
+	close(fd);
+	return ret;
+}
+
 bool db_open(const char* path) {
+	bool will_black = false;
+
 	//Create paths as char*'s
 	snprintf(db.path_root, MAX_PATH, "%s/", path);
 	snprintf(db.path_single, MAX_PATH, "%s/files/", path);
@@ -506,29 +657,41 @@ bool db_open(const char* path) {
 	//Initialize folder structure if it doesnt exist
 	db_init_folders();
 
-	//Block file
+	// Initialize the tables hash
+	db.tables = kh_init(table);
+	db.table_gc = kh_begin(db.tables);
+
+	//Load from index if available
 	snprintf(db.path_blockfile, MAX_PATH, "%s/blockfile.db", path);
+	if(!db_load_from_save()){
+		PWARN("Unable to load index from disk, will blank database");
+		will_black = true;
+	}
+
+	//Block file
 	db.fd_blockfile = open(db.path_blockfile, O_CREAT | O_RDWR | O_LARGEFILE , S_IRUSR | S_IWUSR);
 	if (db.fd_blockfile < 0) {
 		PFATAL("Failed to open blockfile: %s", db.path_blockfile);
 	}
 
-	//Mark all blocks that already exist in the block file as non-allocated
+	// Calculate the number of blocks in the blockfile
 	off64_t size = lseek64(db.fd_blockfile, 0L, SEEK_END);
-	if(size > (BLOCK_MAX_LOAD * BLOCK_LENGTH)) {
-		size = BLOCK_MAX_LOAD * BLOCK_LENGTH;
-		ftruncate(db.fd_blockfile, size);
-	}
 	db.blocks_exist = (uint32_t)(size / BLOCK_LENGTH);
-	for (off64_t i = 0; i < size; i += BLOCK_LENGTH) {
-		db_block_free((uint32_t)(i / BLOCK_LENGTH));
-	}
-	db.blocks_free = db.blocks_exist;
 
-	//cache entries
-	//db.cache_hash_set = (cache_entry**)calloc(HASH_ENTRIES, sizeof(cache_entry*));
-	db.tables = kh_init(table);
-	db.table_gc = kh_begin(db.tables);
+	// Mark all blocks that already exist in the block file as non-allocated
+	if(will_black){
+		if(size > (BLOCK_MAX_LOAD * BLOCK_LENGTH)) {
+			size = BLOCK_MAX_LOAD * BLOCK_LENGTH;
+			ftruncate(db.fd_blockfile, size);
+			db.blocks_exist = (uint32_t)(size / BLOCK_LENGTH);
+		}
+		for (off64_t i = 0; i < size; i += BLOCK_LENGTH) {
+			db_block_free((uint32_t)(i / BLOCK_LENGTH));
+		}
+		db.blocks_free = db.blocks_exist;
+	}
+
+	return true;
 }
 
 int db_entry_open(struct cache_entry* e, mode_t modes) {
@@ -597,23 +760,6 @@ void db_target_entry_close(cache_target* target) {
 
 void db_table_close(db_table* table) {
 	db_table_deref(table);
-}
-
-cache_entry* db_entry_new(db_table* table) {
-	cache_entry* entry = (cache_entry*)malloc(sizeof(cache_entry));
-	entry->refs = 0;
-	entry->writing = false;
-	entry->deleted = false;
-	entry->expires = 0;
-	entry->table = table;
-	entry->lru_next = NULL;
-	entry->lru_prev = NULL;
-
-#ifdef DEBUG_BUILD
-	entry->lru_found = false;
-	entry->lru_removed = true;
-#endif
-	return entry;
 }
 
 cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length) {
@@ -1136,13 +1282,13 @@ static bool full_write(int fd, char* buffer, int buffer_length){
 
 static pid_t db_index_flush(bool copyOnWrite){
 	pid_t pid = 0;
-	char buffer[1024], buffer2[1024];
+	char buffer[2048], buffer2[2048], buffer3[2048], buffer4[2048];
 	db_table* table;
 	cache_entry* ce;
 	int temp;
 
 	//Create hardlink to blockfile
-	snprintf(buffer, 1024, "%s.save", db.path_blockfile);
+	snprintf(buffer, sizeof(buffer), "%s.temp", db.path_blockfile);
 	link(db.path_blockfile, buffer);
 
 	//If we are forking we can do so now
@@ -1152,48 +1298,56 @@ static pid_t db_index_flush(bool copyOnWrite){
 	}
 
 	//Open temporary index file
-	snprintf(buffer, 1024, "%s/db.temp", db.path_root);
+	snprintf(buffer, sizeof(buffer), "%s/db.temp", db.path_root);
 	int fd = open(buffer, O_RDWR | O_CREAT | O_TRUNC | O_LARGEFILE, S_IRUSR | S_IWUSR);
 	if(fd == -1){
 		PWARN("Unable to flush index, unable to open file");
 		return false;
 	}
 
-	//Write index
-	for (int i = 0; i < 128 && kh_size(db.tables); i++) {
-		for (khiter_t ke = kh_begin(db.tables); ke < kh_end(db.tables); ++ke) {
-			if (kh_exist(db.tables, ke)) {
-				//Write table to index
-				table = kh_val(db.tables, ke);
-				if(!full_write(fd, "t:", 2)) goto close_fd;
-				if(!full_write(fd, table->key, table->key_length)) goto close_fd;
-				if(!full_write(fd, "\n", 1)) goto close_fd;
+	//Write free blocks
+	block_free_node *free_node = db.free_blocks;
+	while(free_node != NULL){
+		temp = snprintf(buffer, sizeof(buffer), "f:%u\n", free_node->block_number);
+		if(!full_write(fd, buffer, temp)) goto close_fd;
+		free_node = free_node->next;
+	}
 
-				//Iterate entries in table
-				for (khiter_t kee = kh_begin(table->cache_hash_set); ke != kh_end(table->cache_hash_set); ++ke) {
-					if (kh_exist(table->cache_hash_set, kee)) {
-						ce = kh_val(table->cache_hash_set, kee);
-						if(ce->writing || ce->deleted) continue;
+	//Write tables and cache entries
+	for (khiter_t ke = kh_begin(db.tables); ke < kh_end(db.tables); ++ke) {
+		if (kh_exist(db.tables, ke)) {
+			//Write table to index
+			table = kh_val(db.tables, ke);
+			if(!full_write(fd, "t:", 2)) goto close_fd;
+			if(!full_write(fd, table->key, table->key_length)) goto close_fd;
+			if(!full_write(fd, "\n", 1)) goto close_fd;
 
-						//Write entry key to index
-						temp = snprintf(buffer, 1024, "%s:%u:%u:%u", ce->block ? "b":"e", ce->data_length, ce->expires, ce->it);
-						if(!full_write(fd, buffer, temp)) goto close_fd;
-						if(!full_write(fd, ce->key, ce->key_length)) goto close_fd;
-						if(!full_write(fd, "\n", 1)) goto close_fd;
-					}
+			//Iterate entries in table
+			for (khiter_t kee = kh_begin(table->cache_hash_set); kee != kh_end(table->cache_hash_set); ++kee) {
+				if (kh_exist(table->cache_hash_set, kee)) {
+					ce = kh_val(table->cache_hash_set, kee);
+					if(ce->writing || ce->deleted) continue;
+
+					//Write entry key to index
+					temp = snprintf(buffer, sizeof(buffer), "%s:%u:%u:%u:%u:", ce->block >= 0 ? "b":"e", ce->block, ce->data_length, ce->expires, ce->it);
+					if(!full_write(fd, buffer, temp)) goto close_fd;
+					if(!full_write(fd, ce->key, ce->key_length)) goto close_fd;
+					if(!full_write(fd, "\n", 1)) goto close_fd;
 				}
-
 			}
 		}
 	}
 
 	close(fd);
 
-	// db.temp -> db.index
-	snprintf(buffer, 1024, "%s/db.temp", db.path_root);
-	snprintf(buffer2, 1024, "%s/db.index", db.path_root);
+	// db.temp -> db.index & blockfile.temp -> blockfile.save
+	snprintf(buffer, sizeof(buffer), "%s/db.temp", db.path_root);
+	snprintf(buffer2, sizeof(buffer2), "%s/index.save", db.path_root);
 	unlink(buffer2);
+	snprintf(buffer3, sizeof(buffer3), "%s.temp", db.path_blockfile);
+	snprintf(buffer4, sizeof(buffer4), "%s.save", db.path_blockfile);
 	rename(buffer, buffer2);
+	rename(buffer3, buffer4);
 
 	pid = 0;
 	

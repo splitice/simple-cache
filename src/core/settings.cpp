@@ -23,7 +23,7 @@ static void print_usage() {
 "Networking options:\n"
 "\n"
 "  -4 / -6                                  - bind to either IPv4 or IPv6 address (default: IPv4)\n"
-"  -b addr  --bind addr:port                - listen on the specified network address (default: 0.0.0.0:8000)\n"
+"  -b addr  --bind addr:port                - listen on the specified network address (default: none)\n"
 "\n"
 "Database settings:\n"
 "\n"
