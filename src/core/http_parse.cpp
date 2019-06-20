@@ -302,7 +302,7 @@ static inline state_action http_read_requeststarturl1(int epfd, cache_connection
 			
 			if(REQUEST_IS(connection->type, REQUEST_HTTPADMIN)){
 				DEBUG("[#%d] Request admin url: \"%s\" (%d)\n", connection->client_sock, key, n);
-				if(n == 3 && strncmp(key, "gc", n) == 0){
+				if(n == 3 && strncmp(key, "gc", n	) == 0){
 					free(key);
 					RBUF_READMOVE(connection->input, n + 1);
 					

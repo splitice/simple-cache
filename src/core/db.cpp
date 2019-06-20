@@ -557,6 +557,7 @@ static void db_load_from_save_insert(db_table* table, cache_entry* entry){
 	db_entry_incref(entry, false);
 
 	assert(!entry->deleted);
+	db.db_size_bytes += entry->data_length;
 }
 
 static cache_entry* db_load_from_save_entry(db_table* table, char* key, uint16_t length, int32_t block, uint32_t data_length, time_t expires, uint16_t it){
@@ -983,6 +984,7 @@ void db_entry_handle_softdelete(cache_entry* entry, khiter_t k) {
 	kh_del(entry, entry->table->cache_hash_set, k);
 
 	//Counters
+	assert(((int)db.db_size_bytes) - entry->data_length >= 0);
 	db.db_size_bytes -= entry->data_length;
 
 	//Remove from LRU, but only if not writing (as not, yet added)
@@ -1193,7 +1195,9 @@ bool db_entry_handle_delete(cache_entry* entry, khiter_t k) {
 	db_entry_cleanup(entry);
 
 	//Counters
+	assert(((int)db.db_size_bytes) - entry->data_length >= 0);
 	db.db_size_bytes -= entry->data_length;
+	assert(db.db_keys != 0);
 	db.db_keys--;
 
 	//Remove from hash table
