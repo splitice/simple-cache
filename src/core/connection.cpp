@@ -506,7 +506,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					}
 					
 					if (do_close) {
-						DEBUG("[#%d] Closing connection due to err:%d hup:%d rdhup:%d\n", fd, err&EPOLLERR, err&EPOLLHUP, err&EPOLLRDHUP);
+						DEBUG("[#%d] Closing connection due to err:%d hup:%d rdhup:%d\n", fd, events[n].events&EPOLLERR, events[n].events&EPOLLHUP, events[n].events&EPOLLRDHUP);
 						http_cleanup(connection);
 						assert(fd != 0 || settings.daemon_mode);
 						if(connection_remove(epfd, fd, ctable)){
