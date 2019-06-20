@@ -344,27 +344,33 @@ static void force_link(const char* fileThatExists, const char* fileThatDoesNotEx
 static int db_expire_cursor_table(db_table* table) {
 	int ret = 0;
 
+	assert(!table->deleted);
+
 	for (khiter_t ke = kh_begin(table->cache_hash_set); ke < kh_end(table->cache_hash_set); ++ke) {
 		if (kh_exist(table->cache_hash_set, ke)) {
 			ret++;
 			cache_entry* l = kh_value(table->cache_hash_set, ke);
 			if (!l->deleted && l->expires != 0 && l->expires < time_seconds) {
 				bool end_early = kh_size(table->cache_hash_set) == 1;
+				bool table_deleted = false;
+
 				if (l->refs == 0)
 				{
 					db_entry_incref(l);
-					db_entry_handle_delete(l);
+					table_deleted = db_entry_handle_delete(l);
 					db_entry_deref(l);
 				}
 				else
 				{
-					db_entry_handle_delete(l);
+					table_deleted = db_entry_handle_delete(l);
 					end_early = false;
 				}
 
-				if (end_early) {
+				if (end_early || table_deleted) {
 					break;
 				}
+
+				assert(!table->deleted);
 			}
 		}
 	}
