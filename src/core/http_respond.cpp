@@ -80,6 +80,7 @@ state_action http_respond_stats(int epfd, cache_connection* connection) {
 	db_details* details = db_get_details();
 
 	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Keys: %" PRIu64 "\r\n", details->db_keys);
+	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Tables: %" PRIu64 "\r\n", kh_size(details->tables));
 	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Size Bytes: %" PRIu64 "\r\n", details->db_size_bytes);
 	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Blocks Free: %" PRIu32 "/%" PRIu32 "\r\n", details->blocks_free, details->blocks_exist);
 	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Stats Deletes: %" PRIu64 "\r\n", details->db_stats_deletes);
