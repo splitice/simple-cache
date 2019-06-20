@@ -37,8 +37,8 @@ struct cache_connection {
 	int client_sock;
 	struct read_buffer input;
 	
-	unsigned int type : 8;
-	bool writing;
+	unsigned int type : 15;
+	unsigned int writing : 1;
 };
 
 struct cache_connection_node {

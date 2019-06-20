@@ -387,10 +387,12 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 	else if (*buffer == '\n') {
 		temporary++;
 		if (temporary == 2) {
-			DEBUG("[#%d] Completed header read\n", connection->client_sock);
+			DEBUG("[#%d] Completed header read with type %x\n", connection->client_sock, connection->type);
 			RBUF_READMOVE(connection->input, n + 1);
 
+			printf("%d %d %d\n", REQUEST_IS(connection->type, REQUEST_LEVELKEY), REQUEST_IS(connection->type, REQUEST_HTTPPUT),REQUEST_IS(connection->type, REQUEST_HTTPGET));
 			if (REQUEST_IS(connection->type, REQUEST_LEVELKEY)) {
+				puts("test");
 				if (REQUEST_IS(connection->type, REQUEST_HTTPPUT)) {
 					if (connection->target.key.entry != NULL && connection->target.key.entry->data_length == 0) {
 						DEBUG("[#%d] No valid content-length provided for PUT request\n", connection->client_sock);
@@ -400,7 +402,8 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 					connection->handler = http_handle_request_body;
 					return needs_more;
 				}
-				else if (connection->target.key.entry != NULL) {
+				printf("%d %d\n", connection->target.key.entry != NULL,REQUEST_IS(connection->type, REQUEST_HTTPGET));
+				if (connection->target.key.entry != NULL) {
 					if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPHEAD)) {
 						connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200];
 						connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200];
@@ -410,53 +413,45 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 						bool res = connection_register_write(epfd, connection->client_sock);
 						return res ? registered_write : close_connection;
 					}
-					else if (REQUEST_IS(connection->type, REQUEST_HTTPDELETE)) {
+					if (REQUEST_IS(connection->type, REQUEST_HTTPDELETE)) {
 						db_entry_handle_delete(connection->target.key.entry);
 
 						return http_write_response(epfd, connection, HTTPTEMPLATE_FULLHTTP200DELETED);
 					}
-					else{
-						FATAL("Unknown request type");
-					}
 				}
-				else{
+				else
+				{
 					return http_write_response(epfd, connection, HTTPTEMPLATE_FULL404);
 				}
 			}
-			else{
-				//Table level
-				if (REQUEST_IS(connection->type, REQUEST_HTTPGET)) {
-					if (connection->target.table.table) {
-						connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200_CONCLOSE];
-						connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200_CONCLOSE];
-						connection->handler = http_respond_listingentries;
-						bool res = connection_register_write(epfd, connection->client_sock);
-						return res ? registered_write : close_connection;
-					}
-					else
-					{
-						return http_write_response(epfd, connection, HTTPTEMPLATE_FULL404);
-					}
-					
+			
+			//Table level
+			if (REQUEST_IS(connection->type, REQUEST_HTTPGET)) {
+				if (!connection->target.table.table) {
+					return http_write_response(epfd, connection, HTTPTEMPLATE_FULL404);
 				}
-				else if (REQUEST_IS(connection->type, REQUEST_HTTPDELETE)) {
-
-					if (connection->target.table.table) {
-						db_table_handle_delete(connection->target.table.table);
-						return http_write_response(epfd, connection, HTTPTEMPLATE_FULLHTTP200DELETED);
-					}
-					else
-					{
-						return http_write_response(epfd, connection, HTTPTEMPLATE_FULL404);
-					}
-				}
-				else if (REQUEST_IS(connection->type, REQUEST_HTTPBULK)) {
-					return http_write_response(epfd, connection, HTTPTEMPLATE_BULK_OK);
-				}
-				else if (REQUEST_IS(connection->type, REQUEST_HTTPADMIN)) {
-					return http_write_response(epfd, connection, HTTPTEMPLATE_BULK_OK);
-				}
+				connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200_CONCLOSE];
+				connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200_CONCLOSE];
+				connection->handler = http_respond_listingentries;
+				bool res = connection_register_write(epfd, connection->client_sock);
+				return res ? registered_write : close_connection;
+				
 			}
+			if (REQUEST_IS(connection->type, REQUEST_HTTPDELETE)) {
+				if (!connection->target.table.table) {
+					return http_write_response(epfd, connection, HTTPTEMPLATE_FULL404);
+				}
+				db_table_handle_delete(connection->target.table.table);
+				return http_write_response(epfd, connection, HTTPTEMPLATE_FULLHTTP200DELETED);
+			}
+			if (REQUEST_IS(connection->type, REQUEST_HTTPBULK)) {
+				return http_write_response(epfd, connection, HTTPTEMPLATE_BULK_OK);
+			}
+			if (REQUEST_IS(connection->type, REQUEST_HTTPADMIN)) {
+				return http_write_response(epfd, connection, HTTPTEMPLATE_BULK_OK);
+			}
+
+			return http_write_response(epfd, connection, HTTPTEMPLATE_FULLUNKNOWNREQUEST);
 		}
 
 		//Move pointers to next record

@@ -19,12 +19,12 @@
 
 /* Request methods */
 #define LONGEST_REQMETHOD 6
-#define REQUEST_HTTPADMIN 0x08
-#define REQUEST_HTTPGET 0xF0
-#define REQUEST_HTTPBULK 0x80
-#define REQUEST_HTTPPUT 0x40
-#define REQUEST_HTTPDELETE 0x20
-#define REQUEST_HTTPHEAD 0x10
+#define REQUEST_HTTPADMIN 0x0200
+#define REQUEST_HTTPGET 0x0100
+#define REQUEST_HTTPBULK 0x0080
+#define REQUEST_HTTPPUT 0x0040
+#define REQUEST_HTTPDELETE 0x0020
+#define REQUEST_HTTPHEAD 0x0010
 
 /* Request levels */
 #define REQUEST_LEVELKEY 0x04
@@ -39,7 +39,7 @@
 #define REQUEST_GETTABLE (REQUEST_HTTPGET | REQUEST_LEVELTABLE)
 
 /* Helpers */
-#define REQUEST_IS(type, request_type) (((request_type & 0xF8 == 0) || (type & (0xF8 & request_type)) == (request_type & 0xF8)) && ((request_type & 0x07 == 0) || (type & (0x07 & request_type)) == (request_type & 0x07)))
+#define REQUEST_IS(type, request_type) (((request_type & 0x0FF0 == 0) || (type & (0x0FF0 & request_type)) == (request_type & 0x0FF0)) && ((request_type & 0x000F == 0) || (type & (0x000F & request_type)) == (request_type & 0x000F)))
 
 /* ===[ HTTP TEMPLATES ]=== */
 #define HTTPTEMPLATE_HEADERS200 0
@@ -56,6 +56,7 @@
 #define HTTPTEMPLATE_FULLLONGMETHOD 11
 #define HTTPTEMPLATE_FULLUNKNOWNMETHOD 12
 #define HTTPTEMPLATE_FULLREQUESTTOOLARGE 13
+#define HTTPTEMPLATE_FULLUNKNOWNREQUEST 14
 
 static const char http_templates[][100] = {
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\n",
@@ -72,6 +73,7 @@ static const char http_templates[][100] = {
 	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 17\r\n\r\nMethod too Long\r\n",
 	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 16\r\n\r\nUnknown Method\r\n",
 	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 19\r\n\r\nRequest too large\r\n",
+	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 17\r\n\r\nUnknown Request\r\n",
 };
 #define NUMBER_OF_HTTPTEMPLATE sizeof(http_templates)/100
 
