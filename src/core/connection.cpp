@@ -506,12 +506,11 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					}
 					
 					if (do_close) {
-						DEBUG("[#%d] Closing connection\n", fd);
+						DEBUG("[#%d] Closing connection due to err:%d hup:%d rdhup:%d\n", fd, err&EPOLLERR, err&EPOLLHUP, err&EPOLLRDHUP);
 						http_cleanup(connection);
 						assert(fd != 0 || settings.daemon_mode);
 						if(connection_remove(epfd, fd, ctable)){
 							assert(connection_get(fd, ctable) == NULL);
-							close(fd);
 		#ifdef DEBUG_BUILD
 							if (!connection_any(ctable)) {
 								db_check_table_refs();
@@ -520,6 +519,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 						} else {
 							WARN("Unable to remove connection %d (not found in table)", fd);
 						}
+						close(fd);
 					}
 				}
 				else
