@@ -387,6 +387,7 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 	else if (*buffer == '\n') {
 		temporary++;
 		if (temporary == 2) {
+			DEBUG("[#%d] Completed header read\n", connection->client_sock);
 			RBUF_READMOVE(connection->input, n + 1);
 
 			if (REQUEST_IS(connection->type, REQUEST_LEVELKEY)) {
