@@ -1306,7 +1306,7 @@ static void db_close_blockfile() {
 	db.free_blocks = NULL;
 }
 
-static bool full_write(int fd, char* buffer, int buffer_length){
+static bool full_write(int fd, const char* buffer, int buffer_length){
 	int ret;
 	do {
 		ret = write(fd, buffer, buffer_length);
@@ -1327,7 +1327,7 @@ static pid_t db_index_flush(bool copyOnWrite){
 	int temp;
 
 	//Create hardlink to blockfile
-	sync(db.fd_blockfile);
+	fdatasync(db.fd_blockfile);
 	snprintf(buffer, sizeof(buffer), "%s.temp", db.path_blockfile);
 	unlink(buffer);
 	force_link(db.path_blockfile, buffer);
