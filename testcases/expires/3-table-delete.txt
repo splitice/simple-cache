@@ -25,7 +25,7 @@ HTTP/1.1 200 OK
 Connection: Keep-Alive
 Content-Length: 9
 
-BULK OK
+DELETED
 
 5*****
 >>>>>
@@ -53,6 +53,6 @@ HTTP/1.1 200 OK
 Connection: Keep-Alive
 Content-Length: 9
 
-BULK OK
+DELETED
 
 5*****
