@@ -390,9 +390,7 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 			DEBUG("[#%d] Completed header read with type %x\n", connection->client_sock, connection->type);
 			RBUF_READMOVE(connection->input, n + 1);
 
-			printf("%d %d %d\n", REQUEST_IS(connection->type, REQUEST_LEVELKEY), REQUEST_IS(connection->type, REQUEST_HTTPPUT),REQUEST_IS(connection->type, REQUEST_HTTPGET));
 			if (REQUEST_IS(connection->type, REQUEST_LEVELKEY)) {
-				puts("test");
 				if (REQUEST_IS(connection->type, REQUEST_HTTPPUT)) {
 					if (connection->target.key.entry != NULL && connection->target.key.entry->data_length == 0) {
 						DEBUG("[#%d] No valid content-length provided for PUT request\n", connection->client_sock);
@@ -402,7 +400,6 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 					connection->handler = http_handle_request_body;
 					return needs_more;
 				}
-				printf("%d %d\n", connection->target.key.entry != NULL,REQUEST_IS(connection->type, REQUEST_HTTPGET));
 				if (connection->target.key.entry != NULL) {
 					if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPHEAD)) {
 						connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200];
