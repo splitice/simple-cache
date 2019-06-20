@@ -123,12 +123,22 @@ static bool http_key_lookup(cache_connection* connection, int n, int epfd) {
 		connection->output_buffer = http_templates[HTTPTEMPLATE_FULLHTTP200DELETED];
 		connection->output_length = http_templates_length[HTTPTEMPLATE_FULLHTTP200DELETED];
 	}
-	else{
+	else
+	{
+		DEBUG("[#%d] Has request key but is not GET, HEAD, PUT or DELETE (binary: %x)\n", connection->client_sock, connection->type);
 		return http_write_response_after_eol(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 	}
 
+	int type = connection->type;
 	connection->type |= REQUEST_LEVELKEY;
+	assert(REQUEST_IS(connection->type, REQUEST_LEVELKEY));
+	assert(REQUEST_IS(connection->type, connection->type));
+	assert(REQUEST_IS(connection->type, type));
 	connection->type &= ~REQUEST_LEVELTABLE;
+	assert(REQUEST_IS(connection->type, REQUEST_LEVELKEY));
+	assert(REQUEST_IS(connection->type, connection->type));
+	assert(REQUEST_IS(connection->type, type & ~REQUEST_LEVELTABLE));
+	assert(!REQUEST_IS(connection->type, REQUEST_LEVELTABLE));
 	connection->handler = http_handle_httpversion;
 
 	if (entry) {
@@ -148,7 +158,7 @@ static inline state_action http_read_requeststartmethod(int epfd, cache_connecti
 	//Check if this is never going to be valid, too long
 	if (n > LONGEST_REQMETHOD) {
 		RBUF_READMOVE(connection->input, n + 1);
-		return http_write_response_after_eol(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+		return http_write_response_after_eol(epfd, connection, HTTPTEMPLATE_FULLLONGMETHOD);
 	}
 
 	//A space signifies the end of the method
@@ -163,6 +173,7 @@ static inline state_action http_read_requeststartmethod(int epfd, cache_connecti
 		if (n == 3 && rbuf_cmpn(&connection->input, "GET", 3) == 0) {
 			//This is a GET request
 			connection->type = REQUEST_HTTPGET;
+			assert(REQUEST_IS(connection->type, connection->type));
 			RBUF_READMOVE(connection->input, n + 1);
 			DEBUG("[#%d] HTTP GET Request\n", connection->client_sock);
 			return needs_more;
@@ -170,6 +181,7 @@ static inline state_action http_read_requeststartmethod(int epfd, cache_connecti
 		else if (n == 3 && rbuf_cmpn(&connection->input, "PUT", 3) == 0) {
 			//This is a PUT request
 			connection->type = REQUEST_HTTPPUT;
+			assert(REQUEST_IS(connection->type, connection->type));
 			RBUF_READMOVE(connection->input, n + 1);
 			DEBUG("[#%d] HTTP PUT Request\n", connection->client_sock);
 			return needs_more;
@@ -177,6 +189,7 @@ static inline state_action http_read_requeststartmethod(int epfd, cache_connecti
 		else if (n == 4 && rbuf_cmpn(&connection->input, "HEAD", 4) == 0) {
 			//This is a HEAD request
 			connection->type = REQUEST_HTTPHEAD;
+			assert(REQUEST_IS(connection->type, connection->type));
 			RBUF_READMOVE(connection->input, n + 1);
 			DEBUG("[#%d] HTTP HEAD Request\n", connection->client_sock);
 			return needs_more;
@@ -185,20 +198,30 @@ static inline state_action http_read_requeststartmethod(int epfd, cache_connecti
 			DEBUG("[#%d] HTTP DELETE Request\n", connection->client_sock);
 			//This is a DELETE request
 			connection->type = REQUEST_HTTPDELETE;
+			assert(REQUEST_IS(connection->type, connection->type));
 			RBUF_READMOVE(connection->input, n + 1);
 			return needs_more;
 		}
 		else if (n == 4 && rbuf_cmpn(&connection->input, "BULK", 4) == 0) {
 			//This is a BULK request
 			connection->type = REQUEST_HTTPBULK;
+			assert(REQUEST_IS(connection->type, connection->type));
 			RBUF_READMOVE(connection->input, n + 1);
 			DEBUG("[#%d] HTTP BULK Request\n", connection->client_sock);
+			return needs_more;
+		}
+		else if (n == 5 && rbuf_cmpn(&connection->input, "ADMIN", 5) == 0) {
+			//This is a BULK request
+			connection->type = REQUEST_HTTPADMIN;
+			assert(REQUEST_IS(connection->type, connection->type));
+			RBUF_READMOVE(connection->input, n + 1);
+			DEBUG("[#%d] HTTP ADMIN Request\n", connection->client_sock);
 			return needs_more;
 		}
 
 		//Else: This is an INVALID request
 		RBUF_READMOVE(connection->input, n + 1);
-		return http_write_response_after_eol(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+		return http_write_response_after_eol(epfd, connection, HTTPTEMPLATE_FULLUNKNOWNMETHOD);
 	}
 
 	return continue_processing;
@@ -220,25 +243,32 @@ static inline state_action http_read_requeststarturl1(int epfd, cache_connection
 		char* key = (char*)malloc(sizeof(char)* (n));
 		rbuf_copyn(&connection->input, key, n - 1);
 		*(key + (n - 1)) = 0;//Null terminate the key
-		DEBUG("[#%d] Request table: \"%s\" (%d)\n", connection->client_sock, key, n);
+		int type = connection->type;
 		connection->type |= REQUEST_LEVELTABLE;
+		assert(REQUEST_IS(connection->type, REQUEST_LEVELTABLE));
+		assert(REQUEST_IS(connection->type, connection->type));
+		assert(REQUEST_IS(connection->type, type));
 
 		if (*buffer == '/') {
 			//Key command
 			//URL: table/key
 
 
-			if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPDELETE) || REQUEST_IS(connection->type, REQUEST_HTTPHEAD)) {
+			if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPDELETE) || REQUEST_IS(connection->type, REQUEST_HTTPHEAD)) 
+			{
 				connection->target.table.table = db_table_get_read(key, n - 1);
 			}
-			else{
+			else
+			{
 				connection->target.table.table = db_table_get_write(key, n - 1);
 			}
 
-			if (connection->target.table.table) {
+			if (connection->target.table.table)
+			{
 				connection->state++;
 			}
-			else{
+			else
+			{
 				return http_headers_response_after_eol(epfd, connection, HTTPTEMPLATE_FULL404);
 			}
 
@@ -246,29 +276,45 @@ static inline state_action http_read_requeststarturl1(int epfd, cache_connection
 			return needs_more;
 		}
 		else if (*buffer == ' ') {
-			//Table command
-			//URL: table
-			connection->target.table.table = db_table_get_read(key, n - 1);
-			connection->target.table.start = 0;
-			connection->target.table.limit = DEFAULT_LISTING_LIMIT;
-
-			RBUF_READMOVE(connection->input, n + 1);
 			if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPDELETE) || REQUEST_IS(connection->type, REQUEST_HTTPBULK)) {
 				//Request for "/"
 				if (n == 1) {
 					//Stats Command
+					DEBUG("[#%d] Request stats\n", connection->client_sock);
+					free(key);
+					RBUF_READMOVE(connection->input, n + 1);
 					return http_stats_after_eol(epfd, connection);
 				}
+
+				//Table command
+				//URL: table
+				DEBUG("[#%d] Request table: \"%s\" (%d)\n", connection->client_sock, key, n);
+				connection->target.table.table = db_table_get_read(key, n - 1);
+				connection->target.table.start = 0;
+				connection->target.table.limit = DEFAULT_LISTING_LIMIT;
+				RBUF_READMOVE(connection->input, n + 1);
 
 				//Else request for table/key
 				connection->handler = http_handle_headers;
 				connection->state = 0;
 				return needs_more;
+			} 
+			
+			if(REQUEST_IS(connection->type, REQUEST_HTTPADMIN)){
+				DEBUG("[#%d] Request admin url: \"%s\" (%d)\n", connection->client_sock, key, n);
+				if(n == 3 && strncmp(key, "gc", n) == 0){
+					free(key);
+					RBUF_READMOVE(connection->input, n + 1);
+					
+					//GC
+					db_lru_gc();
+					return http_stats_after_eol(epfd, connection);
+				}
 			}
-			else
-			{
-				return http_write_response_after_eol(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
-			}
+			
+			free(key);
+			RBUF_READMOVE(connection->input, n + 1);
+			return http_write_response_after_eol(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 		}
 	}
 
@@ -404,6 +450,9 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 					}
 				}
 				else if (REQUEST_IS(connection->type, REQUEST_HTTPBULK)) {
+					return http_write_response(epfd, connection, HTTPTEMPLATE_BULK_OK);
+				}
+				else if (REQUEST_IS(connection->type, REQUEST_HTTPADMIN)) {
 					return http_write_response(epfd, connection, HTTPTEMPLATE_BULK_OK);
 				}
 			}
@@ -696,8 +745,8 @@ state_action http_handle_headers(int epfd, cache_connection* connection) {
 	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_headers(epfd, connection, buffer, n, connection->state));
 
 	//make sure we dont 100% fill up
-	if (connection->handler == http_handle_headers && (&connection->input) == 0) {
-		return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
+	if (connection->handler == http_handle_headers && rbuf_write_remaining(&connection->input) == 0) {
+		return http_write_response(epfd, connection, HTTPTEMPLATE_FULLREQUESTTOOLARGE);
 	}
 	return ret;
 }

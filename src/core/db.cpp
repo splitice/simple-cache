@@ -425,7 +425,10 @@ static bool currently_flushing(int flags){
 }
 
 void db_lru_gc() {
-	if (settings.max_size > 0 && settings.max_size < db.db_size_bytes)
+	bool do_lru = settings.max_size > 0 && settings.max_size < db.db_size_bytes;
+
+	DEBUG("Starting %s\n", do_lru?"LRU GC":"Expiration Cursor");
+	if (do_lru)
 	{
 		int bytes_to_remove;
 		bool full_cycle;

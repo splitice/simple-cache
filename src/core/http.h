@@ -19,16 +19,17 @@
 
 /* Request methods */
 #define LONGEST_REQMETHOD 6
-#define REQUEST_HTTPGET 0x80
-#define REQUEST_HTTPBULK 0x40
-#define REQUEST_HTTPPUT 0x20
-#define REQUEST_HTTPDELETE 0x10
-#define REQUEST_HTTPHEAD 0x01
+#define REQUEST_HTTPADMIN 0x08
+#define REQUEST_HTTPGET 0xF0
+#define REQUEST_HTTPBULK 0x80
+#define REQUEST_HTTPPUT 0x40
+#define REQUEST_HTTPDELETE 0x20
+#define REQUEST_HTTPHEAD 0x10
 
 /* Request levels */
-#define REQUEST_LEVELKEY 0x08
-#define REQUEST_LEVELTABLE 0x04
-#define REQUEST_LEVELRESERVED1 0x02
+#define REQUEST_LEVELKEY 0x04
+#define REQUEST_LEVELTABLE 0x02
+#define REQUEST_LEVELRESERVED1 0x01
 
 /* Common types (method + level) */
 #define REQUEST_HEADKEY (REQUEST_HTTPHEAD | REQUEST_LEVELKEY)
@@ -38,10 +39,9 @@
 #define REQUEST_GETTABLE (REQUEST_HTTPGET | REQUEST_LEVELTABLE)
 
 /* Helpers */
-#define REQUEST_IS(type, mask) ((type & (mask)) == (mask))
+#define REQUEST_IS(type, request_type) (((request_type & 0xF8 == 0) || (type & (0xF8 & request_type)) == (request_type & 0xF8)) && ((request_type & 0x07 == 0) || (type & (0x07 & request_type)) == (request_type & 0x07)))
 
 /* ===[ HTTP TEMPLATES ]=== */
-#define NUMBER_OF_HTTPTEMPLATE 11
 #define HTTPTEMPLATE_HEADERS200 0
 #define HTTPTEMPLATE_FULL404 1
 #define HTTPTEMPLATE_FULL200OK 2
@@ -53,8 +53,11 @@
 #define HTTPTEMPLATE_FULLINVALIDCONTENTLENGTH 8
 #define HTTPTEMPLATE_BULK_OK 9
 #define HTTPTEMPLATE_200CONTENT_LENGTH 10
+#define HTTPTEMPLATE_FULLLONGMETHOD 11
+#define HTTPTEMPLATE_FULLUNKNOWNMETHOD 12
+#define HTTPTEMPLATE_FULLREQUESTTOOLARGE 13
 
-static const char http_templates[NUMBER_OF_HTTPTEMPLATE][100] = {
+static const char http_templates[][100] = {
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\n",
 	"HTTP/1.1 404 Not Found\r\nConnection: Keep-Alive\r\nContent-Length: 15\r\n\r\nKey not Found\r\n",
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\nContent-Length: 4\r\n\r\nOK\r\n",
@@ -66,7 +69,11 @@ static const char http_templates[NUMBER_OF_HTTPTEMPLATE][100] = {
 	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 24\r\n\r\nInvalid Content-Length\r\n",
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\nContent-Length: 9\r\n\r\nBULK OK\r\n",
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\nContent-Length: %d\r\n\r\n",
+	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 17\r\n\r\nMethod too Long\r\n",
+	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 16\r\n\r\nUnknown Method\r\n",
+	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 19\r\n\r\nRequest too large\r\n",
 };
+#define NUMBER_OF_HTTPTEMPLATE sizeof(http_templates)/100
 
 int extern http_templates_length[NUMBER_OF_HTTPTEMPLATE];
 
