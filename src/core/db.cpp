@@ -369,10 +369,10 @@ static int db_expire_cursor_table(db_table* table) {
 				if (end_early || table_deleted) {
 					break;
 				}
-
-				assert(!table->deleted);
 			}
 		}
+
+		assert(!table->deleted);
 	}
 	return ret;
 }
@@ -1143,17 +1143,18 @@ bool db_entry_handle_delete(cache_entry* entry) {
 	return db_entry_handle_delete(entry, k);
 }
 
-void db_delete_table_entry(db_table* table, khiter_t k) {
+void db_delete_table_entry(db_table* table, khiter_t k, bool actually_delete = true) {
+	// Clear key hash table
 	kh_destroy(entry, table->cache_hash_set);
 
-	//If not fully de-refed remove now, not later
+	// If not fully de-refed remove now, not later
 	if (table->refs != 0) {
 		assert(k != kh_end(db.tables));
 		kh_del(table, db.tables, k);
 	}
 
 	//Remove reference holding table open
-	db_table_deref(table);
+	db_table_deref(table, actually_delete);
 }
 
 
@@ -1211,7 +1212,8 @@ bool db_entry_handle_delete(cache_entry* entry, khiter_t k) {
 		assert(!entry->table->deleted);
 		entry->table->deleted = true;
 		k = kh_get(table, db.tables, entry->table->hash);
-		db_delete_table_entry(entry->table, k);
+		assert (k != kh_end(db.tables));
+		db_delete_table_entry(entry->table, k, true);
 		entry->table = NULL;
 		return true;
 	}
