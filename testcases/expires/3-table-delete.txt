@@ -1,0 +1,58 @@
+Desciption: DELETE table after expiration
+
+>>>>>
+PUT /e/k HTTP/1.1
+Connection: Keep-Alive
+Content-Length: 2
+X-Ttl: 1
+
+12
+-----
+HTTP/1.1 200 OK
+Connection: Keep-Alive
+Content-Length: 4
+
+OK
+
+5*****
+>>>>>
+DELETE /e HTTP/1.1
+Connection: Keep-Alive
+
+
+-----
+HTTP/1.1 200 OK
+Connection: Keep-Alive
+Content-Length: 9
+
+BULK OK
+
+5*****
+>>>>>
+PUT /e/k HTTP/1.1
+Connection: Keep-Alive
+Content-Length: 2
+X-Ttl: 1
+
+12
+-----
+HTTP/1.1 200 OK
+Connection: Keep-Alive
+Content-Length: 4
+
+OK
+
+5*****
+>>>>>
+DELETE /e HTTP/1.1
+Connection: Keep-Alive
+
+
+-----
+HTTP/1.1 200 OK
+Connection: Keep-Alive
+Content-Length: 9
+
+BULK OK
+
+5*****
