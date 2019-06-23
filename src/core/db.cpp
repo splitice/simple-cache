@@ -529,6 +529,7 @@ cache_entry* db_entry_new(db_table* table) {
 	entry->table = table;
 	entry->lru_next = NULL;
 	entry->lru_prev = NULL;
+	entry->it = 0;
 
 #ifdef DEBUG_BUILD
 	entry->lru_found = false;
