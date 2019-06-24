@@ -606,6 +606,10 @@ static bool db_load_from_save(){
 	db.blocks_exist = (uint32_t)(size / BLOCK_LENGTH);
 
 	FILE* fp = fdopen(fd, "r");
+	if(fp == NULL){
+		PWARN("Unable to get fd for fh");
+		goto close_fd2;
+	}
 
 	while ((read = getline(&bp, &len, fp)) != -1) {
         if(read <= 2 || bp[1] != ':') continue;
@@ -688,6 +692,7 @@ static bool db_load_from_save(){
 	ret = true;
 close_fd:
 	fclose(fp);
+close_fd2:
 	close(db.fd_blockfile);
 
 	close(fd);
@@ -762,7 +767,6 @@ int db_entry_open_create(struct cache_entry* e) {
 		// This will rollover -- and that's expected
 		// it ensures safety after saving
 		e->it++;
-		close(fd);
 	}
 	
 	return -1;
@@ -799,13 +803,13 @@ void db_target_setup(struct cache_target* target, struct cache_entry* entry, boo
 void db_target_entry_close(cache_target* target) {
 	if (target->entry != NULL) {
 		if (target->fd != db.fd_blockfile && target->fd != -1) {
-			assert(target->fd > 0 || settings.daemon_mode);
+			assert(target->fd > 0 || (settings.daemon_mode && target->fd >= 0));
 			close(target->fd);
 		}
 
+		target->fd = -1;
 		db_entry_deref(target->entry);
 		target->entry = NULL;
-		target->fd = -1;
 	}
 	target->position = 0;
 }
@@ -1395,7 +1399,9 @@ static pid_t db_index_flush(bool copyOnWrite){
 		}
 	}
 
+	// close index file
 	close(fd);
+	fd = -1;
 
 	// db.temp -> db.index & blockfile.temp -> blockfile.save
 	snprintf(buffer, sizeof(buffer), "%s/db.temp", db.path_root);

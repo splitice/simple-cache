@@ -354,6 +354,7 @@ static void* connection_handle_accept(void *arg)
 	while (!stop_soon) {
 		int nfds = epoll_wait(epfd, events, NUM_EVENTS, 500);
 		int n = 0;
+		int state = 1;
 		while (n < nfds) {
 			int fd = events[n].data.fd;
 			if (events[n].events & EPOLLIN) {
@@ -379,7 +380,6 @@ static void* connection_handle_accept(void *arg)
 							PFATAL("Setting connection to non blocking failed.");
 						
 						//Enable TCP CORK
-						int state = 1;
 						setsockopt(client_sock, IPPROTO_TCP, TCP_CORK, &state, sizeof(state));
 							
 						
@@ -387,6 +387,7 @@ static void* connection_handle_accept(void *arg)
 						q->client_sock = client_sock;
 						q->next = NULL;
 						
+						// Insert connection into queue
 						pthread_mutex_lock(&cq_lock);
 						if (cq_tail == NULL)
 						{
@@ -508,7 +509,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					if (do_close) {
 						DEBUG("[#%d] Closing connection due to err:%d hup:%d rdhup:%d\n", fd, events[n].events&EPOLLERR, events[n].events&EPOLLHUP, events[n].events&EPOLLRDHUP);
 						http_cleanup(connection);
-						assert(fd != 0 || settings.daemon_mode);
+						assert(fd != 0 || (settings.daemon_mode && fd >= 0));
 						if(connection_remove(epfd, fd, ctable)){
 							assert(connection_get(fd, ctable) == NULL);
 		#ifdef DEBUG_BUILD
@@ -525,7 +526,8 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 				else
 				{
 					WARN("Unknown connection %d\n", fd);
-					assert(fd != 0 || settings.daemon_mode);
+					if(fd) assert(fd);
+					assert(fd != 0 || (settings.daemon_mode && fd >= 0));
 					close(fd);
 				}
 				
