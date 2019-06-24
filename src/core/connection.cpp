@@ -457,25 +457,26 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 				}
 				
 				while (u -- != 0)
-				{
-					assert(cq_head != NULL);
-					int client_sock = cq_head->client_sock;
-					assert(client_sock >= 0);
-					DEBUG("[#%d] A new socket was accepted %d\n", fd, fd);
-					
+				{					
 					//Dequeue
 					assert(cq_head != NULL);
 					connections_queued* temp = cq_head;
 					pthread_mutex_lock(&cq_lock);
-					cq_head = cq_head->next;
+					cq_head = temp->next;
 					if (cq_head == NULL)
 					{
 						cq_tail = NULL;
 					}
 					pthread_mutex_unlock(&cq_lock);
+
+					// Handle dequeued socket
+					assert(temp != NULL);
+					int client_sock = temp->client_sock;
 					free(temp);
+					assert(client_sock >= 0);
 					
 					//Handle connection
+					DEBUG("[#%d] A new socket was accepted %d\n", fd, fd);
 					cache_connection* connection = connection_add(client_sock, ctable);
 					connection_handler(connection);
 					
