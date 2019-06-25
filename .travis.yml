@@ -18,3 +18,4 @@ script:
  - make all CXX="g++-4.8" CC="g++-4.8" CONFIG="${BUILD_TYPE}"
  - PWD=$(pwd)
  - ./tests/$BUILD_OUTPUT/tests $PWD/src/server/$BUILD_OUTPUT/scache $PWD/testcases/
+ - valgrind ./tests/$BUILD_OUTPUT/tests $PWD/src/server/$BUILD_OUTPUT/scache $PWD/testcases/
