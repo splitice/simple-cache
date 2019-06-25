@@ -478,7 +478,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					//Handle connection
 					DEBUG("[#%d] A new socket was accepted %d\n", fd, client_sock);
 					cache_connection* connection = connection_add(client_sock, ctable);
-					assert(connection->fd == client_sock)
+					assert(connection->client_sock == client_sock);
 					connection_handler(connection);
 					
 					//Add socket to epoll
@@ -495,6 +495,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 				DEBUG("[#%d] Got socket event %d\n", fd, events[n].events);
 				cache_connection* connection = connection_get(fd, ctable);
 				if (connection != NULL) {
+					assert(connection->client_sock == fd);
 					bool do_close = events[n].events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP);
 
 					if (events[n].events & EPOLLIN) {
