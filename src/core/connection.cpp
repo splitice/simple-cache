@@ -405,12 +405,10 @@ static void* connection_handle_accept(void *arg)
 						int res;
 						do {
 							res = write(thread_arg->eventfd, &u, sizeof(u));
-							if(res != sizeof(u)){
-								FATAL("Expect eventfd to always accept writes of 8 bytes");
-							}
 							if(res == -1){
 								PFATAL("Unable to write to eventfd");
 							}
+							assert(res == sizeof(u));
 						} while(!res);
 					}
 				} while (!stop_soon);
@@ -459,11 +457,12 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 			int fd = events[n].data.fd;
 			if (fd == efd)
 			{				
-				res = read(fd, &u, 1);
+				res = read(fd, &u, sizeof(u));
 				if (res != 1)
 				{
 					PFATAL("efd read() failed.");
 				}
+				assert(res == sizeof(u));
 				
 				while (u -- != 0)
 				{					
