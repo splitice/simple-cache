@@ -339,7 +339,7 @@ static void* connection_handle_accept(void *arg)
 	struct epoll_event events[NUM_EVENTS];
 	int res;
 	connection_thread_arg* thread_arg = (connection_thread_arg*)arg;
-	uint8_t u = 1;
+	uint64_t u = 1;
 	
 	for (uint32_t i = 0; i < listeners.fd_count; i++)
 	{
@@ -404,7 +404,10 @@ static void* connection_handle_accept(void *arg)
 						//Write a signal
 						int res;
 						do {
-							res = write(thread_arg->eventfd, &u, 1);
+							res = write(thread_arg->eventfd, &u, sizeof(u));
+							if(res != sizeof(u)){
+								FATAL("Expect eventfd to always accept writes of 8 bytes");
+							}
 							if(res == -1){
 								PFATAL("Unable to write to eventfd");
 							}
