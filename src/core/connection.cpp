@@ -461,7 +461,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					//Dequeue
 					pthread_mutex_lock(&cq_lock);
 					assert(cq_head != NULL);
-					connections_queued* temp = cq_head;
+					volatile connections_queued* temp = cq_head;
 					cq_head = temp->next;
 					if (cq_head == NULL)
 					{
