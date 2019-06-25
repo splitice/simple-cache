@@ -458,9 +458,9 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 			if (fd == efd)
 			{				
 				res = read(fd, &u, sizeof(u));
-				if (res != 1)
+				if (res == 1)
 				{
-					PFATAL("efd read() failed.");
+					PFATAL("eventfd read() failed.");
 				}
 				assert(res == sizeof(u));
 				
