@@ -69,6 +69,7 @@ static pid_t db_index_flush(bool copyOnWrite = true);
 
 //Buffers
 static char filename_buffer[MAX_PATH];
+static uint16_t nextit = 0;
 
 db_details* db_get_details() {
 	return &db;
@@ -529,7 +530,7 @@ cache_entry* db_entry_new(db_table* table) {
 	entry->table = table;
 	entry->lru_next = NULL;
 	entry->lru_prev = NULL;
-	entry->it = 0;
+	entry->it = nextit++;
 
 #ifdef DEBUG_BUILD
 	entry->lru_found = false;
