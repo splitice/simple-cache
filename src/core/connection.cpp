@@ -523,6 +523,16 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 						} else {
 							WARN("Unable to remove connection %d (not found in table)", fd);
 						}
+
+						//Remove from epoll. Manual removal is necessary due to fork which may be in operation
+						ev.events = NULL;
+						ev.data.fd = fd;
+						res = epoll_ctl(epfd, EPOLL_CTL_DEL, client_sock, &ev);
+						if (res != 0) {
+							PFATAL("epoll_ctl() failed.");
+						}
+
+						//Close connection socket
 						close(fd);
 					}
 				}
