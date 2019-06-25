@@ -339,7 +339,7 @@ static void* connection_handle_accept(void *arg)
 	struct epoll_event events[NUM_EVENTS];
 	int res;
 	connection_thread_arg* thread_arg = (connection_thread_arg*)arg;
-	uint64_t u = 1;
+	uint8_t u = 1;
 	
 	for (uint32_t i = 0; i < listeners.fd_count; i++)
 	{
@@ -355,7 +355,6 @@ static void* connection_handle_accept(void *arg)
 		int nfds = epoll_wait(epfd, events, NUM_EVENTS, 500);
 		int n = 0;
 		int state = 1;
-		size_t to_write = 0;
 		while (n < nfds) {
 			int fd = events[n].data.fd;
 			if (events[n].events & EPOLLIN) {
@@ -402,17 +401,14 @@ static void* connection_handle_accept(void *arg)
 						}
 						pthread_mutex_unlock(&cq_lock);
 						
-						char* buf = &u;
-						to_write = sizeof(uint64_t);
+						//Write a signal
+						int res;
 						do {
-							int res = write(thread_arg->eventfd, buf, to_write);
+							res = write(thread_arg->eventfd, &u, 1);
 							if(res == -1){
 								PFATAL("Unable to write to eventfd");
 							}
-							assert(res >= to_write);
-							buf += res;
-							to_write -= res;
-						} while(to_write);
+						} while(!res);
 					}
 				} while (!stop_soon);
 			} else if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP) {
@@ -460,8 +456,8 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 			int fd = events[n].data.fd;
 			if (fd == efd)
 			{				
-				res = read(fd, &u, sizeof(uint64_t));
-				if (res != sizeof(uint64_t))
+				res = read(fd, &u, 1);
+				if (res != 1)
 				{
 					PFATAL("efd read() failed.");
 				}
