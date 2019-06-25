@@ -381,7 +381,6 @@ static void* connection_handle_accept(void *arg)
 						
 						//Enable TCP CORK
 						setsockopt(client_sock, IPPROTO_TCP, TCP_CORK, &state, sizeof(state));
-							
 						
 						connections_queued* q = (connections_queued*)malloc(sizeof(connections_queued)) ;
 						q->client_sock = client_sock;
@@ -525,7 +524,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 						}
 
 						//Remove from epoll. Manual removal is necessary due to fork which may be in operation
-						ev.events = NULL;
+						ev.events = 0;
 						ev.data.fd = fd;
 						res = epoll_ctl(epfd, EPOLL_CTL_DEL, client_sock, &ev);
 						if (res != 0) {
