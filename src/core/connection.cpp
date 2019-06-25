@@ -50,8 +50,8 @@ struct connections_queued
 	connections_queued* next;
 };
 
-static connections_queued* cq_head = NULL;
-static connections_queued* cq_tail = NULL;
+static volatile connections_queued* cq_head = NULL;
+static volatile connections_queued* cq_tail = NULL;
 static pthread_mutex_t cq_lock;
 
 /* Methods */
@@ -459,9 +459,9 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 				while (u -- != 0)
 				{					
 					//Dequeue
+					pthread_mutex_lock(&cq_lock);
 					assert(cq_head != NULL);
 					connections_queued* temp = cq_head;
-					pthread_mutex_lock(&cq_lock);
 					cq_head = temp->next;
 					if (cq_head == NULL)
 					{
@@ -476,14 +476,15 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					assert(client_sock >= 0);
 					
 					//Handle connection
-					DEBUG("[#%d] A new socket was accepted %d\n", fd, fd);
+					DEBUG("[#%d] A new socket was accepted %d\n", fd, client_sock);
 					cache_connection* connection = connection_add(client_sock, ctable);
+					assert(connection->fd == client_sock)
 					connection_handler(connection);
 					
 					//Add socket to epoll
 					ev.events = EPOLLIN | EPOLLHUP | EPOLLRDHUP;
-					ev.data.fd = connection->client_sock;
-					res = epoll_ctl(epfd, EPOLL_CTL_ADD, connection->client_sock, &ev);
+					ev.data.fd = client_sock;
+					res = epoll_ctl(epfd, EPOLL_CTL_ADD, client_sock, &ev);
 					if (res != 0) {
 						PFATAL("epoll_ctl() failed.");
 					}
@@ -508,7 +509,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					}
 					
 					if (do_close) {
-						DEBUG("[#%d] Closing connection due to err:%d hup:%d rdhup:%d\n", fd, events[n].events&EPOLLERR, events[n].events&EPOLLHUP, events[n].events&EPOLLRDHUP);
+						DEBUG("[#%d] Closing connection due to err:%d hup:%d rdhup:%d\n", fd, !! (events[n].events&EPOLLERR), !! (events[n].events&EPOLLHUP), !! (events[n].events&EPOLLRDHUP));
 						http_cleanup(connection);
 						assert(fd != 0 || (settings.daemon_mode && fd >= 0));
 						if(connection_remove(epfd, fd, ctable)){
