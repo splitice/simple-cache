@@ -355,6 +355,7 @@ static void* connection_handle_accept(void *arg)
 		int nfds = epoll_wait(epfd, events, NUM_EVENTS, 500);
 		int n = 0;
 		int state = 1;
+		size_t to_write = 0;
 		while (n < nfds) {
 			int fd = events[n].data.fd;
 			if (events[n].events & EPOLLIN) {
@@ -401,7 +402,17 @@ static void* connection_handle_accept(void *arg)
 						}
 						pthread_mutex_unlock(&cq_lock);
 						
-						write(thread_arg->eventfd, &u, sizeof(uint64_t));
+						char* buf = &u;
+						to_write = sizeof(uint64_t);
+						do {
+							int res = write(thread_arg->eventfd, buf, to_write);
+							if(res == -1){
+								PFATAL("Unable to write to eventfd");
+							}
+							assert(res >= to_write);
+							buf += res;
+							to_write -= res;
+						} while(to_write);
 					}
 				} while (!stop_soon);
 			} else if (events[n].events & EPOLLERR || events[n].events & EPOLLHUP) {
@@ -526,7 +537,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 						//Remove from epoll. Manual removal is necessary due to fork which may be in operation
 						ev.events = 0;
 						ev.data.fd = fd;
-						res = epoll_ctl(epfd, EPOLL_CTL_DEL, client_sock, &ev);
+						res = epoll_ctl(epfd, EPOLL_CTL_DEL, fd, &ev);
 						if (res != 0) {
 							PFATAL("epoll_ctl() failed.");
 						}
