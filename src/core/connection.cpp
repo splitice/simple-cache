@@ -560,7 +560,14 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					WARN("Unknown connection %d\n", fd);
 					if(fd) assert(fd);
 					assert(fd != 0 || (settings.daemon_mode && fd >= 0));
-					close(fd);
+					
+					// Ensure connection has been removed
+					ev.events = 0;
+					ev.data.fd = fd;
+					res = epoll_ctl(epfd, EPOLL_CTL_DEL, fd, &ev);
+					if (res != 0) {
+						PFATAL("epoll_ctl() failed.");
+					}
 				}
 				
 			}
