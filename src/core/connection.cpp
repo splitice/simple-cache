@@ -237,10 +237,10 @@ static cache_connection* connection_add(int fd, cache_connection_node* ctable) {
 	
 	// Initialize connection
 	memset(node, 0, sizeof(node)); /* .connection = {}, .next = NULL */
-	rbuf_init(&node->connection.input);
+	rbuf_init(&(node->connection.input));
 	node->connection.client_sock = fd;
 
-	return &node->connection;
+	return &(node->connection);
 }
 
 static cache_connection* connection_get(int fd, cache_connection_node* ctable) {
@@ -248,6 +248,7 @@ static cache_connection* connection_get(int fd, cache_connection_node* ctable) {
 	if (node->connection.client_sock == -1) {
 		return NULL;
 	}
+	assert(node->connection.client_sock < -1);
 	
 	while (node->connection.client_sock != fd) {
 		assert(node->connection.client_sock != -1);
@@ -257,7 +258,7 @@ static cache_connection* connection_get(int fd, cache_connection_node* ctable) {
 		}
 	}
 
-	return &node->connection;
+	return &(node->connection);
 }
 
 static bool connection_remove(int epfd, int fd, cache_connection_node* ctable) {
@@ -277,21 +278,25 @@ static bool connection_remove(int epfd, int fd, cache_connection_node* ctable) {
 		}
 	}
 
+	// Clear current record
 	node->connection.client_sock = -1;
+
+	/* is in the middle */
 	if (temp) { /* prev */
 		//Not the first node in a linked list
 		temp->next = node->next;
 		free(node);
 	}
-	else if (node->next) { /* Has nodes after it, but is the first node */
+	else if (temp = node->next) 
+	{ 
+		/* Has nodes after it, but is the first node */
 		// Copy next node into current node connection (static memory)
-		memcpy(&node->connection, &node->next->connection, sizeof(cache_connection));
+		memcpy(&(node->connection), &(temp->connection), sizeof(cache_connection));
 
 		//Set node->next to node->next->next then free next->next
-		temp = node->next;
 		node->next = temp->next;
 		free(temp);
-	} //Else: Is a single entry in table and setting to -1 will suffice
+	} //Else: Is a single entry in table and just setting to -1 will suffice
 
 	return true;
 }
@@ -452,8 +457,9 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 
 	while (!stop_soon) {
 		int nfds = epoll_wait(epfd, events, NUM_EVENTS, 500);
-		int n = 0;
-		while (n < nfds) {
+
+		// First accept connections
+		for (int n = 0; n < nfds; n++) {
 			int fd = events[n].data.fd;
 			if (fd == efd)
 			{				
@@ -498,7 +504,12 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					}
 				}
 			}
-			else
+		}
+
+		// Then process existing connections
+		for (int n = 0; n < nfds; n++) {
+			int fd = events[n].data.fd;
+			if (fd != efd)
 			{
 				DEBUG("[#%d] Got socket event %d\n", fd, events[n].events);
 				cache_connection* connection = connection_get(fd, ctable);
@@ -553,7 +564,6 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 				}
 				
 			}
-			n++;
 		}
 	}
 
