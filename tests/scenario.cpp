@@ -327,7 +327,7 @@ void stop_server(pid_t pid){
 	char pid_path[128];
 	int res = kill(pid, SIGTERM);
 	if (res != 0){
-		PFATAL("Unable to kill scache service");
+		PFATAL("Unable to kill scache service %d", pid);
 	}
 	
 	sprintf(pid_path, "/proc/%d", pid);
