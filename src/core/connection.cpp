@@ -500,7 +500,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					ev.data.fd = client_sock;
 					res = epoll_ctl(epfd, EPOLL_CTL_ADD, client_sock, &ev);
 					if (res != 0) {
-						PFATAL("epoll_ctl() failed.");
+						PWARN("epoll_ctl() failed to add %s.", client_sock);
 					}
 				}
 			}
