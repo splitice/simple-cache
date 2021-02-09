@@ -17,9 +17,9 @@ struct block_free_node {
 /* Details regarding a database */
 struct db_details {
 	//Paths
-	char path_root[MAX_PATH];
-	char path_single[MAX_PATH];
-	char path_blockfile[MAX_PATH];
+	char path_root[SHORT_PATH];
+	char path_single[SHORT_PATH];
+	char path_blockfile[SHORT_PATH];
 
 	//Blockfile
 	int fd_blockfile;

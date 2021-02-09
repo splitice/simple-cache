@@ -108,7 +108,6 @@ static __pid_t fork_off() {
 		if (chdir("/")) PFATAL("chdir('/') failed.");
 
 		setsid();
-
 	}
 	else {
 
@@ -120,6 +119,7 @@ static __pid_t fork_off() {
 		exit(0);
 
 	}
+	return npid;
 }
 
 /* Time to go down the rabbit hole */

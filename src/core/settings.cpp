@@ -181,7 +181,7 @@ void settings_parse_arguments(int argc, char** argv) {
 			settings.max_size = atol(optarg);
 			break;
 		case 'r':
-			settings.db_file_path = optarg;
+			settings.db_file_path = strdup(optarg);
 			break;
 		case 'b':
 			parse_binds(optarg);
@@ -197,9 +197,13 @@ void settings_parse_arguments(int argc, char** argv) {
     }
 
 	if (settings.db_file_path == NULL) {
-		settings.db_file_path = "/var/lib/scache/";
+		settings.db_file_path = strdup("/var/lib/scache/");
 	}
 }
 
 void settings_cleanup() {
+	if(settings.db_file_path != NULL){
+		free(settings.db_file_path);
+		settings.db_file_path = NULL;
+	}
 }

@@ -21,7 +21,11 @@
 #define PWARN(...) do {} while(0)
 #else
 
-#ifdef DEBUG_BUILD
+#if defined(DEBUG_BUILD)
+#define DEBUG_OUTPUT_ENABLED DEBUG_BUILD
+#endif
+
+#ifdef DEBUG_OUTPUT_ENABLED
 #  define DEBUG(x...) fprintf(stderr, x)
 #else
 #  define DEBUG(x...) do {} while (0)

@@ -623,7 +623,7 @@ static bool db_load_from_save(){
 				db_block_free(u1);
 			break;
 			case 't':
-				if(sscanf(bp, "t:%s", &buffer2) != 1){
+				if(sscanf(bp, "t:%s", buffer2) != 1){
 					WARN("Table parsing error\n");
 					continue;
 				}
@@ -640,7 +640,7 @@ static bool db_load_from_save(){
 					WARN("File entry must be after table\n");
 					continue;
 				}
-				if(sscanf(bp+1, ":%d:%u:%u:%u:%s", &d1, &u2, &u3, &u4, &buffer2) != 5){
+				if(sscanf(bp+1, ":%d:%u:%u:%u:%s", &d1, &u2, &u3, &u4, buffer2) != 5){
 					WARN("Entry parsing error\n");
 					continue;
 				}
@@ -704,8 +704,8 @@ bool db_open(const char* path) {
 	bool will_black = false;
 
 	//Create paths as char*'s
-	snprintf(db.path_root, MAX_PATH, "%s/", path);
-	snprintf(db.path_single, MAX_PATH, "%s/files/", path);
+	snprintf(db.path_root, SHORT_PATH, "%s/", path);
+	snprintf(db.path_single, SHORT_PATH, "%s/files/", path);
 
 	//Initialize folder structure if it doesnt exist
 	db_init_folders();
@@ -715,7 +715,7 @@ bool db_open(const char* path) {
 	db.table_gc = kh_begin(db.tables);
 
 	//Load from index if available
-	snprintf(db.path_blockfile, MAX_PATH, "%s/blockfile.db", path);
+	snprintf(db.path_blockfile, SHORT_PATH, "%s/blockfile.db", path);
 	
 	if(!db_load_from_save()){
 		PWARN("Unable to load index from disk, will blank database");
@@ -736,7 +736,9 @@ bool db_open(const char* path) {
 	if(will_black){
 		if(size > (BLOCK_MAX_LOAD * BLOCK_LENGTH)) {
 			size = BLOCK_MAX_LOAD * BLOCK_LENGTH;
-			ftruncate(db.fd_blockfile, size);
+			if(ftruncate(db.fd_blockfile, size) == -1){
+				PFATAL("Failed to truncate blockfile: %s", db.path_blockfile);
+			}
 			db.blocks_exist = (uint32_t)(size / BLOCK_LENGTH);
 		}
 		for (off64_t i = 0; i < size; i += BLOCK_LENGTH) {
@@ -782,7 +784,7 @@ void db_target_open(struct cache_target* target, bool write) {
 			target->fd = db_entry_open(target->entry, 0);
 		}
 		if (target->fd <= 0) {
-			WARN("Unable to open cache file: %d", target->entry);
+			WARN("Unable to open cache file: %s", target->entry->key);
 		}
 	}
 	else{
@@ -1391,7 +1393,7 @@ static pid_t db_index_flush(bool copyOnWrite){
 					if(ce->writing || ce->deleted) continue;
 
 					//Write entry key to index
-					temp = snprintf(buffer, sizeof(buffer), "%s:%d:%u:%u:%u:", ce->block >= 0 ? "b":"e", ce->block, ce->data_length, ce->expires, ce->it);
+					temp = snprintf(buffer, sizeof(buffer), "%s:%d:%u:%lu:%u:", ce->block >= 0 ? "b":"e", ce->block, ce->data_length, ce->expires, ce->it);
 					if(!full_write(fd, buffer, temp)) goto close_fd;
 					if(!full_write(fd, ce->key, ce->key_length)) goto close_fd;
 					if(!full_write(fd, "\n", 1)) goto close_fd;

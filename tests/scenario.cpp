@@ -211,7 +211,7 @@ int unit_connect(int port){
 
 	struct timeval tv;
 
-	tv.tv_sec = 3;  /* 1 Sec Timeout */
+	tv.tv_sec = 3;  /* 3 Sec Timeout */
 	tv.tv_usec = 0;  // Not init'ing this can cause strange errors
 
 	setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(struct timeval));
@@ -222,6 +222,7 @@ int unit_connect(int port){
 bool run_unit(std::string& request, std::string& expect, int sockfd){
 	char recv_buffer[8096];
 	int one = 1;
+	int received_total = 0;
 
 	// NO DELAY so we can form packets
 	setsockopt(sockfd, SOL_TCP, TCP_NODELAY, &one, sizeof(one));
@@ -253,7 +254,7 @@ bool run_unit(std::string& request, std::string& expect, int sockfd){
 			printf("%s\n", request.c_str());
 			printf("=========================================\n");
 			if (errno == EAGAIN || errno == EWOULDBLOCK){
-				printf("A timeout occured waiting for a response of length %d\n", to_recv);
+				printf("A timeout occured waiting for a response of length %d (had received %d of %d)\n", to_recv, received_total, len);
 				return false;
 			}
 			PFATAL("An error occured reading from socket");
@@ -282,6 +283,7 @@ bool run_unit(std::string& request, std::string& expect, int sockfd){
 
 		len -= n;
 		buffer += n;
+		received_total += n;
 	}
 
 	return true;
@@ -339,8 +341,8 @@ void stop_server(pid_t pid){
 
 void trim_last_nl(std::string* str){
 	int length = str->length();
-	if ((*str)[length - 1] == '\n'){
-		if ((*str)[length - 2] == '\r'){
+	if (length >= 1 && (*str)[length - 1] == '\n'){
+		if (length >= 2 && (*str)[length - 2] == '\r'){
 			*str = str->substr(0, length - 2);
 		}
 		else{

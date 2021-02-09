@@ -12,6 +12,13 @@ void connection_event_loop(void(*connection_handler)(cache_connection* connectio
 void connection_setup(struct scache_bind* binds, uint32_t num_binds);
 void connection_cleanup();
 
-#define CONNECTION_HASH_KEY(x) x%CONNECTION_HASH_ENTRIES
+#define _DEBUG_CONNECTION_HANDLER
+#ifdef DEBUG_CONNECTION_HANDLER
+#define CONNECTION_HANDLER(con, value) printf("Setting connection handler to " #value "\n"); (con)->handler = (value) 
+#else
+#define CONNECTION_HANDLER(con, value) (con)->handler = (value) 
+#endif
+
+#define CONNECTION_HASH_KEY(x) (x)%CONNECTION_HASH_ENTRIES
 
 #endif // !defined(CONNECTION_H_INCLUDED_0986159D_B42F_44F7_AC22_75D7DDA2994D)

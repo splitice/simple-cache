@@ -6,6 +6,8 @@
 *.user
 *.sln.docstates
 
+.vscode/
+
 # Build results
 
 CodeDB/

@@ -1,0 +1,30 @@
+name: build and test
+
+on: [push]
+
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        release: ["Release", "Debug"]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Build
+      run: |
+        make all CONFIG=${{ matrix.release }}
+    - name: Main tests
+      run: |
+        PWD=$(pwd)
+        ./tests/${{ matrix.release }}/tests $PWD/src/server/${{ matrix.release }}/scache $PWD/testcases/
+    - name: valgrind test
+      run: |
+        PWD=$(pwd)
+        sudo apt-get install valgrind
+        valgrind ./tests/${{ matrix.release }}/tests $PWD/src/server/${{ matrix.release }}/scache $PWD/testcases/
+    - name: Spam test
+      run: |
+        echo "todo"

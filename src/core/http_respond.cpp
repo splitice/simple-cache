@@ -41,11 +41,11 @@ state_action http_respond_expires(int epfd, cache_connection* connection) {
 		DEBUG("[#%d] Responding with X-Ttl\n", fd);
 		//Returns the number of chars put into the buffer
 		__time_t expires = connection->target.key.entry->expires;
-		int temp = snprintf(header, sizeof(header), "X-Ttl: %d\r\n", (expires == 0) ? expires : (expires - time_seconds));
+		int temp = snprintf(header, sizeof(header), "X-Ttl: %ld\r\n", (expires == 0) ? expires : (expires - time_seconds));
 
 		copy_to_outputbuffer(connection, header, temp);
 	}
-	connection->handler = http_respond_contentlength;
+	CONNECTION_HANDLER(connection,  http_respond_contentlength);
 	return continue_processing;
 }
 
@@ -57,7 +57,7 @@ state_action http_respond_contentlength(int epfd, cache_connection* connection) 
 	int temp = snprintf(header, sizeof(header), "Content-Length: %d\r\n", connection->target.key.entry->data_length);
 
 	copy_to_outputbuffer(connection, header, temp);
-	connection->handler = http_respond_responseend;
+	CONNECTION_HANDLER(connection,  http_respond_responseend);
 	return continue_processing;
 }
 
@@ -80,7 +80,7 @@ state_action http_respond_stats(int epfd, cache_connection* connection) {
 	db_details* details = db_get_details();
 
 	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Keys: %" PRIu64 "\r\n", details->db_keys);
-	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Tables: %" PRIu64 "\r\n", kh_size(details->tables));
+	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Tables: %u\r\n", kh_size(details->tables));
 	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Size Bytes: %" PRIu64 "\r\n", details->db_size_bytes);
 	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Blocks Free: %" PRIu32 "/%" PRIu32 "\r\n", details->blocks_free, details->blocks_exist);
 	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Stats Deletes: %" PRIu64 "\r\n", details->db_stats_deletes);
@@ -96,13 +96,13 @@ state_action http_respond_stats(int epfd, cache_connection* connection) {
 	memcpy(connection->output_buffer_free + header_length, stat_buffer, content_length);
 	connection->output_length = content_length + header_length;
 
-	connection->handler = http_respond_writeonly;
+	CONNECTION_HANDLER(connection,  http_respond_writeonly);
 	return continue_processing;
 }
 
 state_action http_respond_reset_connection(int epfd, cache_connection* connection) {
 	http_cleanup(connection);
-	connection->handler = http_handle_method;
+	CONNECTION_HANDLER(connection,  http_handle_method);
 	bool res = http_register_read(epfd, connection);
 	return res ? continue_processing : close_connection;
 }
@@ -113,13 +113,13 @@ state_action http_respond_responseend(int epfd, cache_connection* connection) {
 	connection->output_buffer = http_templates[HTTPTEMPLATE_NEWLINE];
 	connection->output_length = http_templates_length[HTTPTEMPLATE_NEWLINE];
 	if (REQUEST_IS(connection->type, REQUEST_HTTPGET)) {
-		connection->handler = http_respond_contentbody;
+		CONNECTION_HANDLER(connection,  http_respond_contentbody);
 	}
 	else if (REQUEST_IS(connection->type, REQUEST_HTTPHEAD)) {
-		connection->handler = http_respond_reset_connection;
+		CONNECTION_HANDLER(connection,  http_respond_reset_connection);
 	}
 	else{
-		connection->handler = http_respond_writeonly;
+		CONNECTION_HANDLER(connection,  http_respond_writeonly);
 	}
 	return continue_processing;
 }
@@ -152,7 +152,7 @@ state_action http_respond_contentbody(int epfd, cache_connection* connection) {
 	assert(connection->target.key.position <= connection->target.key.end_position);
 	if (connection->target.key.position == connection->target.key.end_position) {
 		http_cleanup(connection);
-		connection->handler = http_handle_method;
+		CONNECTION_HANDLER(connection,  http_handle_method);
 		bool res = http_register_read(epfd, connection);
 		if (!res) {
 			return close_connection;
@@ -165,7 +165,7 @@ state_action http_respond_writeonly(int epfd, cache_connection* connection) {
 	DEBUG("[#%d] Sending static response\n", connection->client_sock);
 	//Static response, after witing, read next request
 	http_cleanup(connection);
-	connection->handler = http_handle_method;
+	CONNECTION_HANDLER(connection,  http_handle_method);
 	bool res = http_register_read(epfd, connection);
 	return res ? continue_processing : close_connection;
 }
@@ -173,7 +173,7 @@ state_action http_respond_writeonly(int epfd, cache_connection* connection) {
 state_action http_respond_listing_separator(int epfd, cache_connection* connection) {
 	connection->output_buffer = "\r\n";
 	connection->output_length = 2;
-	connection->handler = http_respond_listing;
+	CONNECTION_HANDLER(connection,  http_respond_listing);
 
 	return continue_processing;
 }
@@ -216,10 +216,10 @@ state_action http_respond_listing(int epfd, cache_connection* connection) {
 			//Returns the number of chars put into the buffer
 			connection->output_buffer = entry->key;
 			connection->output_length = entry->key_length;
-			connection->handler = http_respond_listing_separator;
+			CONNECTION_HANDLER(connection,  http_respond_listing_separator);
 
 			if (cleanup) {
-				connection->handler = http_respond_close_connection;
+				CONNECTION_HANDLER(connection,  http_respond_close_connection);
 			}
 
 			return continue_processing;
@@ -241,7 +241,7 @@ state_action http_respond_listingtotal(int epfd, cache_connection* connection) {
 		copy_to_outputbuffer(connection, header, temp);
 	}
 
-	connection->handler = http_respond_listing_separator;
+	CONNECTION_HANDLER(connection,  http_respond_listing_separator);
 	return continue_processing;
 }
 
@@ -256,6 +256,6 @@ state_action http_respond_listingentries(int epfd, cache_connection* connection)
 
 		copy_to_outputbuffer(connection, header, temp);
 	}
-	connection->handler = http_respond_listingtotal;
+	CONNECTION_HANDLER(connection,  http_respond_listingtotal);
 	return continue_processing;
 }

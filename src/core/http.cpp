@@ -76,7 +76,7 @@ state_action http_read_handle(int epfd, cache_connection* connection) {
 	do {
 		run = http_read_handle_state(epfd, connection);
 		to_end_old = to_end;
-		to_end = rbuf_read_to_end(&connection->input);
+		to_end = rbuf_read_remaining(&connection->input);
 	} while (run == needs_more && to_end != 0 && to_end != to_end_old);
 
 	//Handle buffer is full, not being processed
@@ -177,6 +177,6 @@ void http_templates_init() {
 }
 
 void http_connection_handler(cache_connection* connection) {
-	connection->handler = http_handle_method;
+	CONNECTION_HANDLER(connection,  http_handle_method);
 	connection->state = 0;
 }

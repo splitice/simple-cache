@@ -425,6 +425,8 @@ static void* connection_handle_accept(void *arg)
 	}
 	
 	close(epfd);
+
+	return NULL;
 }
 
 void connection_event_loop(void (*connection_handler)(cache_connection* connection)) {
@@ -500,7 +502,7 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 					ev.data.fd = client_sock;
 					res = epoll_ctl(epfd, EPOLL_CTL_ADD, client_sock, &ev);
 					if (res != 0) {
-						PWARN("epoll_ctl() failed to add %s.", client_sock);
+						PWARN("epoll_ctl() failed to add %d.", client_sock);
 					}
 				}
 			}
@@ -555,9 +557,9 @@ void connection_event_loop(void (*connection_handler)(cache_connection* connecti
 						close(fd);
 					}
 				}
-				else
+				else if(fd == efd)
 				{
-					WARN("Unknown connection %d\n", fd);
+					WARN("Unknown connection %d (in=%d, out=%d, hup=%d)\n", fd, events[n].events & EPOLLIN ? 1 : 0, events[n].events & EPOLLOUT ? 1 : 0, events[n].events & EPOLLHUP ? 1 : 0);
 					if(fd) assert(fd);
 					assert(fd != 0 || (settings.daemon_mode && fd >= 0));
 					

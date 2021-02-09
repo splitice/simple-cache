@@ -65,12 +65,12 @@ static void skip_over_newlines(struct read_buffer* rb) {
 
 static state_action http_stats_after_eol(int epfd, cache_connection* connection) {
 	connection->state = 0;
-	connection->handler = http_handle_eolstats;
+	CONNECTION_HANDLER(connection,  http_handle_eolstats);
 	return needs_more;
 }
 
 static state_action http_write_response_after_eol(int epfd, cache_connection* connection, int http_template) {
-	connection->handler = http_handle_eolwrite;
+	CONNECTION_HANDLER(connection, http_handle_eolwrite);
 	connection->output_buffer = http_templates[http_template];
 	connection->output_length = http_templates_length[http_template];
 	connection->state = 1;
@@ -78,7 +78,7 @@ static state_action http_write_response_after_eol(int epfd, cache_connection* co
 }
 
 static state_action http_write_response(int epfd, cache_connection* connection, int http_template) {
-	connection->handler = http_respond_writeonly;
+	CONNECTION_HANDLER(connection,  http_respond_writeonly);
 	connection->output_buffer = http_templates[http_template];
 	connection->output_length = http_templates_length[http_template];
 	connection->state = 0;
@@ -87,7 +87,7 @@ static state_action http_write_response(int epfd, cache_connection* connection, 
 }
 
 static state_action http_headers_response_after_eol(int epfd, cache_connection* connection, int http_template) {
-	connection->handler = http_handle_eolwrite;
+	CONNECTION_HANDLER(connection,  http_handle_eolwrite);
 	connection->output_buffer = http_templates[http_template];
 	connection->output_length = http_templates_length[http_template];
 	connection->state = 2;
@@ -139,7 +139,7 @@ static bool http_key_lookup(cache_connection* connection, int n, int epfd) {
 	assert(REQUEST_IS(connection->type, connection->type));
 	assert(REQUEST_IS(connection->type, type & ~REQUEST_LEVELTABLE));
 	assert(!REQUEST_IS(connection->type, REQUEST_LEVELTABLE));
-	connection->handler = http_handle_httpversion;
+	CONNECTION_HANDLER(connection,  http_handle_httpversion);
 
 	if (entry) {
 		connection->target.key.entry = entry;
@@ -167,7 +167,7 @@ static inline state_action http_read_requeststartmethod(int epfd, cache_connecti
 
 		//As long as the method is valid the next step
 		//is to parse the url
-		connection->handler = http_handle_url;
+		CONNECTION_HANDLER(connection, http_handle_url);
 
 		//Workout what valid method we have been given (if any)
 		if (n == 3 && rbuf_cmpn(&connection->input, "GET", 3) == 0) {
@@ -295,7 +295,7 @@ static inline state_action http_read_requeststarturl1(int epfd, cache_connection
 				RBUF_READMOVE(connection->input, n + 1);
 
 				//Else request for table/key
-				connection->handler = http_handle_headers;
+				CONNECTION_HANDLER(connection, http_handle_headers);
 				connection->state = 0;
 				return needs_more;
 			} 
@@ -347,14 +347,14 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 				DEBUG("[#%d] Found Content-Length header\n", connection->client_sock);
 				RBUF_READMOVE(connection->input, bytes + 1);
 				connection->state = HEADER_CONTENTLENGTH;
-				connection->handler = http_handle_headers_extract;
+				CONNECTION_HANDLER(connection,  http_handle_headers_extract);
 				return needs_more;
 			}
 			if (bytes == 5 && rbuf_cmpn(&connection->input, "X-Ttl", 5) == 0) {
 				DEBUG("[#%d] Found X-Ttl header\n", connection->client_sock);
 				RBUF_READMOVE(connection->input, bytes + 1);
 				connection->state = HEADER_XTTL;
-				connection->handler = http_handle_headers_extract;
+				CONNECTION_HANDLER(connection,  http_handle_headers_extract);
 				return needs_more;
 			}
 		}
@@ -363,14 +363,14 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 				DEBUG("[#%d] Found X-Start header\n", connection->client_sock);
 				RBUF_READMOVE(connection->input, bytes + 1);
 				connection->state = HEADER_XSTART;
-				connection->handler = http_handle_headers_extract;
+				CONNECTION_HANDLER(connection,  http_handle_headers_extract);
 				return needs_more;
 			}
 			if (bytes == 7 && rbuf_cmpn(&connection->input, "X-Limit", 7) == 0) {
 				DEBUG("[#%d] Found X-Limit header\n", connection->client_sock);
 				RBUF_READMOVE(connection->input, bytes + 1);
 				connection->state = HEADER_XLIMIT;
-				connection->handler = http_handle_headers_extract;
+				CONNECTION_HANDLER(connection,  http_handle_headers_extract);
 				return needs_more;
 			}
 		}
@@ -379,7 +379,7 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 				DEBUG("[#%d] Found X-Delete header\n", connection->client_sock);
 				RBUF_READMOVE(connection->input, bytes + 1);
 				connection->state = HEADER_XDELETE;
-				connection->handler = http_handle_headers_extract;
+				CONNECTION_HANDLER(connection,  http_handle_headers_extract);
 				return needs_more;
 			}
 		}
@@ -397,7 +397,7 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 						return http_write_response(epfd, connection, HTTPTEMPLATE_FULLINVALIDCONTENTLENGTH);
 					}
 
-					connection->handler = http_handle_request_body;
+					CONNECTION_HANDLER(connection,  http_handle_request_body);
 					return needs_more;
 				}
 				if (connection->target.key.entry != NULL) {
@@ -406,7 +406,7 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 						connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200];
 						connection->state = 0;
 
-						connection->handler = http_respond_start;
+						CONNECTION_HANDLER(connection,  http_respond_start);
 						bool res = connection_register_write(epfd, connection->client_sock);
 						return res ? registered_write : close_connection;
 					}
@@ -429,7 +429,7 @@ static state_action http_read_headers(int epfd, cache_connection* connection, ch
 				}
 				connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200_CONCLOSE];
 				connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200_CONCLOSE];
-				connection->handler = http_respond_listingentries;
+				CONNECTION_HANDLER(connection,  http_respond_listingentries);
 				bool res = connection_register_write(epfd, connection->client_sock);
 				return res ? registered_write : close_connection;
 				
@@ -590,7 +590,7 @@ static state_action http_read_header_extraction(int epfd, cache_connection* conn
 
 
 		connection->state = 1;
-		connection->handler = http_handle_headers;
+		CONNECTION_HANDLER(connection,  http_handle_headers);
 		RBUF_READMOVE(connection->input, length + temporary);
 		return needs_more;
 	}
@@ -615,7 +615,7 @@ static state_action http_read_eol(int epfd, cache_connection* connection, char* 
 	}
 	if (target == current) {
 		connection->state = 0;
-		connection->handler = http_respond_writeonly;
+		CONNECTION_HANDLER(connection,  http_respond_writeonly);
 		bool res = connection_register_write(epfd, connection->client_sock);
 
 		if (!res) {
@@ -635,7 +635,7 @@ static state_action http_read_version(int epfd, cache_connection* connection, ch
 	if (*buffer == '\n') {
 		//TODO: handle version differences
 		connection->state = 1;
-		connection->handler = http_handle_headers;
+		CONNECTION_HANDLER(connection,  http_handle_headers);
 
 		RBUF_READMOVE(connection->input, n + 1);
 		n = -1;
@@ -700,7 +700,7 @@ state_action http_handle_eolstats(int epfd, cache_connection* connection) {
 		RBUF_READMOVE(connection->input, n);
 	}
 	if (ret == registered_write) {
-		connection->handler = http_respond_stats;
+		CONNECTION_HANDLER(connection,  http_respond_stats);
 	}
 
 	return ret;
@@ -761,7 +761,7 @@ state_action http_handle_request_body(int epfd, cache_connection* connection) {
 		if (connection->writing) {
 			// Write data
 			if(lseek64(connection->target.key.fd, connection->target.key.position, SEEK_SET) == -1) {
-				PWARN("[#%d] Failed to seek for PUT");
+				PWARN("[#%d] Failed to seek for PUT", connection->client_sock);
 				return http_write_response(epfd, connection, HTTPTEMPLATE_FULL404);				
 			}
 			int read_bytes = write(connection->target.key.fd, RBUF_READ(connection->input), to_write);
@@ -772,7 +772,11 @@ state_action http_handle_request_body(int epfd, cache_connection* connection) {
 			connection->target.key.position += read_bytes;
 		}
 		else{
-			RBUF_READMOVE(connection->input, to_write);
+			max_write = connection->target.key.end_position - connection->target.key.position;
+			if(to_write > max_write){
+				to_write = max_write;
+			}
+
 			connection->target.key.position += to_write;
 		}
 	}
@@ -782,10 +786,13 @@ state_action http_handle_request_body(int epfd, cache_connection* connection) {
 	if (connection->target.key.end_position == connection->target.key.position) {
 		//Decrease refs, done with writing
 		if (connection->writing) {
+			DEBUG("[#%d] Completed writing after a total of %d bytes to fd %d\n", connection->client_sock, connection->target.key.position, connection->target.key.fd);
 			db_complete_writing(connection->target.key.entry);
 			connection->writing = false;
 		}
 
 		return http_write_response(epfd, connection, HTTPTEMPLATE_FULL200OK);
 	}
+
+	return continue_processing;
 }
