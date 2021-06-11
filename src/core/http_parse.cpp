@@ -202,7 +202,7 @@ static inline state_action http_read_requeststartmethod(int epfd, cache_connecti
 			RBUF_READMOVE(connection->input, n + 1);
 			return needs_more;
 		}
-		else if (n == 4 && (rbuf_cmpn(&connection->input, "BULK", 4) == 0 || rbuf_cmpn(&connection->input, "PURGE", 5) == 0)) {
+		else if ((n == 4 && rbuf_cmpn(&connection->input, "BULK", 4) == 0) || (n == 5 && rbuf_cmpn(&connection->input, "PURGE", 5) == 0)) {
 			//This is a BULK request
 			connection->type = REQUEST_HTTPPURGE;
 			assert(REQUEST_IS(connection->type, connection->type));
