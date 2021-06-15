@@ -24,7 +24,7 @@ jobs:
       run: |
         PWD=$(pwd)
         sudo apt-get install valgrind
-        valgrind ./tests/${{ matrix.release }}/tests $PWD/src/server/${{ matrix.release }}/scache $PWD/testcases/
+        valgrind --leak-check=full ./tests/${{ matrix.release }}/tests $PWD/src/server/${{ matrix.release }}/scache $PWD/testcases/
     - name: Spam test
       run: |
         echo "todo"

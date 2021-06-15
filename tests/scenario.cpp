@@ -98,6 +98,7 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 					if (strncmp(line+1, UNIT_DELAY, 5) == 0){
 						printf("Close connection after step: %c\n", *line);
 						close = true;
+						free(line);
 						line = NULL;
 					}
 				} else{
@@ -117,10 +118,11 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 								*buf = 0;
 								printf("Sleeping for %s seconds\n", line);
 								sleep(atoi(line));
-								line = NULL;
 							}
 						}
 					}
+					free(line);
+					line = NULL;
 				}
 			}
 			last_pos = ftell(f);
@@ -131,7 +133,7 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 		}
 	}
 
-	free(line);
+	if(line != NULL) free(line);
 	if (state == 1){
 		printf("Error parsing scenario (possibly incomplete)\n");
 		request.clear();
@@ -264,7 +266,7 @@ bool run_unit(std::string& request, std::string& expect, int sockfd){
 
 		if (n == 0){
 			printf("Expected: %s\n", buffer);
-			printf("Connection Closed\n");
+			printf("Got: Connection Closed\n");
 			return false;
 		}
 
@@ -311,7 +313,7 @@ pid_t start_server(const char* binary_path, int port, const char* db, const char
 	do {
 		f = fopen(pidfile, "r");
 		usleep(100);
-	} while (f == 0);
+	} while (f == NULL);
 	char* line = NULL;
 	size_t len;
 	res = getline(&line, &len, f);
@@ -319,6 +321,7 @@ pid_t start_server(const char* binary_path, int port, const char* db, const char
 		PFATAL("Unable to read PID file");
 	}
 	int pid = atoi(line);
+	free(line);
 	fclose(f);
 	free(pidfile);
 
@@ -417,25 +420,66 @@ bool execute_file(const char* filename, int port){
 	return true;
 }
 
+static bool check_port(int port){
+	int sockfd;
+    struct sockaddr_in serv_addr;
+    struct hostent *server;
+	bool ret;	
+    const char *hostname = "127.0.0.1";
+
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        PFATAL("ERROR opening socket");
+    }
+
+    server = gethostbyname(hostname);
+
+    if (server == NULL) {
+        fprintf(stderr,"ERROR, no such host\n");
+        exit(0);
+    }
+
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    bcopy((char *)server->h_addr, 
+         (char *)&serv_addr.sin_addr.s_addr,
+         server->h_length);
+
+    serv_addr.sin_port = htons(port);
+    ret = connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) >= 0;
+
+    close(sockfd);
+
+	return ret;
+}
+
 bool run_scenario(const char* binary, const char* testcases, const char* filename, int port, bool run_server, const char* options, bool debug_output = true){
 	printf("Running scenarios \"%s\"\n", testcases);
 	char testcase_path[1024];
 	sprintf(testcase_path,"%s/%s", testcases, filename);
 	char* db = tempnam(NULL, NULL);
 	int res = mkdir(db, 0777);
+	bool result;
 	if (res < 0){
 		PFATAL("Failed to create temporary directory: %s", db);
 	}
 	pid_t pid;
 	if (run_server){
+		// start the scache executable
 		pid = start_server(binary, port, db, options, debug_output);
 		if (pid < 0){
 			WARN("Failed to start simple-cache server");
 			stop_server(pid);
-			return true;
+			result = true;
+			goto end;
+		}
+
+		// wait on port available
+		while(!check_port(port)){
+			usleep(100);
 		}
 	}
-	bool result = execute_file(testcase_path, port);
+	result = execute_file(testcase_path, port);
 	if (run_server){
 		stop_server(pid);
 	}
@@ -447,6 +491,8 @@ bool run_scenario(const char* binary, const char* testcases, const char* filenam
 		PFATAL("Failed to clean up temporary directory: %s", db);
 	}
 
+end:
+	free(db);
 	return result;
 }
 
@@ -470,5 +516,6 @@ bool run_scenarios(const char* binary, const char* testcases, const char* direct
 			full_result &= result;
 		}
 	}
+	closedir(theFolder);
 	return full_result;
 }

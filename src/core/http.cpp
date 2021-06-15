@@ -31,8 +31,8 @@ Handle read data for the connection
 
 return true to signal intent to process more data
 */
-state_action http_read_handle_state(int epfd, cache_connection* connection) {
-	return connection->handler(epfd, connection);
+state_action http_read_handle_state(scache_connection* connection) {
+	return connection->handler(connection);
 }
 
 /*
@@ -40,7 +40,7 @@ Handle the connection (Read Event)
 
 return true to close the connection
 */
-state_action http_read_handle(int epfd, cache_connection* connection) {
+state_action http_read_handle(scache_connection* connection) {
 	int num;
 	int fd = connection->client_sock;
 
@@ -74,7 +74,7 @@ state_action http_read_handle(int epfd, cache_connection* connection) {
 	state_action run;
 	int to_end = -1, to_end_old;
 	do {
-		run = http_read_handle_state(epfd, connection);
+		run = http_read_handle_state(connection);
 		to_end_old = to_end;
 		to_end = rbuf_read_remaining(&connection->input);
 	} while (run == needs_more && to_end != 0 && to_end != to_end_old);
@@ -93,8 +93,8 @@ Handle the writing of data to the connection
 
 return true to signal intent to send more data
 */
-state_action http_write_handle_state(int epfd, cache_connection* connection) {
-	return connection->handler(epfd, connection);
+state_action http_write_handle_state(scache_connection* connection) {
+	return connection->handler(connection);
 }
 
 /*
@@ -102,7 +102,7 @@ Handle the connection (Write Event)
 
 return true to close the connection
 */
-state_action http_write_handle(int epfd, cache_connection* connection) {
+state_action http_write_handle(scache_connection* connection) {
 	if (connection->output_buffer != NULL) {
 		//Send data
 		int num = write(connection->client_sock, connection->output_buffer, connection->output_length);
@@ -128,7 +128,7 @@ state_action http_write_handle(int epfd, cache_connection* connection) {
 	state_action run = continue_processing;
 	if (connection->output_buffer == NULL) {
 		do {
-			run = http_write_handle_state(epfd, connection);
+			run = http_write_handle_state(connection);
 		} while (run == needs_more);
 	}
 
@@ -138,30 +138,13 @@ state_action http_write_handle(int epfd, cache_connection* connection) {
 /*
 Cleanup & Reset state for a HTTP connection
 */
-void http_cleanup(cache_connection* connection) {
+void http_cleanup(scache_connection* connection) {
 	assert(connection != NULL);
-	DEBUG("[#%d] Cleaning up connection\n", connection->client_sock);
-	if (REQUEST_IS(connection->type, REQUEST_LEVELKEY)) {
-		if (connection->writing) {
-			cache_entry* entry = connection->target.key.entry;
-			assert(entry != NULL);
-			if (!entry->deleted) {
-				db_entry_handle_delete(entry);
-			}
-			entry->writing = false;
-			connection->writing = false;
-		}
-		if (connection->target.key.entry != NULL) {
-			db_target_entry_close(&connection->target.key);
-			assert(connection->target.key.entry == NULL);
-		}
-	}
-	else if(REQUEST_IS(connection->type, REQUEST_LEVELTABLE)) {
-		db_table* table = connection->target.table.table;
-		if (table != NULL) {
-			db_table_close(table);
-			connection->target.table.table = NULL;
-		}
+	DEBUG("[#%d] Cleaning up connection of type %s\n", connection->client_sock, listener_type_string(connection->ltype));
+	if(connection->ltype == cache_listener){
+		cache_destroy(connection);
+	} else if(connection->ltype == mon_listener){
+		monitoring_destroy(connection);
 	}
 	connection->type = 0;
 }
@@ -176,7 +159,12 @@ void http_templates_init() {
 	}
 }
 
-void http_connection_handler(cache_connection* connection) {
-	CONNECTION_HANDLER(connection,  http_handle_method);
+/* Where new connections land */
+void http_connection_handler(scache_connection* connection) {
+	if(connection->ltype == cache_listener){
+		CONNECTION_HANDLER(connection,  http_cache_handle_method);
+	} else {//else: mon
+		CONNECTION_HANDLER(connection,  http_mon_handle_start);
+	}
 	connection->state = 0;
 }

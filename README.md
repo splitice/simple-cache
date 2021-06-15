@@ -3,7 +3,7 @@ simple-cache
 
 [![Build Status](https://travis-ci.org/splitice/simple-cache.svg?branch=master)](https://travis-ci.org/splitice/simple-cache)
 
-A simple on disk small / large key value store with LRU
+A simple on disk small / large key value store with LRU. Now also includes a monitoring API.
 
 ## Building
 Compile with the provided Makefile. Requires a GCC version with C++11 support. Tested with gcc-4.8.
@@ -20,7 +20,7 @@ Compile with the provided Makefile. Requires a GCC version with C++11 support. T
   
 ## Requests
 
-### Get Key Value
+### Cache: Get Key Value
 **GET /table/key HTTP/1.1**
 
 Get the value of key in table
@@ -65,7 +65,7 @@ $ curl http://127.0.0.1:8000/table/key -XGET -v
 key value
 ```
 
-## Insert or Update Key
+## Cache: Insert or Update Key
 **PUT /table/key HTTP/1.1**
 
 Put (Set or inset) a value (post data) into key in table
@@ -93,7 +93,7 @@ OK
 * Connection #0 to host 127.0.0.1 left intact
 ```
 
-## Delete Key
+## Cache: Delete Key
 **DELETE /table/key HTTP/1.1**
 
 Delete the key in table
@@ -118,7 +118,7 @@ DELETED
 * Connection #0 to host 127.0.0.1 left intact
 ```
 
-## Delete / Purge table
+## Cache: Delete / Purge table
 **DELETE /table HTTP/1.1**
 
 Delete table, effectively purging table
@@ -162,7 +162,7 @@ DELETED
 * Connection #0 to host 127.0.0.1 left intact
 ```
 
-## List table contents
+## Cache: List table contents
 **GET /table HTTP/1.1**
 
 Get a listing of keys in the table. NOTE: This may return duplicates
@@ -207,7 +207,7 @@ key
 * Closing connection 0
 ```
 
-**Request headers supported:**
+**Cache: Request headers supported:**
 
 GET (key): 
  - None
@@ -222,6 +222,9 @@ PUT:
 
 DELETE:
  - None
+
+**Monitoring: Get root page (Also available as HEAD):**
+**GET / HTTP/1.1**
 
 ### Block File
 ```

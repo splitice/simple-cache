@@ -351,7 +351,7 @@ static int db_expire_cursor_table(db_table* table) {
 		if (kh_exist(table->cache_hash_set, ke)) {
 			ret++;
 			cache_entry* l = kh_value(table->cache_hash_set, ke);
-			if (!l->deleted && l->expires != 0 && l->expires < time_seconds) {
+			if (!l->deleted && l->expires != 0 && l->expires < current_time.tv_sec) {
 				bool end_early = kh_size(table->cache_hash_set) == 1;
 				bool table_deleted = false;
 
@@ -695,8 +695,10 @@ close_fd:
 	fclose(fp);
 close_fd2:
 	close(db.fd_blockfile);
+	db.fd_blockfile = -1;
 
-	close(fd);
+	if(fp == NULL) close(fd);
+	
 	return ret;
 }
 
@@ -805,7 +807,7 @@ void db_target_setup(struct cache_target* target, struct cache_entry* entry, boo
 
 void db_target_entry_close(cache_target* target) {
 	if (target->entry != NULL) {
-		if (target->fd != db.fd_blockfile && target->fd != -1) {
+		if (target->fd != db.fd_blockfile && target->fd >= 0) {
 			assert(target->fd > 0 || (settings.daemon_mode && target->fd >= 0));
 			close(target->fd);
 		}
@@ -835,10 +837,10 @@ cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length)
 	assert(entry->hash == hash);
 
 	if (entry->expires != 0) {
-		DEBUG("[#] Key has ttl: %lu (%d from now)\n", (unsigned long)entry->expires, (int)(entry->expires - time_seconds));
+		DEBUG("[#] Key has ttl: %lu (%d from now)\n", (unsigned long)entry->expires, (int)(entry->expires - current_time.tv_sec));
 	}
 
-	if (entry->expires != 0 && entry->expires < time_seconds) {
+	if (entry->expires != 0 && entry->expires < current_time.tv_sec) {
 		DEBUG("[#] Key expired\n");
 		free(key);
 		db_entry_incref(entry, false);

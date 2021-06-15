@@ -10,11 +10,17 @@ struct scache_settings settings {
 	.max_size = 0,
 	.db_file_path = NULL,
 	.db_lru_clear = 0.2,
-	.bind = NULL,
-	.bind_num = 0,
 	.pidfile = NULL,
 	.daemon_mode = false,
-	.daemon_output = false
+	.daemon_output = false,
+	.bind_cache = {
+		.binds = NULL,
+		.num = 0,
+	},
+	.bind_monitor = {
+		.binds = NULL,
+		.num = 0,
+	}
 };
 
 static void print_usage() {
@@ -23,7 +29,8 @@ static void print_usage() {
 "Networking options:\n"
 "\n"
 "  -4 / -6                                  - bind to either IPv4 or IPv6 address (default: IPv4)\n"
-"  -b addr  --bind addr:port                - listen on the specified network address (default: none)\n"
+"  -b addr  --bind addr:port                - listen on the specified network address for cache requests (default: none)\n"
+"  -B addr  --monitor addr:port             - listen on the specified network address for monitoring requests (default: none)\n"
 "\n"
 "Database settings:\n"
 "\n"
@@ -51,7 +58,7 @@ enum bind_parse_state
 {
 	first, ipv4, ipv6, unix_path, port
 };
-static void parse_binds(const char* optarg_const)
+static void parse_binds(const char* optarg_const, scache_binds* target)
 {
 	char* optarg = strdup(optarg_const);
 	int len = strlen(optarg);
@@ -65,10 +72,14 @@ static void parse_binds(const char* optarg_const)
 			num++;
 		}	
 	}
-	settings.bind_num = num;
-	settings.bind = (scache_bind*)malloc(sizeof(scache_bind) * num);
-	memset(settings.bind, 0, sizeof(scache_bind) * num);
-	scache_bind* current = settings.bind;
+	
+	// Initialize memory for bind
+	scache_bind* current = (scache_bind*)malloc(sizeof(scache_bind) * num);
+	target->num = num;
+	target->binds = current;
+	memset(current, 0, sizeof(scache_bind) * num);
+
+	// Parse the options string
 	for (int i = 0; i <= len; i++)
 	{
 		char copy = optarg[i];
@@ -151,6 +162,7 @@ void settings_parse_arguments(int argc, char** argv) {
 		{ "database-file-path", required_argument, 0, 'r' },
 		{ "database-lru-clear", required_argument, 0, 'l' },
 		{ "bind", required_argument, 0, 'b' },
+		{ "monitor", required_argument, 0, 'B' },
 		{ 0, 0, 0, 0 }
 	};
 
@@ -158,7 +170,7 @@ void settings_parse_arguments(int argc, char** argv) {
 	settings.db_file_path = NULL;
 
 	int r = 0, option_index = 0;
-	while ((r = getopt_long(argc, argv, "dom:s:r:l:b:", long_options, &option_index)) != -1) {
+	while ((r = getopt_long(argc, argv, "dom:s:r:l:b:B:", long_options, &option_index)) != -1) {
 		switch (r) {
 		case 0:
 			if (long_options[option_index].flag != 0)
@@ -184,7 +196,10 @@ void settings_parse_arguments(int argc, char** argv) {
 			settings.db_file_path = strdup(optarg);
 			break;
 		case 'b':
-			parse_binds(optarg);
+			parse_binds(optarg, &settings.bind_cache);
+			break;
+		case 'B':
+			parse_binds(optarg, &settings.bind_monitor);
 			break;
 		case 'l':
 			settings.db_lru_clear = atof(optarg)/100;

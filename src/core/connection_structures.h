@@ -26,30 +26,65 @@ typedef enum {
 	close_connection, registered_write, needs_more, continue_processing
 } state_action;
 
-struct cache_connection {
-	utarget target;
+typedef enum {
+	cache_listener, mon_listener
+} listener_type;
+
+struct scache_connection {
 	//Writing to socket buffers
 	const char* output_buffer;
 	int output_length;
 	char* output_buffer_free;
-	state_action(*handler)(int epfd, cache_connection* connection);
+	state_action(*handler)(scache_connection* connection);
 	uint32_t state;
 	int client_sock;
 	struct read_buffer input;
 	
 	unsigned int type : 15;
 	unsigned int writing : 1;
+
+	listener_type ltype;
+
+	union {	
+		struct {
+			utarget target;
+		} cache;
+		struct {
+			scache_connection* prev;
+			scache_connection* next;
+			timeval scheduled;
+			uint16_t current;
+		} monitoring;
+	};
 };
 
-struct cache_connection_node {
-	struct cache_connection connection;
-	struct cache_connection_node* next;
+struct scache_connection_node {
+	struct scache_connection connection;
+	struct scache_connection_node* next;
 };
 
-struct cache_listeners
+struct listener_entry
 {
-	int* fds;
-	uint32_t fd_count;
+	int fd;
+	listener_type type;
 };
+
+
+struct listener_collection
+{
+	struct listener_entry* listeners;
+	uint32_t listener_count;
+};
+
+static inline const char* listener_type_string(listener_type l){
+	switch(l){
+		case cache_listener:
+			return "cache";
+		case mon_listener:
+			return "monitoring";
+		default:
+			return "unknown";
+	}
+}
 
 #endif

@@ -1,3 +1,3 @@
-volatile extern time_t time_seconds;
+volatile extern struct timeval current_time;
 
 void timer_setup();

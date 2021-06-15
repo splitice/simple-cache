@@ -57,7 +57,7 @@ static void abort_handler(int sig) {
 	if (stop_soon) {
 		FATAL("Force exit, second signal received");
 	}
-	WARN("Shutting down");
+	WARN("Shutting down due to %s", strsignal(sig));
 	stop_soon = 1;
 }
 
@@ -147,11 +147,12 @@ int main(int argc, char** argv)
 
 	//Timer (Getting time)
 	timer_setup();
+	monitoring_init();
 
 	//Setup
 	http_templates_init();
 	db_open(settings.db_file_path);
-	connection_setup(settings.bind, settings.bind_num);
+	connection_setup(settings.bind_cache, settings.bind_monitor);
 	install_signal_handlers();
 
 	//Connection handling

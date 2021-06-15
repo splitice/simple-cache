@@ -4,12 +4,12 @@
 #include "config.h"
 #include "connection_structures.h"
 
-bool connection_register_write(int epfd, int fd);
-bool connection_register_read(int epfd, int fd);
+bool connection_register_write(int fd);
+bool connection_register_read(int fd);
 int connection_open_listener(struct scache_bind bind);
-void connection_close_listener();
-void connection_event_loop(void(*connection_handler)(cache_connection* connection));
-void connection_setup(struct scache_bind* binds, uint32_t num_binds);
+void connection_close_listeners();
+void connection_event_loop(void(*connection_handler)(scache_connection* connection));
+void connection_setup(struct scache_binds cache_binds, struct scache_binds cache_monitor);
 void connection_cleanup();
 
 #define _DEBUG_CONNECTION_HANDLER

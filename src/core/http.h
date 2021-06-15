@@ -26,17 +26,22 @@
 #define REQUEST_HTTPDELETE 0x0020
 #define REQUEST_HTTPHEAD 0x0010
 
-/* Request levels */
-#define REQUEST_LEVELKEY 0x04
-#define REQUEST_LEVELTABLE 0x02
-#define REQUEST_LEVELRESERVED1 0x01
+/* Request levels (Cache) */
+#define REQUEST_CACHE_LEVELKEY 0x04
+#define REQUEST_CACHE_LEVELTABLE 0x02
+#define REQUEST_CACHE_LEVELRESERVED1 0x01
+
+/* Request levels (Monitoring) */
+#define REQUEST_MON_LEVELCONN 0x04
+#define REQUEST_MON_LEVELSIMPLE 0x02
+#define REQUEST_MON_LEVELRESERVED1 0x01
 
 /* Common types (method + level) */
-#define REQUEST_HEADKEY (REQUEST_HTTPHEAD | REQUEST_LEVELKEY)
-#define REQUEST_GETKEY (REQUEST_HTTPGET | REQUEST_LEVELKEY)
-#define REQUEST_PUTKEY (REQUEST_HTTPPUT | REQUEST_LEVELKEY)
-#define REQUEST_DELETEKEY (REQUEST_HTTPDELETE | REQUEST_LEVELKEY)
-#define REQUEST_GETTABLE (REQUEST_HTTPGET | REQUEST_LEVELTABLE)
+#define REQUEST_HEADKEY (REQUEST_HTTPHEAD | REQUEST_CACHE_LEVELKEY)
+#define REQUEST_GETKEY (REQUEST_HTTPGET | REQUEST_CACHE_LEVELKEY)
+#define REQUEST_PUTKEY (REQUEST_HTTPPUT | REQUEST_CACHE_LEVELKEY)
+#define REQUEST_DELETEKEY (REQUEST_HTTPDELETE | REQUEST_CACHE_LEVELKEY)
+#define REQUEST_GETTABLE (REQUEST_HTTPGET | REQUEST_CACHE_LEVELTABLE)
 
 /* Helpers */
 #define REQUEST_IS(type, request_type) (((request_type & 0x0FF0 == 0) || (type & (0x0FF0 & request_type)) == (request_type & 0x0FF0)) && ((request_type & 0x000F == 0) || (type & (0x000F & request_type)) == (request_type & 0x000F)))
@@ -57,8 +62,11 @@
 #define HTTPTEMPLATE_FULLUNKNOWNMETHOD 12
 #define HTTPTEMPLATE_FULLREQUESTTOOLARGE 13
 #define HTTPTEMPLATE_FULLUNKNOWNREQUEST 14
+#define HTTPTEMPLATE_HEAD_ONLY 15
+#define HTTPTEMPLATE_MON_STREAM 16
+#define HTTPTEMPLATE_FULL404_PATHNOTFOUND 17
 
-static const char http_templates[][100] = {
+static const char http_templates[][128] = {
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\n",
 	"HTTP/1.1 404 Not Found\r\nConnection: Keep-Alive\r\nContent-Length: 15\r\n\r\nKey not Found\r\n",
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\nContent-Length: 4\r\n\r\nOK\r\n",
@@ -74,7 +82,13 @@ static const char http_templates[][100] = {
 	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 16\r\n\r\nUnknown Method\r\n",
 	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 19\r\n\r\nRequest too large\r\n",
 	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 17\r\n\r\nUnknown Request\r\n",
+	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\n\r\n",
+	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\nContent-Type: text/x-streaming\r\nTransfer-Encoding: chunked\r\n\r\n",
+	"HTTP/1.1 404 Not Found\r\nConnection: Keep-Alive\r\nContent-Length: 16\r\n\r\nPath Not Found\r\n",
 };
+
+#define MON_STREAMING_HEADERS "#state:starting\n#delay:%f\n\n#server:%s\n"
+
 #define NUMBER_OF_HTTPTEMPLATE sizeof(http_templates)/100
 
 int extern http_templates_length[NUMBER_OF_HTTPTEMPLATE];
@@ -87,9 +101,15 @@ int extern http_templates_length[NUMBER_OF_HTTPTEMPLATE];
 #define HEADER_XDELETE 5
 
 /* Methods */
-state_action http_read_handle(int epfd, cache_connection* connection);
-state_action http_write_handle(int epfd, cache_connection* connection);
+state_action http_read_handle(scache_connection* connection);
+state_action http_write_handle(scache_connection* connection);
 void http_templates_init();
-void http_connection_handler(cache_connection* connection);
-void http_cleanup(cache_connection* connection);
+void http_connection_handler(scache_connection* connection);
+void http_cleanup(scache_connection* connection);
+
+bool http_register_read(scache_connection* connection);
+
+
+void monitoring_init();
+
 #endif // !defined(HTTP_H_INCLUDED_F90F71F0_0C8E_44EB_9C1D_60CBA7163EC8)
