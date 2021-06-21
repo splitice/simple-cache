@@ -27,8 +27,9 @@
 #include "http_parse.h"
 #include "http_respond.h"
 
-static char monitoring_strings[0xffff][7] = {};
-static uint8_t monitoring_lens[0xffff] = {};
+#define MONITORING_DEFAULT_INTERVAL 5
+static char monitoring_strings[0x10000][7] = {};
+static uint8_t monitoring_lens[0x10000] = {};
 
 static state_action http_write_response_after_eol(scache_connection* connection, int http_template) {
 	CONNECTION_HANDLER(connection, http_handle_eolwritetoend);
@@ -76,8 +77,8 @@ state_action http_respond_writecount_starting(scache_connection* connection) {
 
 static state_action http_respond_start_to_count(scache_connection* connection) {
 	DEBUG("[#%d] Ready to start to count \n", connection->client_sock);
-	http_respond_cleanupafterwrite(connection);
 	monitoring_add(connection);
+	return http_respond_cleanupafterwrite(connection);
 }
 
 state_action http_mon_read_eol_inital(scache_connection* connection, char* buffer, int n, uint32_t& temporary) {
@@ -342,18 +343,6 @@ void monitoring_check(){
 
 		// Not yet time
 		if(timercmp(&conn->monitoring.scheduled, &current_time, >)) break;
-
-		// Add to output buffer
-		// this will override anything already there
-		// if we can't write in the time allocated just discard. It's not worth buffering.
-		conn->output_buffer = monitoring_strings[conn->monitoring.current];
-		conn->output_length = monitoring_lens[conn->monitoring.current];
-		conn->monitoring.current ++;
-		memcpy(&conn->monitoring.scheduled, (void*)&current_time, sizeof(current_time));
-		conn->monitoring.scheduled.tv_sec += 1;
-
-		// signal for write registration
-		connection_register_write(conn->client_sock);
 		
 		// move on
 		mon_head = conn->monitoring.next;
@@ -367,6 +356,25 @@ void monitoring_check(){
 			mon_tail = mon_head = conn;
 			conn->monitoring.next = conn->monitoring.prev = NULL;
 		}
+
+		// If buffer wasnt cleared already, then we will need to disconnect
+		if(conn->output_buffer != NULL){
+			http_cleanup(conn);
+			connection_remove(conn->client_sock);
+			return;
+		}
+
+		// Add to output buffer
+		// this will override anything already there
+		// if we can't write in the time allocated just discard. It's not worth buffering.
+		conn->output_buffer = monitoring_strings[conn->monitoring.current];
+		conn->output_length = monitoring_lens[conn->monitoring.current];
+		conn->monitoring.current ++;
+		memcpy(&conn->monitoring.scheduled, (void*)&current_time, sizeof(current_time));
+		conn->monitoring.scheduled.tv_sec += MONITORING_DEFAULT_INTERVAL;
+
+		// signal for write registration
+		connection_register_write(conn->client_sock);
 	}
 }
 

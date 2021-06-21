@@ -242,7 +242,7 @@ fail:
 	return -1;
 }
 
-static scache_connection* connection_add(int fd, scache_connection_node* ctable) {
+static scache_connection* connection_add(int fd) {
 	scache_connection_node* node = &ctable[CONNECTION_HASH_KEY(fd)];
 	if (node->connection.client_sock != -1) {
 		while (node->next != NULL) {
@@ -263,7 +263,7 @@ static scache_connection* connection_add(int fd, scache_connection_node* ctable)
 	return &(node->connection);
 }
 
-static scache_connection* connection_get(int fd, scache_connection_node* ctable) {
+static scache_connection* connection_get(int fd) {
 	scache_connection_node* node = &ctable[CONNECTION_HASH_KEY(fd)];
 	if (node->connection.client_sock == -1) {
 		return NULL;
@@ -281,7 +281,7 @@ static scache_connection* connection_get(int fd, scache_connection_node* ctable)
 	return &(node->connection);
 }
 
-static bool connection_remove(int fd, scache_connection_node* ctable) {
+bool connection_remove(int fd) {
 	scache_connection_node* temp = NULL;
 	scache_connection_node* node = &ctable[CONNECTION_HASH_KEY(fd)];
 	if (node->connection.client_sock == -1) {
@@ -321,7 +321,7 @@ static bool connection_remove(int fd, scache_connection_node* ctable) {
 	return true;
 }
 
-static unsigned int connection_count(scache_connection_node* ctable) {
+static unsigned int connection_count() {
 	unsigned count = 0;
 	for (unsigned int i = 0; i < CONNECTION_HASH_ENTRIES; i++) {
 		scache_connection_node* target = &ctable[i];
@@ -337,7 +337,7 @@ static unsigned int connection_count(scache_connection_node* ctable) {
 	return count;
 }
 
-static unsigned int connection_any(scache_connection_node* ctable) {\
+static unsigned int connection_any() {\
 	for (unsigned int i = 0; i < CONNECTION_HASH_ENTRIES; i++) {
 		scache_connection_node* target = &ctable[i];
 		if (target->connection.client_sock != -1) return true;
@@ -547,7 +547,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 					
 					//Handle connection
 					DEBUG("[#%d] A new %s socket was accepted %d\n", fd, listener_type_string(client_type), client_sock);
-					scache_connection* connection = connection_add(client_sock, ctable);
+					scache_connection* connection = connection_add(client_sock);
 					assert(connection->client_sock == client_sock);
 					connection->ltype = client_type;
 					connection_handler(connection);
@@ -569,7 +569,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 			if (fd != efd)
 			{
 				DEBUG("[#%d] Got socket event %d (in=%d, out=%d, hup=%d)\n", fd, events[n].events, events[n].events & EPOLLIN ? 1 : 0, events[n].events & EPOLLOUT ? 1 : 0, events[n].events & EPOLLHUP ? 1 : 0);
-				scache_connection* connection = connection_get(fd, ctable);
+				scache_connection* connection = connection_get(fd);
 				if (connection != NULL) {
 					assert(connection->client_sock == fd);
 					bool do_close = events[n].events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP);
@@ -589,10 +589,10 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 						DEBUG("[#%d] Closing connection due to err:%d hup:%d rdhup:%d\n", fd, !! (events[n].events&EPOLLERR), !! (events[n].events&EPOLLHUP), !! (events[n].events&EPOLLRDHUP));
 						http_cleanup(connection);
 						assert(fd != 0 || (settings.daemon_mode && fd >= 0));
-						if(connection_remove(fd, ctable)){
-							assert(connection_get(fd, ctable) == NULL);
+						if(connection_remove(fd)){
+							assert(connection_get(fd) == NULL);
 		#ifdef DEBUG_BUILD
-							if (!connection_any(ctable)) {
+							if (!connection_any()) {
 								db_check_table_refs();
 							}
 		#endif
