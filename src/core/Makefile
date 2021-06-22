@@ -34,7 +34,7 @@ error:
 	$(error Invalid configuration, please check your inputs)
 endif
 
-SOURCEFILES := connection.cpp db.cpp hash.cpp http.cpp http_parse.cpp http_parse_cache.cpp http_parse_mon.c http_respond.cpp read_buffer.cpp settings.cpp timer.cpp
+SOURCEFILES := connection.cpp db.cpp hash.cpp http.cpp http_parse.cpp http_parse_cache.cpp http_parse_mon.c http_respond.cpp read_buffer.cpp settings.cpp timer.cpp signal_handle.cpp
 EXTERNAL_LIBS := 
 EXTERNAL_LIBS_COPIED := $(foreach lib, $(EXTERNAL_LIBS),$(BINARYDIR)/$(notdir $(lib)))
 

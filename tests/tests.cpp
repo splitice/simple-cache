@@ -24,6 +24,8 @@ int main(int argc, char *argv[])
 		return 2;
 	}
 
+	setbuf(stdout, NULL);
+
 	int final_result = 0;
 	const char *result;
 	TESTSET("read_buffer", test_rbuffer());

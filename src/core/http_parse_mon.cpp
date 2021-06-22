@@ -295,11 +295,11 @@ void monitoring_destroy(scache_connection* connection){
 	if(t != NULL){
 		assert(t->monitoring.prev == connection);
 		t->monitoring.prev = connection->monitoring.prev;
-		if(t->monitoring.prev == NULL) {
+		if(t->monitoring.prev == NULL && mon_head == connection) {
 			assert(mon_head == connection);
 			mon_head = t;
 		}
-	}else{
+	}else if(mon_tail == connection){
 		// Only if we are destroying the tail t will be NULL
 		assert(connection == mon_tail);
 		mon_tail = t;
@@ -312,13 +312,12 @@ void monitoring_destroy(scache_connection* connection){
 	if(t != NULL){
 		assert(t->monitoring.next == connection);
 		t->monitoring.next = connection->monitoring.next;
-		if(t->monitoring.next == NULL) {
+		if(t->monitoring.next == NULL && mon_tail == connection) {
 			assert(mon_tail == connection);
 			mon_tail = t;
 		}
-	}else{
+	}else if(mon_head == connection){
 		// Only if we are destroying the head will t be null
-		assert(mon_head == connection);
 		mon_head = t;
 	}
 }

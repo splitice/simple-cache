@@ -62,11 +62,10 @@ state_action http_respond_contentlength(scache_connection* connection) {
 }
 
 bool http_register_read(scache_connection* connection) {
-	int extern stop_soon;
 
 	bool res = connection_register_read(connection->client_sock);
 
-	if (!stop_soon && rbuf_write_remaining(&connection->input)) {
+	if (!connection_stop_soon() && rbuf_write_remaining(&connection->input)) {
 		http_read_handle(connection);
 	}
 

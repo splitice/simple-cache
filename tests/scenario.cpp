@@ -302,41 +302,59 @@ pid_t start_server(const char* binary_path, int port, const char* db, const char
 		return -1;
 	}
 
-	sprintf(execcmd, "%s -o --bind 0.0.0.0:%d --database-file-path %s --make-pid %s %s %s &", binary_path, port, db, pidfile, options, debug_output?"":"2>/dev/null");
-	printf("Executing: %s\n", execcmd);
+	sprintf(execcmd, "%s -o --bind 0.0.0.0:%d --database-file-path %s --leave-pid --make-pid %s %s %s &", binary_path, port, db, pidfile, options, debug_output?"":"2>/dev/null");
+	printf("Executing: %s", execcmd);
 	res = system(execcmd);
 	if (res < 0){
+		puts("\n");
 		PFATAL("Unable to execute scache server");
 	}
 
-	FILE* f;
+	FILE* f = NULL;
+	res = 0;
 	do {
-		f = fopen(pidfile, "r");
-		usleep(100);
-	} while (f == NULL);
+		if (!access(pidfile, F_OK)){
+			f = fopen(pidfile, "r");
+		}
+		usleep(100000);
+	} while (f == NULL && res++ < 100);
+	free(pidfile);
+
+	if(f == NULL){
+		FATAL("Failed to find PID file");
+	}
+
 	char* line = NULL;
 	size_t len;
 	res = getline(&line, &len, f);
+	fclose(f);
+
 	if (res < 0){
+		free(line);
+		puts("\n");
 		PFATAL("Unable to read PID file");
 	}
+
 	int pid = atoi(line);
 	free(line);
-	fclose(f);
-	free(pidfile);
+
+	printf(" (PID: %d)\n", pid);
 
 	return pid;
 }
 
 void stop_server(pid_t pid){
-	char pid_path[128];
+	if (kill(pid, 0) != 0)
+	{
+		WARN("PID %d did not exist before stopping server\n", pid);
+	}
+
 	int res = kill(pid, SIGTERM);
 	if (res != 0){
 		PFATAL("Unable to kill scache service %d", pid);
 	}
 	
-	sprintf(pid_path, "/proc/%d", pid);
-	while (access(pid_path, F_OK) == 0)
+	while (kill(pid, 0) == 0 || errno != ESRCH)
 	{
 		usleep(100);
 	}
@@ -461,6 +479,7 @@ bool run_scenario(const char* binary, const char* testcases, const char* filenam
 	int res = mkdir(db, 0777);
 	bool result;
 	if (res < 0){
+		free(db);
 		PFATAL("Failed to create temporary directory: %s", db);
 	}
 	pid_t pid;
@@ -488,6 +507,7 @@ bool run_scenario(const char* binary, const char* testcases, const char* filenam
 	sprintf(testcase_path, "rm -Rf \"%s\"", db);
 	res = system(testcase_path);
 	if (res < 0){
+		free(db);
 		PFATAL("Failed to clean up temporary directory: %s", db);
 	}
 

@@ -36,6 +36,7 @@ LRU
 #include "hash.h"
 #include "settings.h"
 #include "timer.h"
+#include "signal_handle.h"
 
 #ifdef DEBUG_BUILD
 #include <set>
@@ -734,16 +735,31 @@ bool db_open(const char* path) {
 
 	// Calculate the number of blocks in the blockfile
 	off64_t size = lseek64(db.fd_blockfile, 0L, SEEK_END);
+	if(size < 0){
+		PWARN("seek to end failed");
+		size = 0;
+		if(ftruncate(db.fd_blockfile, size) == -1){
+			PFATAL("Failed to completely truncate blockfile %s", db.path_blockfile);
+		}
+	}
 	db.blocks_exist = (uint32_t)(size / BLOCK_LENGTH);
+	lseek64(db.fd_blockfile, 0L, SEEK_SET);
 
 	// Mark all blocks that already exist in the block file as non-allocated
 	if(will_black){
 		if(size > (BLOCK_MAX_LOAD * BLOCK_LENGTH)) {
 			size = BLOCK_MAX_LOAD * BLOCK_LENGTH;
 			if(ftruncate(db.fd_blockfile, size) == -1){
-				PFATAL("Failed to truncate blockfile: %s", db.path_blockfile);
+				PFATAL("Failed to truncate blockfile %s", db.path_blockfile);
 			}
 			db.blocks_exist = (uint32_t)(size / BLOCK_LENGTH);
+		}
+		if((size % BLOCK_LENGTH) != 0){
+			WARN("Block file was strange size of %d", size);
+			
+			if(ftruncate(db.fd_blockfile, (size / BLOCK_LENGTH) * BLOCK_LENGTH) == -1){
+				PFATAL("Failed to truncate blockfile %s", db.path_blockfile);
+			}
 		}
 		for (off64_t i = 0; i < size; i += BLOCK_LENGTH) {
 			db_block_free((uint32_t)(i / BLOCK_LENGTH));
@@ -1363,6 +1379,7 @@ static pid_t db_index_flush(bool copyOnWrite){
 	if(copyOnWrite){
 		pid = fork();
 		if(pid != 0) return pid; // includes -1
+		signal_handler_remove();
 	}
 
 	//Open temporary index file

@@ -24,10 +24,11 @@
 #include "db.h"
 #include "settings.h"
 #include "timer.h"
+#include "signal_handle.h"
 
 int write_pid(char* pidFile, __pid_t pid) {
-	int fd;
-	char buf[1024];
+	int fd, size;
+	char buf[16];
 
 	fd = open(pidFile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
 	if (fd == -1)
@@ -44,27 +45,19 @@ int write_pid(char* pidFile, __pid_t pid) {
 	if (ftruncate(fd, 0) == -1)
 		PFATAL("Could not truncate PID file '%s'", pidFile);
 
-	snprintf(buf, 1024, "%ld\n", (long)getpid());
-	if (write(fd, buf, strlen(buf)) != strlen(buf))
+	snprintf(buf, 16, "%ld\n", (long)pid);
+	size = strlen(buf);
+
+	if(size <= 0){
+		PFATAL("PID buf should be at-least one char");
+	}
+
+	if (write(fd, buf, size) != size)
 		PFATAL("Writing to PID file '%s'", pidFile);
 
+	fsync(fd);
+
 	return fd;
-}
-
-/* Handler for Ctrl-C and related signals */
-volatile extern sig_atomic_t stop_soon;
-static void abort_handler(int sig) {
-	if (stop_soon) {
-		FATAL("Force exit, second signal received");
-	}
-	WARN("Shutting down due to %s", strsignal(sig));
-	stop_soon = 1;
-}
-
-static void install_signal_handlers() {
-	signal(SIGPIPE, SIG_IGN);
-	signal(SIGINT, abort_handler);
-	signal(SIGTERM, abort_handler);
 }
 
 static int null_fd = -1;                /* File descriptor of /dev/null       */
@@ -153,7 +146,7 @@ int main(int argc, char** argv)
 	http_templates_init();
 	db_open(settings.db_file_path);
 	connection_setup(settings.bind_cache, settings.bind_monitor);
-	install_signal_handlers();
+	signal_handler_install();
 
 	//Connection handling
 	connection_event_loop(http_connection_handler);
@@ -167,6 +160,8 @@ int main(int argc, char** argv)
 	//PID file cleanup
 	if (settings.pidfile) {
 		close(pidfd);
-		unlink(settings.pidfile);
+		if(!settings.leavepidfile){
+			unlink(settings.pidfile);
+		}
 	}
 }

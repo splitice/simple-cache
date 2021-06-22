@@ -12,6 +12,7 @@ void connection_event_loop(void(*connection_handler)(scache_connection* connecti
 void connection_setup(struct scache_binds cache_binds, struct scache_binds cache_monitor);
 void connection_cleanup();
 bool connection_remove(int fd);
+bool connection_stop_soon();
 
 #define _DEBUG_CONNECTION_HANDLER
 #ifdef DEBUG_CONNECTION_HANDLER

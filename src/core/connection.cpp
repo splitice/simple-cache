@@ -39,6 +39,9 @@ struct scache_connection_node ctable[CONNECTION_HASH_ENTRIES] = { 0 };
 int epfd;
 volatile sig_atomic_t stop_soon = 0;
 
+bool connection_stop_soon(){
+	return stop_soon != 0;
+}
 
 struct connection_thread_arg
 {
@@ -128,6 +131,8 @@ static int connection_non_blocking(int fd)
 
 void connection_close_listeners() {
 	int fd;
+	
+	WARN("Closing %d listeners", scache_listeners.listener_count);
 
 	for (uint32_t i = 0; i < scache_listeners.listener_count; i++)
 	{
@@ -242,23 +247,39 @@ fail:
 	return -1;
 }
 
-static scache_connection* connection_add(int fd) {
+static scache_connection* connection_add(int fd, listener_type client_type) {
 	scache_connection_node* node = &ctable[CONNECTION_HASH_KEY(fd)];
+	scache_connection_node* newNode = NULL;
+
 	if (node->connection.client_sock != -1) {
 		while (node->next != NULL) {
 			assert(node->connection.client_sock != -1);
 			node = node->next;
 		}
 
-		scache_connection_node* newNode = (scache_connection_node*)malloc(sizeof(scache_connection_node));
-		node->next = newNode;
-		node = newNode;
+		newNode = (scache_connection_node*)malloc(sizeof(scache_connection_node));
+	}else{
+		newNode = node;
 	}
 	
 	// Initialize connection
-	memset(node, 0, sizeof(node)); /* .connection = {}, .next = NULL */
-	rbuf_init(&(node->connection.input));
-	node->connection.client_sock = fd;
+	memset(newNode, 0, sizeof(*newNode)); /* .connection = {}, .next = NULL */
+
+	// safe to set first
+	newNode->connection.ltype = client_type;
+	if(client_type == cache_listener){
+		newNode->connection.cache.target.key.fd = -1;
+	}
+	rbuf_init(&(newNode->connection.input));
+
+	// do last as marks connection slot as used
+	newNode->connection.client_sock = fd;
+
+	// this is a chained connection
+	if(node != newNode){
+		node->next = newNode;
+		node = newNode;
+	}
 
 	return &(node->connection);
 }
@@ -383,6 +404,7 @@ static void* connection_handle_accept(void *arg)
 				goto end;
 			}
 		} while(nfds == 0 && !stop_soon);
+		assert(nfds >= 0);
 		int n = 0;
 		int state = 1;
 		while (n < nfds) {
@@ -394,67 +416,63 @@ static void* connection_handle_accept(void *arg)
 			else if (events[n].events & EPOLLIN)
 			{
 				DEBUG("[#] Accepting connection from fd %d of type %s\n", fd, listener_type_string(our_type));
-				int client_sock;
-					
-				do
-				{
-					client_sock = accept(fd, NULL, NULL);
+				int client_sock = accept(fd, NULL, NULL);
 
-					if (client_sock < 0) {
-						if (errno == EAGAIN || errno == EWOULDBLOCK)
-						{
-							break;
-						}
+				if (client_sock < 0) {
+					if (errno != EAGAIN && errno != EWOULDBLOCK)
+					{
 						WARN("[#] accept() failed on fd %d of type %s. Error: %s", fd, listener_type_string(our_type), strerror(errno));
-						break;
-					}
-					else {
-						DEBUG("[#] Accepted connection %d on fd %d of type %s\n", client_sock, fd, listener_type_string(our_type));
-
-						//Connection will be non-blocking
-						if (connection_non_blocking(client_sock) < 0)
-							PFATAL("Setting connection to non blocking failed on fd %d of type %s.", fd, listener_type_string(our_type));
-						
-						//Enable TCP CORK
-						setsockopt(client_sock, IPPROTO_TCP, TCP_CORK, &state, sizeof(state));
-						
-						connections_queued* q = (connections_queued*)malloc(sizeof(connections_queued));
-						if(q == NULL){
-							close(client_sock);
-							WARN("[#] failed to allocate memory for connection. Abandoning incoming connection.");
-							continue;
-						}
-						q->client_sock = client_sock;
-						q->client_type = our_type;
-						q->next = NULL;
-						
-						// Insert connection into queue
-						pthread_mutex_lock(&cq_lock);
-						if (cq_tail == NULL)
-						{
-							assert(cq_head == NULL);
-							cq_tail = q;
-							cq_head = q;
-						}
-						else
-						{
-							cq_tail->next = q;
-							cq_tail = q;
-						}
-						pthread_mutex_unlock(&cq_lock);
-						
-						//Write a signal
-						int res;
-						do {
-							res = write(eventfd, &u, sizeof(u));
-							if(res == -1){
-								PFATAL("Unable to write to eventfd");
-							}
-							assert(res == sizeof(u));
-						} while(!res);
 					}
 					n++;
-				} while (!stop_soon);
+					continue;
+				}
+				else {
+					DEBUG("[#] Accepted connection %d on fd %d of type %s\n", client_sock, fd, listener_type_string(our_type));
+
+					//Connection will be non-blocking
+					if (connection_non_blocking(client_sock) < 0)
+						PFATAL("Setting connection to non blocking failed on fd %d of type %s.", fd, listener_type_string(our_type));
+					
+					//Enable TCP CORK
+					setsockopt(client_sock, IPPROTO_TCP, TCP_CORK, &state, sizeof(state));
+					
+					connections_queued* q = (connections_queued*)malloc(sizeof(connections_queued));
+					if(q == NULL){
+						close(client_sock);
+						n++;
+						WARN("[#] failed to allocate memory for connection. Abandoning incoming connection.");
+						continue;
+					}
+					q->client_sock = client_sock;
+					q->client_type = our_type;
+					q->next = NULL;
+					
+					// Insert connection into queue
+					pthread_mutex_lock(&cq_lock);
+					if (cq_tail == NULL)
+					{
+						assert(cq_head == NULL);
+						cq_tail = q;
+						cq_head = q;
+					}
+					else
+					{
+						cq_tail->next = q;
+						cq_tail = q;
+					}
+					pthread_mutex_unlock(&cq_lock);
+					
+					//Write a signal
+					int res;
+					do {
+						res = write(eventfd, &u, sizeof(u));
+						if(res == -1){
+							PFATAL("Unable to write to eventfd");
+						}
+						assert(res == sizeof(u));
+					} while(!res);
+				}
+				n++;
 			}
 		}
 	}
@@ -481,7 +499,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 	}
 	
 	//Init Acceptor thread
-	connection_thread_arg* thread_arg = (connection_thread_arg*)malloc(sizeof(connection_thread_arg)  * 2) ;
+	connection_thread_arg thread_arg[2];
 	efd = eventfd(0, 0);
 	thread_arg[0].type = cache_listener;
 	thread_arg[1].type = mon_listener;
@@ -509,7 +527,6 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 					continue;
 				}
 				PFATAL("epoll_wait() failed");
-				goto end;
 			}
 		} while(nfds == 0 && !stop_soon);
 
@@ -521,7 +538,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 			{				
 				res = read(fd, &u, sizeof(u));
 				
-				while (true)
+				while (!stop_soon)
 				{					
 					//Dequeue
 					pthread_mutex_lock(&cq_lock);
@@ -549,9 +566,8 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 					
 					//Handle connection
 					DEBUG("[#%d] A new %s socket was accepted %d\n", fd, listener_type_string(client_type), client_sock);
-					scache_connection* connection = connection_add(client_sock);
+					scache_connection* connection = connection_add(client_sock, client_type);
 					assert(connection->client_sock == client_sock);
-					connection->ltype = client_type;
 					connection_handler(connection);
 					
 					//Add socket to epoll
@@ -628,12 +644,16 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 end:
 	close(epfd);
 	
-	pthread_join(tid[0], NULL);
-	pthread_join(tid[1], NULL);
+	errno = pthread_join(tid[0], NULL);
+	if(errno != 0) {
+		PFATAL("failed to join cache thread");
+	}
+	errno = pthread_join(tid[1], NULL);
+	if(errno != 0) {
+		PFATAL("failed to join mon thread");
+	}
 
 	close(efd);
-	
-	free(thread_arg);
 }
 
 /*

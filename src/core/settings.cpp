@@ -11,6 +11,7 @@ struct scache_settings settings {
 	.db_file_path = NULL,
 	.db_lru_clear = 0.2,
 	.pidfile = NULL,
+	.leavepidfile = false,
 	.daemon_mode = false,
 	.daemon_output = false,
 	.bind_cache = {
@@ -158,6 +159,7 @@ void settings_parse_arguments(int argc, char** argv) {
 		/* These options set a flag. */
 		/* These options set a value */
 		{ "make-pid", required_argument, 0, 'm' },
+		{ "leave-pid", no_argument, 0, 'M' },
 		{ "database-max-size", required_argument, 0, 's' },
 		{ "database-file-path", required_argument, 0, 'r' },
 		{ "database-lru-clear", required_argument, 0, 'l' },
@@ -165,9 +167,6 @@ void settings_parse_arguments(int argc, char** argv) {
 		{ "monitor", required_argument, 0, 'B' },
 		{ 0, 0, 0, 0 }
 	};
-
-	//Defaults
-	settings.db_file_path = NULL;
 
 	int r = 0, option_index = 0;
 	while ((r = getopt_long(argc, argv, "dom:s:r:l:b:B:", long_options, &option_index)) != -1) {
@@ -188,6 +187,9 @@ void settings_parse_arguments(int argc, char** argv) {
 			break;
 		case 'm':
 			settings.pidfile = optarg; 
+			break;
+		case 'M':
+			settings.leavepidfile = true; 
 			break;
 		case 's':
 			settings.max_size = atol(optarg);

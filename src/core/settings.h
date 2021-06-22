@@ -20,6 +20,7 @@ struct scache_settings {
     char* db_file_path;
     float db_lru_clear;
 	char* pidfile;
+	bool leavepidfile;
 	bool daemon_mode;
 	bool daemon_output;
 	struct scache_binds bind_cache;
