@@ -694,10 +694,12 @@ static bool db_load_from_save(){
 close_fd:
 	fclose(fp);
 close_fd2:
-	close(db.fd_blockfile);
-	db.fd_blockfile = -1;
-
 	if(fp == NULL) close(fd);
+
+	fd = db.fd_blockfile;
+	db.fd_blockfile = -1;
+	close(fd);
+
 	
 	return ret;
 }

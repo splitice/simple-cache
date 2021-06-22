@@ -282,8 +282,10 @@ static scache_connection* connection_get(int fd) {
 }
 
 bool connection_remove(int fd) {
+	scache_connection_node* node;
 	scache_connection_node* temp = NULL;
-	scache_connection_node* node = &ctable[CONNECTION_HASH_KEY(fd)];
+	assert(fd >= 0);
+	node = &ctable[CONNECTION_HASH_KEY(fd)];
 	if (node->connection.client_sock == -1) {
 		WARN("Unable to find fd: %d connection entry to remove", fd);
 		return false;
@@ -639,12 +641,14 @@ On close connection cleanup routine
 */
 void connection_cleanup_http(scache_connection_node* connection, bool toFree = false) {
 	assert(connection != NULL);
+	int fd;
 
 	//Close socket to client
 	if (connection->connection.client_sock != -1) {
 		http_cleanup(&connection->connection);
-		close(connection->connection.client_sock);
+		fd = connection->connection.client_sock;
 		connection->connection.client_sock = -1;
+		close(fd);
 	}
 
 	//Handle chained connections

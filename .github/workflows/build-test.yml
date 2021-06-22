@@ -28,3 +28,25 @@ jobs:
     - name: Spam test
       run: |
         echo "todo"
+    - name: Valgrind monitoring test
+      run: |
+        sudo mkdir -p /var/lib/scache/ &
+        sudo apt-get install psmisc
+        wait
+        sudo chmod 0777 /var/lib/scache/ -R
+
+        function query {
+          sleep 2
+          for i in {1..50}
+          do
+            curl 127.0.0.1:8082/conn &
+          done
+
+          sleep 110
+
+          killall curl
+        }
+
+        query &
+
+        timeout 2m valgrind --leak-check=full --show-leak-kinds=all src/server/${{ matrix.release }}/scache -B 127.0.0.1:8082

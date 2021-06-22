@@ -78,7 +78,8 @@ state_action http_respond_writecount_starting(scache_connection* connection) {
 static state_action http_respond_start_to_count(scache_connection* connection) {
 	DEBUG("[#%d] Ready to start to count \n", connection->client_sock);
 	monitoring_add(connection);
-	return http_respond_cleanupafterwrite(connection);
+	CONNECTION_HANDLER(connection,  http_respond_cleanupafterwrite);
+	return continue_processing;
 }
 
 state_action http_mon_read_eol_inital(scache_connection* connection, char* buffer, int n, uint32_t& temporary) {
@@ -275,6 +276,7 @@ void monitoring_add(scache_connection* conn){
 	if(mon_tail == NULL){
 		mon_tail = mon_head = conn;
 	}else{
+		// insert at tail
 		assert(mon_tail->monitoring.next == NULL);
 		mon_tail->monitoring.next = conn;
 		conn->monitoring.prev = mon_tail;
@@ -286,26 +288,41 @@ void monitoring_destroy(scache_connection* connection){
 	assert(connection->ltype == mon_listener);
 	scache_connection* t;
 
+	/*
+	head ... | connection | t | ... tail
+	*/
 	t = connection->monitoring.next;
 	if(t != NULL){
 		assert(t->monitoring.prev == connection);
 		t->monitoring.prev = connection->monitoring.prev;
 		if(t->monitoring.prev == NULL) {
-			assert(mon_tail == connection);
-			mon_tail = t;
+			assert(mon_head == connection);
+			mon_head = t;
 		}
+	}else{
+		// Only if we are destroying the tail t will be NULL
+		assert(connection == mon_tail);
+		mon_tail = t;
 	}
 
+	/*
+	head ... | t | connection | ... tail
+	*/
 	t = connection->monitoring.prev;
 	if(t != NULL){
 		assert(t->monitoring.next == connection);
 		t->monitoring.next = connection->monitoring.next;
 		if(t->monitoring.next == NULL) {
-			assert(mon_head == connection);
-			mon_head = t;
+			assert(mon_tail == connection);
+			mon_tail = t;
 		}
+	}else{
+		// Only if we are destroying the head will t be null
+		assert(mon_head == connection);
+		mon_head = t;
 	}
 }
+
 static void reverse(char s[])
 {
 	int i, j;
@@ -357,6 +374,7 @@ void monitoring_check(){
 			mon_tail = mon_head = conn;
 			conn->monitoring.next = conn->monitoring.prev = NULL;
 		}
+		conn->monitoring.next = NULL;
 
 		// If buffer wasnt cleared already, then we will need to disconnect
 		if(conn->output_buffer != NULL){
