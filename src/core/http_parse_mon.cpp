@@ -136,10 +136,10 @@ state_action http_handle_mon_eolwrite_initial(scache_connection* connection) {
 
 
 static state_action http_headers_response_count(scache_connection* connection, int http_template) {
+	connection->state = 2;
 	CONNECTION_HANDLER(connection,  http_handle_mon_eolwrite_initial);
 	connection->output_buffer = http_templates[http_template];
 	connection->output_length = http_templates_length[http_template];
-	connection->state = 2;
 	return needs_more;
 }
 
@@ -213,7 +213,8 @@ static inline state_action http_mon_read_requeststarturl(scache_connection* conn
 			}
 		} else if(n == 5 && strcmp(key, "conn") == 0){ // URL: "/conn"
 			free(key);
-			connection->state = 0;
+			connection->state = 2;	
+			CONNECTION_HANDLER(connection,  http_handle_mon_eolwrite_initial);
 			return http_handle_mon_eolwrite_initial(connection);
 		}
 
