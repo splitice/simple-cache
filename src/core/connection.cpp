@@ -154,6 +154,7 @@ static int connection_open_bind(struct scache_bind ibind, int listenfd)
 	} tobind;
 	int tobind_len;
 	int res;
+	int enable = 1;
 	
 	switch (ibind.af)
 	{
@@ -184,10 +185,16 @@ static int connection_open_bind(struct scache_bind ibind, int listenfd)
 	default:
 		FATAL("Unknown address family, cant bind");
 	}
+
+	if(ibind.transparent){
+		if(-1 == setsockopt(listenfd, SOL_IP, IP_TRANSPARENT, (const char*)&enable, sizeof(enable))){
+			return -errno;
+		}
+	}
 	
 	res = bind(listenfd, (sockaddr*)&tobind, tobind_len);
 	if (res < 0) {
-		return res;
+		return -errno;
 	}
 	
 	if (ibind.af == AF_UNIX)

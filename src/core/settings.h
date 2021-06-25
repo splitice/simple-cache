@@ -8,6 +8,7 @@ struct scache_bind
 	int af;
 	char addr[sizeof(struct sockaddr_un)];//Largest IP address format supported
 	int port;
+	bool transparent;
 };
 
 struct scache_binds {

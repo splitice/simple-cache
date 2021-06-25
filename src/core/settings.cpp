@@ -133,10 +133,12 @@ static void parse_binds(const char* optarg_const, scache_binds* target)
 			}
 			break;
 		case bind_parse_state::port:
-			
-			if (optarg[i] == 0 || optarg[i] == ',')
+			if(optarg[i] == 't'){
+				current->transparent = true;
+			}
+			else if (optarg[i] == 0 || optarg[i] == ',')
 			{
-				optarg[i] = 0;
+				optarg[current->transparent ? (i - 1) : i] = 0;
 				current->port = atoi(optarg + state_start);
 				if (copy == ',')
 				{
