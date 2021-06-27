@@ -379,6 +379,7 @@ void monitoring_check(){
 		if(conn->output_buffer != NULL){
 			http_cleanup(conn);
 			connection_remove(conn->client_sock);
+			close(conn->client_sock);
 			return;
 		}
 
