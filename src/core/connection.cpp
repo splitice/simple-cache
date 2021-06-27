@@ -277,7 +277,7 @@ static scache_connection* connection_add(int fd, listener_type client_type) {
 	if(client_type == cache_listener){
 		newNode->connection.cache.target.key.fd = -1;
 	}
-	rbuf_init(&(newNode->connection.input));
+	rbuf_init(&newNode->connection.input);
 
 	// do last as marks connection slot as used
 	newNode->connection.client_sock = fd;
