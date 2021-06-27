@@ -52,21 +52,23 @@ state_action http_read_handle(scache_connection* connection) {
 	//Read from socket
 	num = rbuf_write_to_end(&connection->input);
 	if (num > 0) {
-		DEBUG("[#%d] reading %d bytes from socket (write pos: %d, read pos: %d)\n", fd, num, connection->input.write_position, connection->input.read_position);
 		num = read(fd, RBUF_WRITE(connection->input), num);
-
 		if (num == 0) {
 			return close_connection;
 		}
 		if (num < 0) {
-			if (errno != EAGAIN && errno != EWOULDBLOCK) {
-				DEBUG("A socket error occured while reading: %d", num);
+			num = errno;
+			if (num != EAGAIN && num != EWOULDBLOCK) {
+				DEBUG("[#%d] A socket error occured while reading: %d\n", fd, num);
 				return close_connection;
 			}
-			else{
-				return needs_more;
-			}
+
+			DEBUG("[#%d] Needs more bytes, got errno %d\n", fd, num);
+			return needs_more;
 		}
+		
+		DEBUG("[#%d] Reading %d bytes from socket (write pos: %d, read pos: %d)\n", fd, num, connection->input.write_position, connection->input.read_position);
+
 
 		RBUF_WRITEMOVE(connection->input, (uint16_t)num);
 	}
