@@ -288,7 +288,7 @@ static scache_connection* connection_add(int fd, listener_type client_type) {
 		node = newNode;
 	}
 
-	return &(node->connection);
+	return &node->connection;
 }
 
 static scache_connection* connection_get(int fd) {

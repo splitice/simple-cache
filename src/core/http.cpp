@@ -148,7 +148,6 @@ void http_cleanup(scache_connection* connection) {
 	} else if(connection->ltype == mon_listener){
 		monitoring_destroy(connection);
 	}
-	connection->type = 0;
 }
 
 /*
