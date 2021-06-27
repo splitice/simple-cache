@@ -385,6 +385,7 @@ static void* connection_handle_accept(void *arg)
 	uint64_t u = 1;
 	listener_type our_type = thread_arg->type;
 	int eventfd = thread_arg->eventfd;
+	int enable = 1;
 	
 	for (uint32_t i = 0; i < scache_listeners.listener_count; i++)
 	{
@@ -424,6 +425,10 @@ static void* connection_handle_accept(void *arg)
 			{
 				DEBUG("[#] Accepting connection from fd %d of type %s\n", fd, listener_type_string(our_type));
 				int client_sock = accept(fd, NULL, NULL);
+
+				if(-1 == setsockopt(client_sock, IPPROTO_TCP, TCP_NODELAY, (const char*)&enable, sizeof(enable))){
+					DEBUG("[#] Unable to set tcp nodelay\n");
+				}
 
 				if (client_sock < 0) {
 					if (errno != EAGAIN && errno != EWOULDBLOCK)
