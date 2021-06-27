@@ -414,7 +414,6 @@ static void* connection_handle_accept(void *arg)
 		} while(nfds == 0 && !stop_soon);
 		assert(nfds >= 0);
 		int n = 0;
-		int state = 1;
 		while (n < nfds) {
 			int fd = events[n].data.fd;
 			if (events[n].events & (EPOLLERR | EPOLLHUP))
@@ -425,10 +424,6 @@ static void* connection_handle_accept(void *arg)
 			{
 				DEBUG("[#] Accepting connection from fd %d of type %s\n", fd, listener_type_string(our_type));
 				int client_sock = accept(fd, NULL, NULL);
-
-				if(-1 == setsockopt(client_sock, IPPROTO_TCP, TCP_NODELAY, (const char*)&enable, sizeof(enable))){
-					DEBUG("[#] Unable to set tcp nodelay\n");
-				}
 
 				if (client_sock < 0) {
 					if (errno != EAGAIN && errno != EWOULDBLOCK)
@@ -441,12 +436,15 @@ static void* connection_handle_accept(void *arg)
 				else {
 					DEBUG("[#] Accepted connection %d on fd %d of type %s\n", client_sock, fd, listener_type_string(our_type));
 
-					//Connection will be non-blocking
+					// Connection will be non-blocking
 					if (connection_non_blocking(client_sock) < 0)
 						PFATAL("Setting connection to non blocking failed on fd %d of type %s.", fd, listener_type_string(our_type));
 					
-					//Enable TCP CORK
-					setsockopt(client_sock, IPPROTO_TCP, TCP_CORK, &state, sizeof(state));
+					// Set TCP options
+					if(-1 == setsockopt(client_sock, IPPROTO_TCP, TCP_NODELAY, (const char*)&enable, sizeof(enable))){
+						DEBUG("[#] Unable to set tcp nodelay\n");
+					}
+					//setsockopt(client_sock, IPPROTO_TCP, TCP_CORK, &state, sizeof(state));
 					
 					connections_queued* q = (connections_queued*)malloc(sizeof(connections_queued));
 					if(q == NULL){
