@@ -492,6 +492,10 @@ static void* connection_handle_accept(void *arg)
 					do {
 						res = write(eventfd, &u, sizeof(u));
 						if(res == -1){
+							if(errno == -EAGAIN || errno == -EWOULDBLOCK){
+								PWARN("backpressure on accept");
+								break;
+							}
 							PFATAL("Unable to write to eventfd");
 						}
 						assert(res == sizeof(u));
@@ -520,7 +524,7 @@ void close_fd(int fd){
 }
 
 void connection_event_loop(void (*connection_handler)(scache_connection* connection)) {
-	epfd = epoll_create(MAXCLIENTS);
+	epfd = epoll_create(0);
 	struct epoll_event events[NUM_EVENTS];
 	int max_listener = 0;
 	int res;
@@ -538,6 +542,8 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 	//Init Acceptor thread data
 	connection_thread_arg thread_arg[2];
 	efd = eventfd(0, 0);
+	connection_non_blocking(efd);
+
 	thread_arg[0].type = cache_listener;
 	thread_arg[1].type = mon_listener;
 	thread_arg[0].eventfd = thread_arg[1].eventfd = efd;
@@ -583,10 +589,10 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 			int fd = events[n].data.fd;
 			if (fd == efd)
 			{				
-				res = read(fd, &u, sizeof(u));
-				
 				while (!stop_soon)
-				{					
+				{
+					res = read(fd, &u, sizeof(u));
+
 					//Dequeue
 					pthread_mutex_lock(&cq_lock);
 					connections_queued* temp = (connections_queued*)cq_head;
@@ -611,19 +617,21 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 					free(temp);
 					assert(client_sock >= 0);
 					
-					//Handle connection
-					DEBUG("[#%d] A new %s socket was accepted %d\n", fd, listener_type_string(client_type), client_sock);
-					scache_connection* connection = connection_add(client_sock, client_type);
-					assert(connection->client_sock == client_sock);
-					connection_handler(connection);
-					
 					//Add socket to epoll
 					ev.events = EPOLLIN | EPOLLHUP | EPOLLRDHUP;
 					ev.data.fd = client_sock;
 					res = epoll_ctl(epfd, EPOLL_CTL_ADD, client_sock, &ev);
 					if (res != 0) {
 						PWARN("epoll_ctl() failed to add %d.", client_sock);
+						close(client_sock);
+						continue;
 					}
+					
+					//Handle connection
+					DEBUG("[#%d] A new %s socket was accepted %d\n", fd, listener_type_string(client_type), client_sock);
+					scache_connection* connection = connection_add(client_sock, client_type);
+					assert(connection->client_sock == client_sock);
+					connection_handler(connection);
 				}
 			}
 		}
