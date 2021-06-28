@@ -47,6 +47,7 @@ struct connection_thread_arg
 {
 	int eventfd;
 	listener_type type;
+	bool ready;
 };
 
 struct connections_queued
@@ -393,14 +394,16 @@ static void* connection_handle_accept(void *arg)
 
 		ev.events = EPOLLIN | EPOLLERR | EPOLLHUP;
 		ev.data.fd = scache_listeners.listeners[i].fd;
-		res = epoll_ctl(epacceptfd, EPOLL_CTL_ADD, scache_listeners.listeners[i].fd, &ev);
+		res = epoll_ctl(epacceptfd, EPOLL_CTL_ADD, ev.data.fd, &ev);
 		if (res != 0) {
 			PFATAL("connection_handle_accept epoll_ctl() failed.");
 		}
 	}
+
+	thread_arg->ready = true;
 	
 	while (!stop_soon) {
-		int nfds = 0;
+		int nfds;
 		do {
 			nfds = epoll_wait(epacceptfd, events, NUM_EVENTS_ACCEPT, 500);
 			if(nfds == -1){
@@ -524,12 +527,15 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 		PFATAL("mutex init failed");
 	}
 	
-	//Init Acceptor thread
+	//Init Acceptor thread data
 	connection_thread_arg thread_arg[2];
 	efd = eventfd(0, 0);
 	thread_arg[0].type = cache_listener;
 	thread_arg[1].type = mon_listener;
 	thread_arg[0].eventfd = thread_arg[1].eventfd = efd;
+	thread_arg[0].ready = thread_arg[1].ready = false;
+
+	// Start Acceptor threads
 	res = pthread_create(&tid[0], NULL, &connection_handle_accept, (void*)thread_arg);
 	if (res != 0)
 		PFATAL("can't create cache accept thread");
@@ -541,6 +547,11 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 	ev.events = EPOLLIN;
 	ev.data.fd = efd;
 	res = epoll_ctl(epfd, EPOLL_CTL_ADD, efd, &ev);
+
+	// wait on accept threads to be ready (spin)
+	while(!thread_arg[0].ready || !thread_arg[1].ready){
+		usleep(100);
+	}
 
 	while (!stop_soon) {
 		// Tight epoll wait loop
