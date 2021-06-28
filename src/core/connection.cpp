@@ -541,8 +541,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 	
 	//Init Acceptor thread data
 	connection_thread_arg thread_arg[2];
-	efd = eventfd(0, 0);
-	connection_non_blocking(efd);
+	efd = eventfd(0, EFD_NONBLOCK);
 
 	thread_arg[0].type = cache_listener;
 	thread_arg[1].type = mon_listener;
@@ -562,7 +561,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 	ev.data.fd = efd;
 	res = epoll_ctl(epfd, EPOLL_CTL_ADD, efd, &ev);
 	if (res != 0)
-		PFATAL("can't create wait on eventfd");
+		PFATAL("can't create wait on eventfd %d", efd);
 
 	// wait on accept threads to be ready (spin)
 	while(!thread_arg[0].ready || !thread_arg[1].ready){
