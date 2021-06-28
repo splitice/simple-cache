@@ -388,7 +388,7 @@ static unsigned int connection_any() {\
 static void* connection_handle_accept(void *arg)
 {
 	struct epoll_event ev;
-	int epacceptfd = epoll_create(scache_listeners.listener_count + 1);
+	int epacceptfd = epoll_create1(0);
 	struct epoll_event events[NUM_EVENTS_ACCEPT];
 	int res;
 	connection_thread_arg* thread_arg = (connection_thread_arg*)arg;
@@ -524,7 +524,7 @@ void close_fd(int fd){
 }
 
 void connection_event_loop(void (*connection_handler)(scache_connection* connection)) {
-	epfd = epoll_create(0);
+	epfd = epoll_create1(0);
 	struct epoll_event events[NUM_EVENTS];
 	int max_listener = 0;
 	int res;
