@@ -64,7 +64,7 @@ state_action http_read_handle(scache_connection* connection) {
 			}
 
 			DEBUG("[#%d] Needs more bytes, got errno %d\n", fd, num);
-			return needs_more;
+			return needs_more_read;
 		}
 		
 		DEBUG("[#%d] Reading %d bytes from socket (write pos: %d, read pos: %d)\n", fd, num, connection->input.write_position, connection->input.read_position);
@@ -79,7 +79,7 @@ state_action http_read_handle(scache_connection* connection) {
 		run = http_read_handle_state(connection);
 		to_end_old = to_end;
 		to_end = rbuf_read_remaining(&connection->input);
-	} while (run == needs_more && to_end != 0 && to_end != to_end_old);
+	} while (run == needs_more_read && to_end != 0 && to_end != to_end_old);
 
 	//Handle buffer is full, not being processed
 	if (num == 0 && rbuf_write_remaining(&connection->input) == 0) {
@@ -129,9 +129,9 @@ state_action http_write_handle(scache_connection* connection) {
 
 	state_action run = continue_processing;
 	if (connection->output_buffer == NULL) {
-		do {
-			run = http_write_handle_state(connection);
-		} while (run == needs_more);
+//		do {
+		run = http_write_handle_state(connection);
+//		} while (run == needs_more_write);
 	}
 
 	return run;

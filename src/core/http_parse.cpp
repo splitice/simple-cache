@@ -105,7 +105,7 @@ state_action http_handle_eolwritetoend(scache_connection* connection) {
 	DEBUG("[#%d] Handling HTTP EOL Search, then writing state\n", connection->client_sock);
 
 	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_eoltoend(connection, buffer, n, connection->state));
-	if (n != 0 && ret == needs_more) {
+	if (n != 0 && ret == needs_more_read) {
 		RBUF_READMOVE(connection->input, n);
 	}
 

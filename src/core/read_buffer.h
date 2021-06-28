@@ -143,6 +143,6 @@ Helper to Iterate over circular buffer
 		} \
 	} \
 	if (ret == continue_processing) { \
-		ret = needs_more; \
+		ret = needs_more_read; \
 	} \
 } while (0);

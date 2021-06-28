@@ -23,7 +23,7 @@ union utarget {
 };
 
 typedef enum {
-	close_connection, registered_write, needs_more, continue_processing
+	close_connection, registered_write, needs_more_read, continue_processing
 } state_action;
 
 typedef enum {

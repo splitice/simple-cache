@@ -30,7 +30,7 @@ extern int epfd;
 static state_action http_stats_after_eol(scache_connection* connection) {
 	connection->state = 0;
 	CONNECTION_HANDLER(connection,  http_cache_handle_eolstats);
-	return needs_more;
+	return needs_more_read;
 }
 
 static state_action http_write_response_after_eol(scache_connection* connection, int http_template) {
@@ -38,7 +38,7 @@ static state_action http_write_response_after_eol(scache_connection* connection,
 	connection->output_buffer = http_templates[http_template];
 	connection->output_length = http_templates_length[http_template];
 	connection->state = 1;
-	return needs_more;
+	return needs_more_read;
 }
 
 static state_action http_write_response(scache_connection* connection, int http_template) {
@@ -55,7 +55,7 @@ static state_action http_headers_response_after_eol(scache_connection* connectio
 	connection->output_buffer = http_templates[http_template];
 	connection->output_length = http_templates_length[http_template];
 	connection->state = 2;
-	return needs_more;
+	return needs_more_read;
 }
 
 static bool http_key_lookup(scache_connection* connection, int n) {
@@ -141,7 +141,7 @@ static inline state_action http_read_requeststartmethod(scache_connection* conne
 			assert(REQUEST_IS(connection->type, connection->type));
 			RBUF_READMOVE(connection->input, n + 1);
 			DEBUG("[#%d] HTTP GET Request\n", connection->client_sock);
-			return needs_more;
+			return needs_more_read;
 		}
 		else if (n == 3 && rbuf_cmpn(&connection->input, "PUT", 3) == 0) {
 			//This is a PUT request
@@ -149,7 +149,7 @@ static inline state_action http_read_requeststartmethod(scache_connection* conne
 			assert(REQUEST_IS(connection->type, connection->type));
 			RBUF_READMOVE(connection->input, n + 1);
 			DEBUG("[#%d] HTTP PUT Request\n", connection->client_sock);
-			return needs_more;
+			return needs_more_read;
 		}
 		else if (n == 4 && rbuf_cmpn(&connection->input, "HEAD", 4) == 0) {
 			//This is a HEAD request
@@ -157,7 +157,7 @@ static inline state_action http_read_requeststartmethod(scache_connection* conne
 			assert(REQUEST_IS(connection->type, connection->type));
 			RBUF_READMOVE(connection->input, n + 1);
 			DEBUG("[#%d] HTTP HEAD Request\n", connection->client_sock);
-			return needs_more;
+			return needs_more_read;
 		}
 		else if (n == 6 && rbuf_cmpn(&connection->input, "DELETE", 6) == 0) {
 			DEBUG("[#%d] HTTP DELETE Request\n", connection->client_sock);
@@ -165,7 +165,7 @@ static inline state_action http_read_requeststartmethod(scache_connection* conne
 			connection->type = REQUEST_HTTPDELETE;
 			assert(REQUEST_IS(connection->type, connection->type));
 			RBUF_READMOVE(connection->input, n + 1);
-			return needs_more;
+			return needs_more_read;
 		}
 		else if ((n == 4 && rbuf_cmpn(&connection->input, "BULK", 4) == 0) || (n == 5 && rbuf_cmpn(&connection->input, "PURGE", 5) == 0)) {
 			//This is a BULK request
@@ -173,7 +173,7 @@ static inline state_action http_read_requeststartmethod(scache_connection* conne
 			assert(REQUEST_IS(connection->type, connection->type));
 			RBUF_READMOVE(connection->input, n + 1);
 			DEBUG("[#%d] HTTP BULK Request\n", connection->client_sock);
-			return needs_more;
+			return needs_more_read;
 		}
 		else if (n == 5 && rbuf_cmpn(&connection->input, "ADMIN", 5) == 0) {
 			//This is a BULK request
@@ -181,7 +181,7 @@ static inline state_action http_read_requeststartmethod(scache_connection* conne
 			assert(REQUEST_IS(connection->type, connection->type));
 			RBUF_READMOVE(connection->input, n + 1);
 			DEBUG("[#%d] HTTP ADMIN Request\n", connection->client_sock);
-			return needs_more;
+			return needs_more_read;
 		}
 
 		//Else: This is an INVALID request
@@ -238,7 +238,7 @@ static inline state_action http_read_requeststarturl1(scache_connection* connect
 			}
 
 			RBUF_READMOVE(connection->input, n);
-			return needs_more;
+			return needs_more_read;
 		}
 		else if (*buffer == ' ') {
 			if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPDELETE) || REQUEST_IS(connection->type, REQUEST_HTTPPURGE)) {
@@ -262,7 +262,7 @@ static inline state_action http_read_requeststarturl1(scache_connection* connect
 				//Else request for table/key
 				CONNECTION_HANDLER(connection, http_cache_handle_headers);
 				connection->state = 0;
-				return needs_more;
+				return needs_more_read;
 			} 
 			
 			if(REQUEST_IS(connection->type, REQUEST_HTTPADMIN)){
@@ -293,7 +293,7 @@ static state_action http_read_requeststarturl2(scache_connection* connection, ch
 		RBUF_READMOVE(connection->input, n + 1);
 		connection->state = 0;
 
-		return temporary ? needs_more : registered_write;
+		return temporary ? needs_more_read : registered_write;
 	}
 
 	return continue_processing;
@@ -313,14 +313,14 @@ static state_action http_read_headers(scache_connection* connection, char* buffe
 				RBUF_READMOVE(connection->input, bytes + 1);
 				connection->state = HEADER_CONTENTLENGTH;
 				CONNECTION_HANDLER(connection,  http_cache_handle_headers_extract);
-				return needs_more;
+				return needs_more_read;
 			}
 			if (bytes == 5 && rbuf_cmpn(&connection->input, "X-Ttl", 5) == 0) {
 				DEBUG("[#%d] Found X-Ttl header\n", connection->client_sock);
 				RBUF_READMOVE(connection->input, bytes + 1);
 				connection->state = HEADER_XTTL;
 				CONNECTION_HANDLER(connection,  http_cache_handle_headers_extract);
-				return needs_more;
+				return needs_more_read;
 			}
 		}
 		else if (REQUEST_IS(connection->type, REQUEST_HTTPGET | REQUEST_CACHE_LEVELTABLE)) {
@@ -329,14 +329,14 @@ static state_action http_read_headers(scache_connection* connection, char* buffe
 				RBUF_READMOVE(connection->input, bytes + 1);
 				connection->state = HEADER_XSTART;
 				CONNECTION_HANDLER(connection,  http_cache_handle_headers_extract);
-				return needs_more;
+				return needs_more_read;
 			}
 			if (bytes == 7 && rbuf_cmpn(&connection->input, "X-Limit", 7) == 0) {
 				DEBUG("[#%d] Found X-Limit header\n", connection->client_sock);
 				RBUF_READMOVE(connection->input, bytes + 1);
 				connection->state = HEADER_XLIMIT;
 				CONNECTION_HANDLER(connection,  http_cache_handle_headers_extract);
-				return needs_more;
+				return needs_more_read;
 			}
 		}
 		else if (REQUEST_IS(connection->type, REQUEST_HTTPPURGE | REQUEST_CACHE_LEVELTABLE)) {
@@ -345,7 +345,7 @@ static state_action http_read_headers(scache_connection* connection, char* buffe
 				RBUF_READMOVE(connection->input, bytes + 1);
 				connection->state = HEADER_XDELETE;
 				CONNECTION_HANDLER(connection,  http_cache_handle_headers_extract);
-				return needs_more;
+				return needs_more_read;
 			}
 		}
 	}
@@ -364,7 +364,7 @@ static state_action http_read_headers(scache_connection* connection, char* buffe
 					}
 
 					CONNECTION_HANDLER(connection,  http_cache_handle_request_body);
-					return needs_more;
+					return needs_more_read;
 				}
 				if (connection->cache.target.key.entry != NULL) {
 					if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPHEAD)) {
@@ -419,7 +419,7 @@ static state_action http_read_headers(scache_connection* connection, char* buffe
 
 		//Move pointers to next record
 		RBUF_READMOVE(connection->input, n + 1);
-		return needs_more;
+		return needs_more_read;
 	}
 	else if (*buffer != '\r') {
 		temporary = 0;
@@ -558,7 +558,7 @@ static state_action http_read_header_extraction(scache_connection* connection, c
 		connection->state = 1;
 		CONNECTION_HANDLER(connection,  http_cache_handle_headers);
 		RBUF_READMOVE(connection->input, length + temporary);
-		return needs_more;
+		return needs_more_read;
 	}
 	else{
 		temporary = 1;
@@ -575,7 +575,7 @@ static state_action http_read_version(scache_connection* connection, char* buffe
 
 		RBUF_READMOVE(connection->input, n + 1);
 		n = -1;
-		return needs_more;
+		return needs_more_read;
 	}
 	return continue_processing;
 }
@@ -632,7 +632,7 @@ state_action http_cache_handle_eolstats(scache_connection* connection) {
 	DEBUG("[#%d] Handling HTTP EOL Search, then writing stats\n", connection->client_sock);
 
 	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_eoltoend(connection, buffer, n, connection->state));
-	if (n != 0 && ret == needs_more) {
+	if (n != 0 && ret == needs_more_read) {
 		RBUF_READMOVE(connection->input, n);
 	}
 	if (ret == registered_write) {

@@ -37,7 +37,7 @@ static state_action http_write_response_after_eol(scache_connection* connection,
 	connection->output_buffer = http_templates[http_template];
 	connection->output_length = http_templates_length[http_template];
 	connection->state = 0;
-	return needs_more;
+	return needs_more_read;
 }
 
 static state_action http_write_response(scache_connection* connection, int http_template) {
@@ -55,7 +55,7 @@ static state_action http_headers_response_after_eol(scache_connection* connectio
 	connection->output_buffer = http_templates[http_template];
 	connection->output_length = http_templates_length[http_template];
 	connection->state = 2;
-	return needs_more;
+	return needs_more_read;
 }
 
 
@@ -127,7 +127,7 @@ state_action http_handle_mon_eolwrite_initial(scache_connection* connection) {
 	DEBUG("[#%d] Handling HTTP EOL Search, then writing header text\n", connection->client_sock);
 
 	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_mon_read_eol_inital(connection, buffer, n, connection->state));
-	if (n != 0 && ret == needs_more) {
+	if (n != 0 && ret == needs_more_read) {
 		RBUF_READMOVE(connection->input, n);
 	}
 
@@ -142,7 +142,7 @@ static state_action http_headers_response_count(scache_connection* connection, i
 	CONNECTION_HANDLER(connection,  http_handle_mon_eolwrite_initial);
 	connection->output_buffer = http_templates[http_template];
 	connection->output_length = http_templates_length[http_template];
-	return needs_more;
+	return needs_more_read;
 }
 
 static inline state_action http_read_requeststartmethod_mon(scache_connection* connection, char* buffer, int n) {
@@ -168,7 +168,7 @@ static inline state_action http_read_requeststartmethod_mon(scache_connection* c
 			assert(REQUEST_IS(connection->type, connection->type));
 			RBUF_READMOVE(connection->input, n + 1);
 			DEBUG("[#%d] HTTP GET Request\n", connection->client_sock);
-			return needs_more;
+			return needs_more_read;
 		}
 		else if (n == 4 && rbuf_cmpn(&connection->input, "HEAD", 4) == 0) {
 			//This is a HEAD request
@@ -176,7 +176,7 @@ static inline state_action http_read_requeststartmethod_mon(scache_connection* c
 			assert(REQUEST_IS(connection->type, connection->type));
 			RBUF_READMOVE(connection->input, n + 1);
 			DEBUG("[#%d] HTTP HEAD Request\n", connection->client_sock);
-			return needs_more;
+			return needs_more_read;
 		}
 
 		//Else: This is an INVALID request
@@ -273,7 +273,7 @@ state_action http_mon_handle_start(scache_connection* connection) {
 	DEBUG("[#%d] Handling new HTTP connection\n", connection->client_sock);
 	enable_keepalive(connection->client_sock);
 	CONNECTION_HANDLER(connection,  http_mon_handle_method);
-	return needs_more;
+	return needs_more_read;
 }
 
 static scache_connection* mon_head = NULL; // next -> tail, prev = null
