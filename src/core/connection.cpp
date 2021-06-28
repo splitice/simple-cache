@@ -424,8 +424,7 @@ static void* connection_handle_accept(void *arg)
 			}
 		} while(nfds == 0 && !stop_soon);
 		assert(nfds >= 0);
-		int n = 0;
-		while (n < nfds) {
+		for (int n = 0; n < nfds; n++) {
 			int fd = events[n].data.fd;
 			if (events[n].events & (EPOLLERR | EPOLLHUP))
 			{
@@ -497,7 +496,6 @@ static void* connection_handle_accept(void *arg)
 						assert(res == sizeof(u));
 					} while(!res);
 				}
-				n++;
 			}
 		}
 	}
