@@ -14,6 +14,9 @@ void connection_cleanup();
 bool connection_remove(int fd);
 bool connection_stop_soon();
 
+
+void close_fd(int fd);
+
 #define _DEBUG_CONNECTION_HANDLER
 #ifdef DEBUG_CONNECTION_HANDLER
 #define CONNECTION_HANDLER(con, value) printf("Setting connection handler to " #value "\n"); (con)->handler = (value) 

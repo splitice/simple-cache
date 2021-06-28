@@ -138,7 +138,7 @@ void connection_close_listeners() {
 	{
 		fd = scache_listeners.listeners[i].fd;
 		scache_listeners.listeners[i].fd = -1;	
-		close(fd);
+		close_fd(fd);
 	}
 
 	free(scache_listeners.listeners);
@@ -448,7 +448,7 @@ static void* connection_handle_accept(void *arg)
 					
 					connections_queued* q = (connections_queued*)malloc(sizeof(connections_queued));
 					if(q == NULL){
-						close(client_sock);
+						close_fd(client_sock);
 						n++;
 						WARN("[#] failed to allocate memory for connection. Abandoning incoming connection.");
 						continue;
@@ -491,6 +491,16 @@ end:
 	close(epacceptfd);
 
 	return NULL;
+}
+
+void close_fd(int fd){
+#ifdef DEBUG_BUILD
+	for (uint32_t i = 0; i < scache_listeners.listener_count; i++)
+	{
+		assert(scache_listeners.listeners[i].fd != fd);
+	}
+#endif
+	close(fd);
 }
 
 void connection_event_loop(void (*connection_handler)(scache_connection* connection)) {
@@ -629,7 +639,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 						}
 
 						//Close connection socket
-						close(fd);
+						close_fd(fd);
 					}
 				}
 				else if(fd == efd)
@@ -652,7 +662,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 	}
 
 end:
-	close(epfd);
+	close_fd(epfd);
 	
 	errno = pthread_join(tid[0], NULL);
 	if(errno != 0) {
@@ -663,7 +673,7 @@ end:
 		PFATAL("failed to join mon thread");
 	}
 
-	close(efd);
+	close_fd(efd);
 }
 
 /*
@@ -678,7 +688,7 @@ void connection_cleanup_http(scache_connection_node* connection, bool toFree = f
 		http_cleanup(&connection->connection);
 		fd = connection->connection.client_sock;
 		connection->connection.client_sock = -1;
-		close(fd);
+		close_fd(fd);
 	}
 
 	//Handle chained connections
