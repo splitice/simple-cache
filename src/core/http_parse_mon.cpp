@@ -196,8 +196,6 @@ static inline state_action http_mon_read_requeststarturl(scache_connection* conn
 		if (*buffer != ' ') {
 			return continue_processing;//continue
 		}
-		printf("%c\n", *buffer);
-
 
 		RBUF_READMOVE(connection->input, 1); 
 		char* key = (char*)malloc(sizeof(char) * (n + 1));
