@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <netinet/tcp.h>
 #include "http.h"
 #include "config.h"
 #include "debug.h"
@@ -253,9 +254,24 @@ state_action http_mon_handle_method(scache_connection* connection) {
 	return ret;
 }
 
+static void enable_keepalive(int sock) {
+    int yes = 1;
+	setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(int));
+
+    int idle = 1;
+	setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, &idle, sizeof(int));
+
+    int interval = 3;
+	setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, &interval, sizeof(int));
+
+    int maxpkt = 5;
+	setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, &maxpkt, sizeof(int));
+}
+
 
 state_action http_mon_handle_start(scache_connection* connection) {
 	DEBUG("[#%d] Handling new HTTP connection\n", connection->client_sock);
+	enable_keepalive(connection->client_sock);
 	CONNECTION_HANDLER(connection,  http_mon_handle_method);
 	return needs_more;
 }
