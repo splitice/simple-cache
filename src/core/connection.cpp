@@ -64,6 +64,7 @@ static pthread_mutex_t cq_lock;
 static bool connection_event_update(int fd, uint32_t events) {
 	struct epoll_event ev;
 	assert(fd != 0 || fd);
+	memset(&ev, 0, sizeof(ev));
 	ev.events = events;
 	ev.data.fd = fd;
 	int res = epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev);
@@ -389,6 +390,7 @@ static void* connection_handle_accept(void *arg)
 {
 	struct epoll_event ev;
 	int epacceptfd = epoll_create1(0);
+	memset(&ev, 0, sizeof(ev));
 	struct epoll_event events[NUM_EVENTS_ACCEPT];
 	int res;
 	connection_thread_arg* thread_arg = (connection_thread_arg*)arg;
@@ -557,6 +559,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 		PFATAL("can't create mon accept thread");
 	
 	//Add messaging socket
+	memset(&ev, 0, sizeof(ev));
 	ev.events = EPOLLIN;
 	ev.data.fd = efd;
 	res = epoll_ctl(epfd, EPOLL_CTL_ADD, efd, &ev);
