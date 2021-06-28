@@ -352,6 +352,7 @@ static void itoa(int n, char s[])
 
 void monitoring_check(){
 	scache_connection* conn;
+	int fd;
 
 	// Every 5ms we will work down any nodes in mon_head that need to be notified
 	while(mon_head != NULL){
@@ -378,8 +379,9 @@ void monitoring_check(){
 		// If buffer wasnt cleared already, then we will need to disconnect
 		if(conn->output_buffer != NULL){
 			http_cleanup(conn);
-			connection_remove(conn->client_sock);
-			close_fd(conn->client_sock);
+			fd = conn->client_sock;
+			connection_remove(fd);
+			close_fd(fd);
 			return;
 		}
 
