@@ -488,7 +488,7 @@ static void* connection_handle_accept(void *arg)
 	}
 
 end:
-	close(epacceptfd);
+	close_fd(epacceptfd);
 
 	return NULL;
 }
