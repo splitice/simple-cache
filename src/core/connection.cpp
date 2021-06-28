@@ -33,7 +33,6 @@
 
 /* Globals */
 listener_collection scache_listeners = { .listeners = NULL, .listener_count = 0 };
-struct epoll_event ev;
 struct scache_connection_node ctable[CONNECTION_HASH_ENTRIES] = { 0 };
 
 int epfd;
@@ -63,6 +62,7 @@ static pthread_mutex_t cq_lock;
 
 /* Methods */
 static bool connection_event_update(int fd, uint32_t events) {
+	struct epoll_event ev;
 	assert(fd != 0 || fd);
 	ev.events = events;
 	ev.data.fd = fd;
@@ -387,6 +387,7 @@ static unsigned int connection_any() {\
 
 static void* connection_handle_accept(void *arg)
 {
+	struct epoll_event ev;
 	int epacceptfd = epoll_create(scache_listeners.listener_count + 1);
 	struct epoll_event events[NUM_EVENTS_ACCEPT];
 	int res;
@@ -525,6 +526,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 	int res;
 	int efd;
 	pthread_t tid[2];
+	struct epoll_event ev;
 	uint64_t u;
 	
 	//Init Mutex
