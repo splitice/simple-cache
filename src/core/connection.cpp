@@ -138,7 +138,7 @@ void connection_close_listeners() {
 	{
 		fd = scache_listeners.listeners[i].fd;
 		scache_listeners.listeners[i].fd = -1;	
-		close_fd(fd);
+		close(fd);
 	}
 
 	free(scache_listeners.listeners);
