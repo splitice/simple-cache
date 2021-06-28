@@ -428,7 +428,11 @@ static void* connection_handle_accept(void *arg)
 				if (client_sock < 0) {
 					if (errno != EAGAIN && errno != EWOULDBLOCK)
 					{
-						WARN("[#] accept() failed on fd %d of type %s. Error: %s", fd, listener_type_string(our_type), strerror(errno));
+						if(errno == ENOTSOCK){
+							PFATAL("[#] accept() failed on fd %d of type %s", fd, listener_type_string(our_type));
+						}else{
+							WARN("[#] accept() failed on fd %d of type %s. Error: %s", fd, listener_type_string(our_type), strerror(errno));
+						}
 					}
 					n++;
 					continue;
