@@ -495,9 +495,11 @@ end:
 
 void close_fd(int fd){
 #ifdef DEBUG_BUILD
-	for (uint32_t i = 0; i < scache_listeners.listener_count; i++)
-	{
-		assert(scache_listeners.listeners[i].fd != fd);
+	if(scache_listeners.listeners != NULL){
+		for (uint32_t i = 0; i < scache_listeners.listener_count; i++)
+		{
+			assert(scache_listeners.listeners[i].fd != fd);
+		}
 	}
 #endif
 	close(fd);
