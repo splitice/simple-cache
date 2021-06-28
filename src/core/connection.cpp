@@ -534,6 +534,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 	pthread_t tid[2];
 	struct epoll_event ev;
 	uint64_t u;
+	connection_thread_arg thread_arg[2];
 	
 	//Init Mutex
 	if (pthread_mutex_init(&cq_lock, NULL) != 0)
@@ -541,10 +542,10 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 		PFATAL("mutex init failed");
 	}
 	
-	//Init Acceptor thread data
-	connection_thread_arg thread_arg[2];
+	// Prepare a non blocking eventfd for thread communication
 	efd = eventfd(0, EFD_NONBLOCK);
 
+	//Init Acceptor thread data
 	thread_arg[0].type = cache_listener;
 	thread_arg[1].type = mon_listener;
 	thread_arg[0].eventfd = thread_arg[1].eventfd = efd;
