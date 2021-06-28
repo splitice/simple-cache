@@ -82,7 +82,7 @@ state_action http_read_eoltoend(scache_connection* connection, char* buffer, int
 		// register a handler to write the output (and then the request is over)
 		connection->state = 0;
 		CONNECTION_HANDLER(connection,  http_respond_writeonly);
-		bool res = connection_register_write(connection->client_sock);
+		bool res = connection_register_write(connection);
 
 		if (!res) {
 			return close_connection;
@@ -114,7 +114,7 @@ state_action http_handle_eolwritetoend(scache_connection* connection) {
 
 state_action http_discard_input(scache_connection* connection) {
 	//todo discard from readbuffer
-	connection_register_read(connection->client_sock);
+	connection_register_read(connection);
 	rbuf_read_to_end(&connection->input);
 	return continue_processing;
 }

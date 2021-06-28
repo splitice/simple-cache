@@ -37,7 +37,7 @@ state_action http_respond_expires(scache_connection* connection) {
 	int fd = connection->client_sock;
 	char header[32];
 
-	if (REQUEST_IS(connection->type, REQUEST_GETKEY) || REQUEST_IS(connection->type, REQUEST_HEADKEY)) {
+	if (REQUEST_IS(connection->method, REQUEST_GETKEY) || REQUEST_IS(connection->method, REQUEST_HEADKEY)) {
 		DEBUG("[#%d] Responding with X-Ttl\n", fd);
 		//Returns the number of chars put into the buffer
 		__time_t expires = connection->cache.target.key.entry->expires;
@@ -63,7 +63,7 @@ state_action http_respond_contentlength(scache_connection* connection) {
 
 bool http_register_read(scache_connection* connection) {
 
-	bool res = connection_register_read(connection->client_sock);
+	bool res = connection_register_read(connection);
 
 	if (!connection_stop_soon() && rbuf_write_remaining(&connection->input)) {
 		http_read_handle(connection);
@@ -77,6 +77,7 @@ state_action http_respond_stats(scache_connection* connection) {
 	char header_buffer[1024];
 	char *stat_ptr = stat_buffer;
 	db_details* details = db_get_details();
+	assert(connection->epollout && !connection->epollin);
 
 	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Keys: %" PRIu64 "\r\n", details->db_keys);
 	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Tables: %u\r\n", kh_size(details->tables));
@@ -100,6 +101,7 @@ state_action http_respond_stats(scache_connection* connection) {
 }
 
 state_action http_respond_reset_connection(scache_connection* connection) {
+	assert(connection->epollout && !connection->epollin);
 	http_cleanup(connection);
 	CONNECTION_HANDLER(connection,  http_cache_handle_method);
 	bool res = http_register_read(connection);
@@ -108,13 +110,14 @@ state_action http_respond_reset_connection(scache_connection* connection) {
 
 state_action http_respond_responseend(scache_connection* connection) {
 	int fd = connection->client_sock;
+	assert(connection->epollout && !connection->epollin);
 	DEBUG("[#%d] Responding with the newlines\n", fd);
 	connection->output_buffer = http_templates[HTTPTEMPLATE_NEWLINE];
 	connection->output_length = http_templates_length[HTTPTEMPLATE_NEWLINE];
-	if (REQUEST_IS(connection->type, REQUEST_HTTPGET)) {
+	if (REQUEST_IS(connection->method, REQUEST_HTTPGET)) {
 		CONNECTION_HANDLER(connection,  http_respond_contentbody);
 	}
-	else if (REQUEST_IS(connection->type, REQUEST_HTTPHEAD)) {
+	else if (REQUEST_IS(connection->method, REQUEST_HTTPHEAD)) {
 		CONNECTION_HANDLER(connection,  http_respond_reset_connection);
 	}
 	else{
@@ -125,6 +128,7 @@ state_action http_respond_responseend(scache_connection* connection) {
 
 state_action http_respond_contentbody(scache_connection* connection) {
 	int fd = connection->client_sock;
+	assert(connection->epollout && !connection->epollin);
 	DEBUG("[#%d] Sending response body\n", fd);
 	//The number of bytes to read
 	size_t temp = connection->cache.target.key.end_position - connection->cache.target.key.position;
@@ -161,6 +165,7 @@ state_action http_respond_contentbody(scache_connection* connection) {
 }
 
 state_action http_respond_writeonly(scache_connection* connection) {
+	assert(connection->epollout && !connection->epollin);
 	DEBUG("[#%d] Sending static response then closing\n", connection->client_sock);
 	//Static response, after witing, read next request
 	http_cleanup(connection);
@@ -176,18 +181,20 @@ state_action http_respond_writeonly(scache_connection* connection) {
 }
 
 state_action http_respond_cleanupafterwrite(scache_connection* connection) {
+	assert(connection->epollout && !connection->epollin);
 	DEBUG("[#%d] Writing complete\n", connection->client_sock);
 
 	connection->output_buffer = NULL;
 	connection->output_length = 0;
 
 	CONNECTION_HANDLER(connection, http_discard_input);
-	connection_register_read(connection->client_sock);
+	connection_register_read(connection);
 
 	return continue_processing;
 }
 
 state_action http_respond_listing_separator(scache_connection* connection) {
+	assert(connection->epollout && !connection->epollin);
 	connection->output_buffer = "\r\n";
 	connection->output_length = 2;
 	CONNECTION_HANDLER(connection,  http_respond_listing);
@@ -250,7 +257,7 @@ state_action http_respond_listingtotal(scache_connection* connection) {
 	int fd = connection->client_sock;
 	char header[32];
 
-	if (REQUEST_IS(connection->type, REQUEST_GETTABLE)) {
+	if (REQUEST_IS(connection->method, REQUEST_GETTABLE)) {
 		DEBUG("[#%d] Responding with X-Total\n", fd);
 		//Returns the number of chars put into the buffer
 		int temp = snprintf(header, sizeof(header), "X-Total: %d\r\n", kh_n_buckets(connection->cache.target.table.table->cache_hash_set));
@@ -266,7 +273,7 @@ state_action http_respond_listingentries(scache_connection* connection) {
 	int fd = connection->client_sock;
 	char header[32];
 
-	if (REQUEST_IS(connection->type, REQUEST_GETTABLE)) {
+	if (REQUEST_IS(connection->method, REQUEST_GETTABLE)) {
 		DEBUG("[#%d] Responding with X-Entries\n", fd);
 		//Returns the number of chars put into the buffer
 		int temp = snprintf(header, sizeof(header), "X-Entries: %d\r\n", kh_size(connection->cache.target.table.table->cache_hash_set));

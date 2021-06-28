@@ -36,12 +36,17 @@ struct scache_connection {
 	int output_length;
 	char* output_buffer_free;
 	state_action(*handler)(scache_connection* connection);
+#ifdef DEBUG_BUILD
+	const char* handler_name;
+#endif
 	uint32_t state;
 	int client_sock;
 	struct read_buffer input;
 	
-	unsigned int type : 15;
-	unsigned int writing : 1;
+	uint16_t method;
+	bool cache_writing,
+	     epollin,
+		 epollout;
 
 	listener_type ltype;
 

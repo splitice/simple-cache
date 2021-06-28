@@ -46,7 +46,7 @@ static state_action http_write_response(scache_connection* connection, int http_
 	connection->output_buffer = http_templates[http_template];
 	connection->output_length = http_templates_length[http_template];
 	connection->state = 0;
-	bool res = connection_register_write(connection->client_sock);
+	bool res = connection_register_write(connection);
 	return res?registered_write:close_connection;
 }
 
@@ -69,18 +69,18 @@ static bool http_key_lookup(scache_connection* connection, int n) {
 
 	struct cache_entry* entry;
 	//TODO: memcpy always?
-	if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPHEAD)) {
+	if (REQUEST_IS(connection->method, REQUEST_HTTPGET) || REQUEST_IS(connection->method, REQUEST_HTTPHEAD)) {
 		//db_entry_get_read will free key if necessary
 		entry = db_entry_get_read(connection->cache.target.table.table, key, n);
 	}
-	else if (REQUEST_IS(connection->type, REQUEST_HTTPPUT)) {
+	else if (REQUEST_IS(connection->method, REQUEST_HTTPPUT)) {
 		//It is the responsibility of db_entry_get_write to free key if necessary
 		entry = db_entry_get_write(connection->cache.target.table.table, key, n);
 		if (entry) {
-			connection->writing = true;
+			connection->cache_writing = true;
 		}
 	}
-	else if (REQUEST_IS(connection->type, REQUEST_HTTPDELETE)) {
+	else if (REQUEST_IS(connection->method, REQUEST_HTTPDELETE)) {
 		//It is the responsibility of db_entry_get_write to free key if necessary
 		entry = db_entry_get_delete(connection->cache.target.table.table, key, n);
 
@@ -89,25 +89,25 @@ static bool http_key_lookup(scache_connection* connection, int n) {
 	}
 	else
 	{
-		DEBUG("[#%d] Has request key but is not GET, HEAD, PUT or DELETE (binary: %x)\n", connection->client_sock, connection->type);
+		DEBUG("[#%d] Has request key but is not GET, HEAD, PUT or DELETE (binary: %x)\n", connection->client_sock, connection->method);
 		return http_write_response_after_eol(connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 	}
 
-	int type = connection->type;
-	connection->type |= REQUEST_CACHE_LEVELKEY;
-	assert(REQUEST_IS(connection->type, REQUEST_CACHE_LEVELKEY));
-	assert(REQUEST_IS(connection->type, connection->type));
-	assert(REQUEST_IS(connection->type, type));
-	connection->type &= ~REQUEST_CACHE_LEVELTABLE;
-	assert(REQUEST_IS(connection->type, REQUEST_CACHE_LEVELKEY));
-	assert(REQUEST_IS(connection->type, connection->type));
-	assert(REQUEST_IS(connection->type, type & ~REQUEST_CACHE_LEVELTABLE));
-	assert(!REQUEST_IS(connection->type, REQUEST_CACHE_LEVELTABLE));
+	int type = connection->method;
+	connection->method |= REQUEST_CACHE_LEVELKEY;
+	assert(REQUEST_IS(connection->method, REQUEST_CACHE_LEVELKEY));
+	assert(REQUEST_IS(connection->method, connection->method));
+	assert(REQUEST_IS(connection->method, type));
+	connection->method &= ~REQUEST_CACHE_LEVELTABLE;
+	assert(REQUEST_IS(connection->method, REQUEST_CACHE_LEVELKEY));
+	assert(REQUEST_IS(connection->method, connection->method));
+	assert(REQUEST_IS(connection->method, type & ~REQUEST_CACHE_LEVELTABLE));
+	assert(!REQUEST_IS(connection->method, REQUEST_CACHE_LEVELTABLE));
 	CONNECTION_HANDLER(connection,  http_cache_handle_httpversion);
 
 	if (entry) {
 		connection->cache.target.key.entry = entry;
-		db_target_setup(&connection->cache.target.key, entry, REQUEST_IS(connection->type, REQUEST_HTTPPUT));
+		db_target_setup(&connection->cache.target.key, entry, REQUEST_IS(connection->method, REQUEST_HTTPPUT));
 	}
 	else{
 		db_table_close(connection->cache.target.table.table);
@@ -137,24 +137,24 @@ static inline state_action http_read_requeststartmethod(scache_connection* conne
 		//Workout what valid method we have been given (if any)
 		if (n == 3 && rbuf_cmpn(&connection->input, "GET", 3) == 0) {
 			//This is a GET request
-			connection->type = REQUEST_HTTPGET;
-			assert(REQUEST_IS(connection->type, connection->type));
+			connection->method = REQUEST_HTTPGET;
+			assert(REQUEST_IS(connection->method, connection->method));
 			RBUF_READMOVE(connection->input, n + 1);
 			DEBUG("[#%d] HTTP GET Request\n", connection->client_sock);
 			return needs_more_read;
 		}
 		else if (n == 3 && rbuf_cmpn(&connection->input, "PUT", 3) == 0) {
 			//This is a PUT request
-			connection->type = REQUEST_HTTPPUT;
-			assert(REQUEST_IS(connection->type, connection->type));
+			connection->method = REQUEST_HTTPPUT;
+			assert(REQUEST_IS(connection->method, connection->method));
 			RBUF_READMOVE(connection->input, n + 1);
 			DEBUG("[#%d] HTTP PUT Request\n", connection->client_sock);
 			return needs_more_read;
 		}
 		else if (n == 4 && rbuf_cmpn(&connection->input, "HEAD", 4) == 0) {
 			//This is a HEAD request
-			connection->type = REQUEST_HTTPHEAD;
-			assert(REQUEST_IS(connection->type, connection->type));
+			connection->method = REQUEST_HTTPHEAD;
+			assert(REQUEST_IS(connection->method, connection->method));
 			RBUF_READMOVE(connection->input, n + 1);
 			DEBUG("[#%d] HTTP HEAD Request\n", connection->client_sock);
 			return needs_more_read;
@@ -162,23 +162,23 @@ static inline state_action http_read_requeststartmethod(scache_connection* conne
 		else if (n == 6 && rbuf_cmpn(&connection->input, "DELETE", 6) == 0) {
 			DEBUG("[#%d] HTTP DELETE Request\n", connection->client_sock);
 			//This is a DELETE request
-			connection->type = REQUEST_HTTPDELETE;
-			assert(REQUEST_IS(connection->type, connection->type));
+			connection->method = REQUEST_HTTPDELETE;
+			assert(REQUEST_IS(connection->method, connection->method));
 			RBUF_READMOVE(connection->input, n + 1);
 			return needs_more_read;
 		}
 		else if ((n == 4 && rbuf_cmpn(&connection->input, "BULK", 4) == 0) || (n == 5 && rbuf_cmpn(&connection->input, "PURGE", 5) == 0)) {
 			//This is a BULK request
-			connection->type = REQUEST_HTTPPURGE;
-			assert(REQUEST_IS(connection->type, connection->type));
+			connection->method = REQUEST_HTTPPURGE;
+			assert(REQUEST_IS(connection->method, connection->method));
 			RBUF_READMOVE(connection->input, n + 1);
 			DEBUG("[#%d] HTTP BULK Request\n", connection->client_sock);
 			return needs_more_read;
 		}
 		else if (n == 5 && rbuf_cmpn(&connection->input, "ADMIN", 5) == 0) {
 			//This is a BULK request
-			connection->type = REQUEST_HTTPADMIN;
-			assert(REQUEST_IS(connection->type, connection->type));
+			connection->method = REQUEST_HTTPADMIN;
+			assert(REQUEST_IS(connection->method, connection->method));
 			RBUF_READMOVE(connection->input, n + 1);
 			DEBUG("[#%d] HTTP ADMIN Request\n", connection->client_sock);
 			return needs_more_read;
@@ -208,18 +208,18 @@ static inline state_action http_read_requeststarturl1(scache_connection* connect
 		char* key = (char*)malloc(sizeof(char) * (n + 1));
 		rbuf_copyn(&connection->input, key, n - 1);
 		key[n - 1] = 0;//Null terminate the key
-		int type = connection->type;
-		connection->type |= REQUEST_CACHE_LEVELTABLE;
-		assert(REQUEST_IS(connection->type, REQUEST_CACHE_LEVELTABLE));
-		assert(REQUEST_IS(connection->type, connection->type));
-		assert(REQUEST_IS(connection->type, type));
+		int type = connection->method;
+		connection->method |= REQUEST_CACHE_LEVELTABLE;
+		assert(REQUEST_IS(connection->method, REQUEST_CACHE_LEVELTABLE));
+		assert(REQUEST_IS(connection->method, connection->method));
+		assert(REQUEST_IS(connection->method, type));
 
 		if (*buffer == '/') {
 			//Key command
 			//URL: table/key
 
 
-			if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPDELETE) || REQUEST_IS(connection->type, REQUEST_HTTPHEAD)) 
+			if (REQUEST_IS(connection->method, REQUEST_HTTPGET) || REQUEST_IS(connection->method, REQUEST_HTTPDELETE) || REQUEST_IS(connection->method, REQUEST_HTTPHEAD)) 
 			{
 				connection->cache.target.table.table = db_table_get_read(key, n - 1);
 			}
@@ -241,7 +241,7 @@ static inline state_action http_read_requeststarturl1(scache_connection* connect
 			return needs_more_read;
 		}
 		else if (*buffer == ' ') {
-			if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPDELETE) || REQUEST_IS(connection->type, REQUEST_HTTPPURGE)) {
+			if (REQUEST_IS(connection->method, REQUEST_HTTPGET) || REQUEST_IS(connection->method, REQUEST_HTTPDELETE) || REQUEST_IS(connection->method, REQUEST_HTTPPURGE)) {
 				//Request for "/"
 				if (n == 1) {
 					//Stats Command
@@ -265,7 +265,7 @@ static inline state_action http_read_requeststarturl1(scache_connection* connect
 				return needs_more_read;
 			} 
 			
-			if(REQUEST_IS(connection->type, REQUEST_HTTPADMIN)){
+			if(REQUEST_IS(connection->method, REQUEST_HTTPADMIN)){
 				DEBUG("[#%d] Request admin url: \"%s\" (%d)\n", connection->client_sock, key, n);
 				if(n == 3 && strncmp(key, "gc", n	) == 0){
 					free(key);
@@ -307,7 +307,7 @@ static state_action http_read_headers(scache_connection* connection, char* buffe
 		}
 		DEBUG("[#%d] Found header of length %d\n", connection->client_sock, bytes);
 
-		if (REQUEST_IS(connection->type, REQUEST_HTTPPUT | REQUEST_CACHE_LEVELKEY)) {
+		if (REQUEST_IS(connection->method, REQUEST_HTTPPUT | REQUEST_CACHE_LEVELKEY)) {
 			if (bytes == 14 && rbuf_cmpn(&connection->input, "Content-Length", 14) == 0) {
 				DEBUG("[#%d] Found Content-Length header\n", connection->client_sock);
 				RBUF_READMOVE(connection->input, bytes + 1);
@@ -323,7 +323,7 @@ static state_action http_read_headers(scache_connection* connection, char* buffe
 				return needs_more_read;
 			}
 		}
-		else if (REQUEST_IS(connection->type, REQUEST_HTTPGET | REQUEST_CACHE_LEVELTABLE)) {
+		else if (REQUEST_IS(connection->method, REQUEST_HTTPGET | REQUEST_CACHE_LEVELTABLE)) {
 			if (bytes == 7 && rbuf_cmpn(&connection->input, "X-Start", 7) == 0) {
 				DEBUG("[#%d] Found X-Start header\n", connection->client_sock);
 				RBUF_READMOVE(connection->input, bytes + 1);
@@ -339,7 +339,7 @@ static state_action http_read_headers(scache_connection* connection, char* buffe
 				return needs_more_read;
 			}
 		}
-		else if (REQUEST_IS(connection->type, REQUEST_HTTPPURGE | REQUEST_CACHE_LEVELTABLE)) {
+		else if (REQUEST_IS(connection->method, REQUEST_HTTPPURGE | REQUEST_CACHE_LEVELTABLE)) {
 			if (bytes == 8 && rbuf_cmpn(&connection->input, "X-Delete", 8) == 0) {
 				DEBUG("[#%d] Found X-Delete header\n", connection->client_sock);
 				RBUF_READMOVE(connection->input, bytes + 1);
@@ -352,12 +352,12 @@ static state_action http_read_headers(scache_connection* connection, char* buffe
 	else if (*buffer == '\n') {
 		temporary++;
 		if (temporary == 2) {
-			DEBUG("[#%d] Completed header read with type %x\n", connection->client_sock, connection->type);
+			DEBUG("[#%d] Completed header read with type %x\n", connection->client_sock, connection->method);
 			RBUF_READMOVE(connection->input, n + 1);
 
 			// Router: Entry / Key level
-			if (REQUEST_IS(connection->type, REQUEST_CACHE_LEVELKEY)) {
-				if (REQUEST_IS(connection->type, REQUEST_HTTPPUT)) {
+			if (REQUEST_IS(connection->method, REQUEST_CACHE_LEVELKEY)) {
+				if (REQUEST_IS(connection->method, REQUEST_HTTPPUT)) {
 					if (connection->cache.target.key.entry != NULL && connection->cache.target.key.entry->data_length == 0) {
 						DEBUG("[#%d] No valid content-length provided for PUT request\n", connection->client_sock);
 						return http_write_response(connection, HTTPTEMPLATE_FULLINVALIDCONTENTLENGTH);
@@ -367,16 +367,16 @@ static state_action http_read_headers(scache_connection* connection, char* buffe
 					return needs_more_read;
 				}
 				if (connection->cache.target.key.entry != NULL) {
-					if (REQUEST_IS(connection->type, REQUEST_HTTPGET) || REQUEST_IS(connection->type, REQUEST_HTTPHEAD)) {
+					if (REQUEST_IS(connection->method, REQUEST_HTTPGET) || REQUEST_IS(connection->method, REQUEST_HTTPHEAD)) {
 						connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200];
 						connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200];
 						connection->state = 0;
 
 						CONNECTION_HANDLER(connection,  http_respond_start);
-						bool res = connection_register_write(connection->client_sock);
+						bool res = connection_register_write(connection);
 						return res ? registered_write : close_connection;
 					}
-					if (REQUEST_IS(connection->type, REQUEST_HTTPDELETE)) {
+					if (REQUEST_IS(connection->method, REQUEST_HTTPDELETE)) {
 						db_entry_handle_delete(connection->cache.target.key.entry);
 
 						return http_write_response(connection, HTTPTEMPLATE_FULLHTTP200DELETED);
@@ -389,28 +389,28 @@ static state_action http_read_headers(scache_connection* connection, char* buffe
 			}
 			
 			//Router: Table level
-			if (REQUEST_IS(connection->type, REQUEST_HTTPGET)) {
+			if (REQUEST_IS(connection->method, REQUEST_HTTPGET)) {
 				if (!connection->cache.target.table.table) {
 					return http_write_response(connection, HTTPTEMPLATE_FULL404);
 				}
 				connection->output_buffer = http_templates[HTTPTEMPLATE_HEADERS200_CONCLOSE];
 				connection->output_length = http_templates_length[HTTPTEMPLATE_HEADERS200_CONCLOSE];
 				CONNECTION_HANDLER(connection,  http_respond_listingentries);
-				bool res = connection_register_write(connection->client_sock);
+				bool res = connection_register_write(connection);
 				return res ? registered_write : close_connection;
 				
 			}
-			if (REQUEST_IS(connection->type, REQUEST_HTTPDELETE)) {
+			if (REQUEST_IS(connection->method, REQUEST_HTTPDELETE)) {
 				if (!connection->cache.target.table.table) {
 					return http_write_response(connection, HTTPTEMPLATE_FULL404);
 				}
 				db_table_handle_delete(connection->cache.target.table.table);
 				return http_write_response(connection, HTTPTEMPLATE_FULLHTTP200DELETED);
 			}
-			if (REQUEST_IS(connection->type, REQUEST_HTTPPURGE)) {
+			if (REQUEST_IS(connection->method, REQUEST_HTTPPURGE)) {
 				return http_write_response(connection, HTTPTEMPLATE_BULK_OK);
 			}
-			if (REQUEST_IS(connection->type, REQUEST_HTTPADMIN)) {
+			if (REQUEST_IS(connection->method, REQUEST_HTTPADMIN)) {
 				return http_write_response(connection, HTTPTEMPLATE_BULK_OK);
 			}
 
@@ -445,7 +445,7 @@ static state_action http_read_header_extraction(scache_connection* connection, c
 
 		switch (connection->state) {
 		case HEADER_CONTENTLENGTH:
-			if (REQUEST_IS(connection->type, REQUEST_HTTPPUT | REQUEST_CACHE_LEVELKEY)) {
+			if (REQUEST_IS(connection->method, REQUEST_HTTPPUT | REQUEST_CACHE_LEVELKEY)) {
 				int content_length;
 				if (!rbuf_strntol(&connection->input, &content_length, length)) {
 					WARN("Invalid Content-Length value provided");
@@ -476,7 +476,7 @@ static state_action http_read_header_extraction(scache_connection* connection, c
 			break;
 
 		case HEADER_XTTL:
-			if (REQUEST_IS(connection->type, REQUEST_HTTPPUT | REQUEST_CACHE_LEVELKEY)) {
+			if (REQUEST_IS(connection->method, REQUEST_HTTPPUT | REQUEST_CACHE_LEVELKEY)) {
 				if (connection->cache.target.key.entry != NULL) {
 					int ttl;
 					if (!rbuf_strntol(&connection->input, &ttl, length)) {
@@ -499,7 +499,7 @@ static state_action http_read_header_extraction(scache_connection* connection, c
 			break;
 
 		case HEADER_XLIMIT:
-			if (REQUEST_IS(connection->type, REQUEST_HTTPGET | REQUEST_CACHE_LEVELTABLE)) {
+			if (REQUEST_IS(connection->method, REQUEST_HTTPGET | REQUEST_CACHE_LEVELTABLE)) {
 				int limit;
 				if (!rbuf_strntol(&connection->input, &limit, length)) {
 					WARN("Invalid X-Limit value provided");
@@ -519,7 +519,7 @@ static state_action http_read_header_extraction(scache_connection* connection, c
 			break;
 
 		case HEADER_XSTART:
-			if (REQUEST_IS(connection->type, REQUEST_HTTPGET | REQUEST_CACHE_LEVELTABLE)) {
+			if (REQUEST_IS(connection->method, REQUEST_HTTPGET | REQUEST_CACHE_LEVELTABLE)) {
 				int start;
 				if (!rbuf_strntol(&connection->input, &start, length)) {
 					WARN("Invalid X-Start value provided");
@@ -539,7 +539,7 @@ static state_action http_read_header_extraction(scache_connection* connection, c
 			break;
 
 		case HEADER_XDELETE:
-			if (REQUEST_IS(connection->type, REQUEST_HTTPPURGE | REQUEST_CACHE_LEVELTABLE) && connection->cache.target.table.table != NULL) {
+			if (REQUEST_IS(connection->method, REQUEST_HTTPPURGE | REQUEST_CACHE_LEVELTABLE) && connection->cache.target.table.table != NULL) {
 				char* key = (char*)malloc(length);
 				rbuf_copyn(&connection->input, key, length);
 				cache_entry* entry = db_entry_get_delete(connection->cache.target.table.table, key, length);
@@ -584,13 +584,14 @@ state_action http_cache_handle_method(scache_connection* connection) {
 	char* buffer;
 	int end, n;
 	state_action ret = continue_processing;
+	assert(!connection->epollout && connection->epollin);
 
 	DEBUG("[#%d] Handling HTTP method\n", connection->client_sock);
 
 	//Skip newlines at begining of request (bad clients)
 	skip_over_newlines(&connection->input);
 
-	connection->type = 0;
+	connection->method = 0;
 
 	//Process request line
 	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_requeststartmethod(connection, buffer, n));
@@ -601,6 +602,8 @@ state_action http_cache_handle_url(scache_connection* connection) {
 	char* buffer;
 	int end, n;
 	state_action ret = continue_processing;
+	assert(!connection->epollout && connection->epollin);
+
 	DEBUG("[#%d] Handling HTTP url (Stage State: %d)\n", connection->client_sock, connection->state);
 
 	if (connection->state == 0) {
@@ -680,7 +683,7 @@ state_action http_cache_handle_request_body(scache_connection* connection) {
 	}
 
 	if (to_write != 0) {
-		if (connection->writing) {
+		if (connection->cache_writing) {
 			// Write data
 			if(lseek64(connection->cache.target.key.fd, connection->cache.target.key.position, SEEK_SET) == -1) {
 				PWARN("[#%d] Failed to seek for PUT", connection->client_sock);
@@ -707,10 +710,10 @@ state_action http_cache_handle_request_body(scache_connection* connection) {
 	assert((connection->cache.target.key.end_position - connection->cache.target.key.position) >= 0);
 	if (connection->cache.target.key.end_position == connection->cache.target.key.position) {
 		//Decrease refs, done with writing
-		if (connection->writing) {
+		if (connection->cache_writing) {
 			DEBUG("[#%d] Completed writing after a total of %d bytes to fd %d\n", connection->client_sock, connection->cache.target.key.position, connection->cache.target.key.fd);
 			db_complete_writing(connection->cache.target.key.entry);
-			connection->writing = false;
+			connection->cache_writing = false;
 		}
 
 		return http_write_response(connection, HTTPTEMPLATE_FULL200OK);
@@ -721,22 +724,22 @@ state_action http_cache_handle_request_body(scache_connection* connection) {
 
 void cache_destroy(scache_connection* connection){
 	assert(connection->ltype == cache_listener);
-	if (REQUEST_IS(connection->type, REQUEST_CACHE_LEVELKEY)) {
-		if (connection->writing) {
+	if (REQUEST_IS(connection->method, REQUEST_CACHE_LEVELKEY)) {
+		if (connection->cache_writing) {
 			cache_entry* entry = connection->cache.target.key.entry;
 			assert(entry != NULL);
 			if (!entry->deleted) {
 				db_entry_handle_delete(entry);
 			}
 			entry->writing = false;
-			connection->writing = false;
+			connection->cache_writing = false;
 		}
 		if (connection->cache.target.key.entry != NULL) {
 			db_target_entry_close(&connection->cache.target.key);
 			assert(connection->cache.target.key.entry == NULL);
 		}
 	}
-	else if(REQUEST_IS(connection->type, REQUEST_CACHE_LEVELTABLE)) {
+	else if(REQUEST_IS(connection->method, REQUEST_CACHE_LEVELTABLE)) {
 		db_table* table = connection->cache.target.table.table;
 		if (table != NULL) {
 			db_table_close(table);

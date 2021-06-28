@@ -74,12 +74,16 @@ static bool connection_event_update(int fd, uint32_t events) {
 	return res == 0;
 }
 
-bool connection_register_write(int fd) {
-	return connection_event_update(fd, EPOLLOUT | EPOLLHUP);
+bool connection_register_write(struct scache_connection* c) {
+	c->epollout = true;
+	c->epollin = false;
+	return connection_event_update(c->client_sock, EPOLLOUT | EPOLLHUP);
 }
 
-bool connection_register_read(int fd) {
-	return connection_event_update(fd, EPOLLIN | EPOLLHUP | EPOLLRDHUP);
+bool connection_register_read(struct scache_connection* c) {
+	c->epollout = false;
+	c->epollin = true;
+	return connection_event_update(c->client_sock, EPOLLIN | EPOLLHUP | EPOLLRDHUP);
 }
 
 void connection_setup(struct scache_binds cache_binds, struct scache_binds monitor_binds) {
@@ -87,6 +91,7 @@ void connection_setup(struct scache_binds cache_binds, struct scache_binds monit
 
 	for (i = 0; i < CONNECTION_HASH_ENTRIES; i++) {
 		ctable[i].connection.client_sock = -1;
+		ctable[i].connection.epollin = ctable[i].connection.epollout = false;
 	}
 
 	// Allocate for all listeners
@@ -291,6 +296,7 @@ static scache_connection* connection_add(int fd, listener_type client_type) {
 
 	// do last as marks connection slot as used
 	newNode->connection.client_sock = fd;
+	newNode->connection.epollout = newNode->connection.epollin = false;
 
 	// this is a chained connection
 	if(node != newNode){
@@ -634,6 +640,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 					DEBUG("[#%d] A new %s socket was accepted %d\n", fd, listener_type_string(client_type), client_sock);
 					scache_connection* connection = connection_add(client_sock, client_type);
 					assert(connection->client_sock == client_sock);
+					connection->epollin = true;
 					connection_handler(connection);
 				}
 			}
@@ -728,6 +735,8 @@ void connection_cleanup_http(scache_connection_node* connection, bool toFree = f
 		connection->connection.client_sock = -1;
 		close_fd(fd);
 	}
+
+	connection->connection.epollout = connection->connection.epollin = false;
 
 	//Handle chained connections
 	if (connection->next != NULL) {

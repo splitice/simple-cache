@@ -45,7 +45,7 @@ static state_action http_write_response(scache_connection* connection, int http_
 	connection->output_buffer = http_templates[http_template];
 	connection->output_length = http_templates_length[http_template];
 	connection->state = 0;
-	bool res = connection_register_write(connection->client_sock);
+	bool res = connection_register_write(connection);
 	return res?registered_write:close_connection;
 }
 
@@ -58,17 +58,6 @@ static state_action http_headers_response_after_eol(scache_connection* connectio
 	return needs_more_read;
 }
 
-
-
-
-state_action http_respond_writecount_counter(scache_connection* connection) {
-	DEBUG("[#%d] Sending for count\n", connection->client_sock);
-	//Static response, after witing, read next request
-	http_cleanup(connection);
-	CONNECTION_HANDLER(connection,  http_cache_handle_method);
-	bool res = http_register_read(connection);
-	return res ? continue_processing : close_connection;
-}
 state_action http_respond_writecount_starting(scache_connection* connection) {
 	DEBUG("[#%d] Starting write count\n", connection->client_sock);
 	//Static response, after witing, read next request
@@ -104,7 +93,7 @@ state_action http_mon_read_eol_inital(scache_connection* connection, char* buffe
 		connection->output_length = http_templates_length[HTTPTEMPLATE_MON_STREAM];
 
 		CONNECTION_HANDLER(connection,  http_respond_start_to_count);
-		bool res = connection_register_write(connection->client_sock);
+		bool res = connection_register_write(connection);
 
 		if (!res) {
 			return close_connection;
@@ -164,16 +153,16 @@ static inline state_action http_read_requeststartmethod_mon(scache_connection* c
 		//Workout what valid method we have been given (if any)
 		if (n == 3 && rbuf_cmpn(&connection->input, "GET", 3) == 0) {
 			//This is a GET request
-			connection->type = REQUEST_HTTPGET;
-			assert(REQUEST_IS(connection->type, connection->type));
+			connection->method = REQUEST_HTTPGET;
+			assert(REQUEST_IS(connection->method, connection->method));
 			RBUF_READMOVE(connection->input, n + 1);
 			DEBUG("[#%d] HTTP GET Request\n", connection->client_sock);
 			return needs_more_read;
 		}
 		else if (n == 4 && rbuf_cmpn(&connection->input, "HEAD", 4) == 0) {
 			//This is a HEAD request
-			connection->type = REQUEST_HTTPHEAD;
-			assert(REQUEST_IS(connection->type, connection->type));
+			connection->method = REQUEST_HTTPHEAD;
+			assert(REQUEST_IS(connection->method, connection->method));
 			RBUF_READMOVE(connection->input, n + 1);
 			DEBUG("[#%d] HTTP HEAD Request\n", connection->client_sock);
 			return needs_more_read;
@@ -206,7 +195,7 @@ static inline state_action http_mon_read_requeststarturl(scache_connection* conn
 
 		if(n == 1){ // URL: "/"
 			free(key);
-			if (REQUEST_IS(connection->type, REQUEST_HTTPHEAD)) {
+			if (REQUEST_IS(connection->method, REQUEST_HTTPHEAD)) {
 				return http_headers_response_after_eol(connection, HTTPTEMPLATE_HEAD_ONLY);
 			}else{
 				return http_headers_response_after_eol(connection, HTTPTEMPLATE_FULL200OK);
@@ -230,6 +219,8 @@ state_action http_mon_handle_url(scache_connection* connection) {
 	char* buffer;
 	int end, n;
 	state_action ret = continue_processing;
+	assert(!connection->epollout && connection->epollin);
+
 	DEBUG("[#%d] Handling HTTP url for mon (Stage State: %d)\n", connection->client_sock, connection->state);
 
 	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_mon_read_requeststarturl(connection, buffer, n));
@@ -241,13 +232,15 @@ state_action http_mon_handle_method(scache_connection* connection) {
 	char* buffer;
 	int end, n;
 	state_action ret = continue_processing;
+	assert(!connection->epollout && connection->epollin);
+
 
 	DEBUG("[#%d] Handling HTTP method\n", connection->client_sock);
 
 	//Skip newlines at begining of request (bad clients)
 	skip_over_newlines(&connection->input);
 
-	connection->type = 0;
+	connection->method = 0;
 
 	//Process request line
 	RBUF_ITERATE(connection->input, n, buffer, end, ret, http_read_requeststartmethod_mon(connection, buffer, n));
@@ -409,7 +402,7 @@ void monitoring_check(){
 		conn->monitoring.scheduled.tv_sec += MONITORING_DEFAULT_INTERVAL;
 
 		// signal for write registration
-		connection_register_write(conn->client_sock);
+		connection_register_write(conn);
 	}
 }
 
