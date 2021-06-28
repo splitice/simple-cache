@@ -82,26 +82,34 @@ bool connection_register_read(int fd) {
 }
 
 void connection_setup(struct scache_binds cache_binds, struct scache_binds monitor_binds) {
-	for (int i = 0; i < CONNECTION_HASH_ENTRIES; i++) {
+	int i;
+
+	for (i = 0; i < CONNECTION_HASH_ENTRIES; i++) {
 		ctable[i].connection.client_sock = -1;
 	}
 
 	// Allocate for all listeners
 	scache_listeners.listener_count = cache_binds.num + monitor_binds.num;
 	scache_listeners.listeners = (struct listener_entry*)malloc(sizeof(struct listener_entry) * scache_listeners.listener_count);
+	if(scache_listeners.listeners == NULL){
+		FATAL("Unable to allocate memory for listeners");
+	}
 	
 	// Caching
-	for (int i = 0; i < cache_binds.num; i++)
+	for (i = 0; i < cache_binds.num; i++)
 	{
 		scache_listeners.listeners[i].fd = connection_open_listener(cache_binds.binds[i]);
 		scache_listeners.listeners[i].type = cache_listener;
+		assert(i < scache_listeners.listener_count);
 	}
 	
 	// Monitoring
-	for (int i = 0; i < monitor_binds.num; i++)
+	for (int f = 0; f < monitor_binds.num; f++)
 	{
-		scache_listeners.listeners[i + cache_binds.num].fd = connection_open_listener(monitor_binds.binds[i]);
-		scache_listeners.listeners[i + cache_binds.num].type = mon_listener;
+		i = f + cache_binds.num;
+		assert(i < scache_listeners.listener_count);
+		scache_listeners.listeners[i].fd = connection_open_listener(monitor_binds.binds[f]);
+		scache_listeners.listeners[i].type = mon_listener;
 	}
 }
 
@@ -547,6 +555,8 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 	ev.events = EPOLLIN;
 	ev.data.fd = efd;
 	res = epoll_ctl(epfd, EPOLL_CTL_ADD, efd, &ev);
+	if (res != 0)
+		PFATAL("can't create wait on eventfd");
 
 	// wait on accept threads to be ready (spin)
 	while(!thread_arg[0].ready || !thread_arg[1].ready){
