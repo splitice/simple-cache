@@ -1453,7 +1453,7 @@ static pid_t db_index_flush(bool copyOnWrite){
 			snprintf(buffer2, 1024, "%s/db.temp", db.path_root);
 			unlink(buffer2);
 		}
-		exit(0);
+		_exit(0);
 	}
 
 	return pid;
