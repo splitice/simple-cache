@@ -281,6 +281,7 @@ void monitoring_add(scache_connection* conn){
 
 	// Add connection to the monitoring linked list
 	if(mon_tail == NULL){
+		assert(mon_head == NULL);
 		mon_tail = mon_head = conn;
 	}else{
 		// insert at tail
@@ -295,6 +296,22 @@ void monitoring_destroy(scache_connection* connection){
 	assert(connection->ltype == mon_listener);
 	scache_connection* t;
 
+	if(mon_head == connection){
+		assert(connection->monitoring.prev == NULL);
+		mon_head = connection->monitoring.next;
+	}
+
+	if(mon_tail == connection){
+		assert(connection->monitoring.next == NULL);
+		mon_tail = connection->monitoring.prev;
+		if(mon_head == NULL){
+			assert(connection->monitoring.prev == NULL);
+			// early exit we remvoed from both ends
+			return;
+		}
+	}
+
+		
 	/*
 	head ... | connection | t | ... tail
 	*/
@@ -302,14 +319,6 @@ void monitoring_destroy(scache_connection* connection){
 	if(t != NULL){
 		assert(t->monitoring.prev == connection);
 		t->monitoring.prev = connection->monitoring.prev;
-		if(t->monitoring.prev == NULL && mon_head == connection) {
-			assert(mon_head == connection);
-			mon_head = t;
-		}
-	}else if(mon_tail == connection){
-		// Only if we are destroying the tail t will be NULL
-		assert(connection == mon_tail);
-		mon_tail = t;
 	}
 
 	/*
@@ -319,13 +328,6 @@ void monitoring_destroy(scache_connection* connection){
 	if(t != NULL){
 		assert(t->monitoring.next == connection);
 		t->monitoring.next = connection->monitoring.next;
-		if(t->monitoring.next == NULL && mon_tail == connection) {
-			assert(mon_tail == connection);
-			mon_tail = t;
-		}
-	}else if(mon_head == connection){
-		// Only if we are destroying the head will t be null
-		mon_head = t;
 	}
 }
 
@@ -379,7 +381,7 @@ void monitoring_check(){
 			mon_tail = conn;
 		}else{
 			mon_tail = mon_head = conn;
-			conn->monitoring.next = conn->monitoring.prev = NULL;
+			conn->monitoring.prev = NULL;
 		}
 		conn->monitoring.next = NULL;
 
