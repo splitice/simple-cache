@@ -52,4 +52,4 @@ jobs:
 
         query &
 
-        timeout --preserve-status 2m valgrind --leak-check=full --show-leak-kinds=all src/server/${{ matrix.release }}/scache -B 127.0.0.1:8082
+        timeout --kill-after=3 --preserve-status 2m valgrind --leak-check=full --show-leak-kinds=all src/server/${{ matrix.release }}/scache -B 127.0.0.1:8082
