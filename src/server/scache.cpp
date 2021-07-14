@@ -153,6 +153,7 @@ int main(int argc, char** argv)
 
 	//Cleanup
 	WARN("Starting Cleanup");
+	timer_cleanup();
 	settings_cleanup();
 	connection_cleanup();
 	db_close();

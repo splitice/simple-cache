@@ -55,3 +55,12 @@ void timer_setup()
 		PFATAL("Error setting timer");
 	}
 }
+
+void timer_cleanup() {
+	struct itimerval timer;
+	timer.it_value.tv_sec = 0;
+	timer.it_value.tv_usec = 0;
+	timer.it_interval.tv_sec = 0;
+	timer.it_interval.tv_usec = 0;
+	setitimer(ITIMER_REAL, &timer, NULL);
+}
