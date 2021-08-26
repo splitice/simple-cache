@@ -28,9 +28,14 @@ jobs:
         PWD=$(pwd)
         sudo apt-get install valgrind
         valgrind --leak-check=full --show-leak-kinds=all ./tests/${{ matrix.release }}/tests $PWD/src/server/${{ matrix.release }}/scache $PWD/testcases/
-    - name: Spam test
+    - name: Test rbuf sizes
       run: |
-        echo "todo"
+        cd tests
+        for i in 1024 2048 4096 8192; do
+          g++ -DDEBUG_BUILD -DBUFFER_SIZE=$i -I../src/core/ ../src/core/read_buffer.cpp test_rbuffer_standalone.cpp tests_rbuffer.cpp scenario.cpp
+          echo "Testing $i rbuf"
+          ./a.out
+        done
     - name: Valgrind monitoring test
       run: |
         sudo mkdir -p /var/lib/scache/ &

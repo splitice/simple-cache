@@ -140,7 +140,7 @@ static const char * test_high_rb() {
 	struct read_buffer rb;
 	rbuf_init(&rb);
 	rb.read_position = 65000;
-	rb.write_position = 1000;
+	rb.write_position = (BUFFER_SIZE - 600) / 2;
 
 	//Calculations
 	mu_assert("test_high_rb rbuf_read_to_end check", rbuf_read_to_end(&rb) == (BUFFER_SIZE - (rb.read_position % BUFFER_SIZE)));
