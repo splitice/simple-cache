@@ -2,7 +2,7 @@
 #include <stdint.h>
 
 #ifndef BUFFER_SIZE
-#define BUFFER_SIZE 16384 // that is (2^14)
+#define BUFFER_SIZE 16384 // that is (2^14), must be a factor of 2^8 and larger than the largest request size
 #endif
 
 /* A circular read buffer */
