@@ -31,6 +31,16 @@ static const char * test_rb_initial_full() {
 	mu_assert("test_rb_initial_full rbuf_write_to_end check", rbuf_write_to_end(&rb) == 0);
 	mu_assert("test_rb_initial_full rbuf_write_remaining check", rbuf_write_remaining(&rb) == 0);
 
+	// read 200b, then write 200b 
+	RBUF_READMOVE(rb, 200);
+	RBUF_WRITEMOVE(rb, 200);
+
+	// should still be full
+	mu_assert("test_rb_initial_full rbuf_read_to_end check", rbuf_read_to_end(&rb) == BUFFER_SIZE);
+	mu_assert("test_rb_initial_full rbuf_read_remaining check", rbuf_read_remaining(&rb) == BUFFER_SIZE);
+	mu_assert("test_rb_initial_full rbuf_write_to_end check", rbuf_write_to_end(&rb) == 0);
+	mu_assert("test_rb_initial_full rbuf_write_remaining check", rbuf_write_remaining(&rb) == 0);	
+
 	return 0;
 }
 

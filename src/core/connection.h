@@ -20,11 +20,9 @@ void close_fd(int fd);
 #define CONNECTION_HANDLER_ACTUAL(con, value) (con)->handler = (value) 
 #define _DEBUG_CONNECTION_HANDLER
 #ifdef DEBUG_CONNECTION_HANDLER
-#define CONNECTION_HANDLER(con, value) printf("Setting connection handler to " #value "\n"); (con)->handler = (value) 
-#elif defined(DEBUG_BUILD)
-#define CONNECTION_HANDLER(con, value) (con)->handler_name=#value;CONNECTION_HANDLER_ACTUAL(con, value)
+#define CONNECTION_HANDLER(con, value) printf("Setting connection handler to " #value "\n"); (con)->handler_name=#value;CONNECTION_HANDLER_ACTUAL(con, value)
 #else
-#define CONNECTION_HANDLER(con, value) CONNECTION_HANDLER_ACTUAL(con, value)
+#define CONNECTION_HANDLER(con, value) (con)->handler_name=#value;CONNECTION_HANDLER_ACTUAL(con, value)
 #endif
 
 #define CONNECTION_HASH_KEY(x) (x)%CONNECTION_HASH_ENTRIES

@@ -1,7 +1,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define BUFFER_SIZE 8192 // that is (2^13)
+#define BUFFER_SIZE 16384 // that is (2^14)
 
 /* A circular read buffer */
 struct read_buffer {
