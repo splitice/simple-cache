@@ -32,6 +32,23 @@
 static char monitoring_strings[0x10000][7] = {};
 static uint8_t monitoring_lens[0x10000] = {};
 
+
+
+static void enable_keepalive(int sock) {
+    int yes = 1;
+	setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(int));
+
+    int idle = 2;
+	setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, &idle, sizeof(int));
+
+    int interval = 3;
+	setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, &interval, sizeof(int));
+
+    int maxpkt = 5;
+	setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, &maxpkt, sizeof(int));
+}
+
+
 static state_action http_write_response_after_eol(scache_connection* connection, int http_template) {
 	CONNECTION_HANDLER(connection, http_handle_eolwritetoend);
 	connection->output_buffer = http_templates[http_template];
@@ -248,20 +265,6 @@ state_action http_mon_handle_method(scache_connection* connection) {
 	return ret;
 }
 
-static void enable_keepalive(int sock) {
-    int yes = 1;
-	setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(int));
-
-    int idle = 2;
-	setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, &idle, sizeof(int));
-
-    int interval = 3;
-	setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, &interval, sizeof(int));
-
-    int maxpkt = 5;
-	setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, &maxpkt, sizeof(int));
-}
-
 
 state_action http_mon_handle_start(scache_connection* connection) {
 	DEBUG("[#%d] Handling new HTTP connection\n", connection->client_sock);
@@ -285,10 +288,10 @@ void monitoring_add(scache_connection* conn){
 		mon_tail = mon_head = conn;
 	}else{
 		// insert at tail
-		assert(mon_tail->monitoring.next == NULL);
-		mon_tail->monitoring.next = conn;
-		conn->monitoring.prev = mon_tail;
-		mon_tail = conn;
+		assert(mon_head->monitoring.prev == NULL);
+		mon_head->monitoring.prev = conn;
+		conn->monitoring.next = mon_head;
+		mon_head = conn;
 	}
 }
 
@@ -376,6 +379,16 @@ void monitoring_check(){
 		assert(conn != mon_head);
 		if(mon_head != NULL) mon_head->monitoring.prev = NULL;
 
+		// If buffer wasnt cleared already, then we will need to disconnect
+		if(conn->output_buffer != NULL){
+			http_cleanup(conn);
+			fd = conn->client_sock;
+			connection_remove(fd);
+			close_fd(fd);
+			continue;
+		}
+
+		// Move to end (tail)
 		if(mon_tail != conn){
 			mon_tail->monitoring.next = conn;
 			conn->monitoring.prev = mon_tail;
@@ -385,15 +398,6 @@ void monitoring_check(){
 			conn->monitoring.prev = NULL;
 		}
 		conn->monitoring.next = NULL;
-
-		// If buffer wasnt cleared already, then we will need to disconnect
-		if(conn->output_buffer != NULL){
-			http_cleanup(conn);
-			fd = conn->client_sock;
-			connection_remove(fd);
-			close_fd(fd);
-			continue;
-		}
 
 		// Add to output buffer
 		// this will override anything already there
@@ -412,8 +416,9 @@ void monitoring_check(){
 	conn = mon_head;
 	while(conn != NULL){
 		if(conn->monitoring.next != NULL){
-			assert(!timercmp(&conn->monitoring.scheduled, &conn->next.monitoring.scheduled, >));
+			assert(!timercmp(&conn->monitoring.scheduled, &conn->monitoring.next->monitoring.scheduled, >));
 		}
+		conn = conn->monitoring.next;
 	}
 	#endif
 }
