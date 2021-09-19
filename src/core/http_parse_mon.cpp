@@ -407,6 +407,15 @@ void monitoring_check(){
 		// signal for write registration
 		connection_register_write(conn);
 	}
+
+	#ifdef DEBUG_MONITORING
+	conn = mon_head;
+	while(conn != NULL){
+		if(conn->monitoring.next != NULL){
+			assert(!timercmp(&conn->monitoring.scheduled, &conn->next.monitoring.scheduled, >));
+		}
+	}
+	#endif
 }
 
 void monitoring_init(){
