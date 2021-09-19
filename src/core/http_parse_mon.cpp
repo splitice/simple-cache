@@ -391,7 +391,7 @@ void monitoring_check(){
 			fd = conn->client_sock;
 			connection_remove(fd);
 			close_fd(fd);
-			assert(con != mon_head);
+			assert(conn != mon_head);
 			continue;
 		}
 
