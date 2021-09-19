@@ -391,7 +391,8 @@ void monitoring_check(){
 			fd = conn->client_sock;
 			connection_remove(fd);
 			close_fd(fd);
-			return;
+			assert(con != mon_head);
+			continue;
 		}
 
 		// Add to output buffer
