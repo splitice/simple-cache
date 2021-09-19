@@ -10,6 +10,7 @@
 
 #ifdef DEBUG_BUILD
 #define DB_LRU_EVERY 1
+#define DEBUG_MONITORING TRUE
 #else
 #define DB_LRU_EVERY 50
 #endif

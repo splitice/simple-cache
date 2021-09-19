@@ -68,6 +68,7 @@ state_action http_respond_writecount_starting(scache_connection* connection) {
 static state_action http_respond_start_to_count(scache_connection* connection) {
 	DEBUG("[#%d] Ready to start to count \n", connection->client_sock);
 	monitoring_add(connection);
+	enable_keepalive(connection->client_sock);
 	CONNECTION_HANDLER(connection,  http_respond_cleanupafterwrite);
 	return continue_processing;
 }
@@ -264,7 +265,6 @@ static void enable_keepalive(int sock) {
 
 state_action http_mon_handle_start(scache_connection* connection) {
 	DEBUG("[#%d] Handling new HTTP connection\n", connection->client_sock);
-	enable_keepalive(connection->client_sock);
 	CONNECTION_HANDLER(connection,  http_mon_handle_method);
 	return needs_more_read;
 }
@@ -373,6 +373,7 @@ void monitoring_check(){
 		
 		// move on
 		mon_head = conn->monitoring.next;
+		assert(conn != mon_head);
 		if(mon_head != NULL) mon_head->monitoring.prev = NULL;
 
 		if(mon_tail != conn){
@@ -391,7 +392,6 @@ void monitoring_check(){
 			fd = conn->client_sock;
 			connection_remove(fd);
 			close_fd(fd);
-			assert(conn != mon_head);
 			continue;
 		}
 
