@@ -38,13 +38,13 @@ static void enable_keepalive(int sock) {
     int yes = 1;
 	setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(int));
 
-    int idle = 2;
+    int idle = 1;
 	setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, &idle, sizeof(int));
 
-    int interval = 3;
+    int interval = 4;
 	setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, &interval, sizeof(int));
 
-    int maxpkt = 5;
+    int maxpkt = 3;
 	setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, &maxpkt, sizeof(int));
 }
 
