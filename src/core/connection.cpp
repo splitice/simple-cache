@@ -94,7 +94,7 @@ void connection_setup(struct scache_binds cache_binds, struct scache_binds monit
 		ctable[i].connection.epollin = ctable[i].connection.epollout = false;
 	}
 
-	// Allocate for all listeners
+	// Allocate for all caching listeners
 	scache_listeners.listener_count = cache_binds.num + monitor_binds.num;
 	scache_listeners.listeners = (struct listener_entry*)malloc(sizeof(struct listener_entry) * scache_listeners.listener_count);
 	if(scache_listeners.listeners == NULL){

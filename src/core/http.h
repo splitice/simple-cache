@@ -66,7 +66,8 @@
 #define HTTPTEMPLATE_MON_STREAM 16
 #define HTTPTEMPLATE_FULL404_PATHNOTFOUND 17
 
-static const char http_templates[][128] = {
+#define HTTP_TEMPLATE_STRLEN 128
+static const char http_templates[][HTTP_TEMPLATE_STRLEN] = {
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\n",
 	"HTTP/1.1 404 Not Found\r\nConnection: Keep-Alive\r\nContent-Length: 15\r\n\r\nKey not Found\r\n",
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\nContent-Length: 4\r\n\r\nOK\r\n",
@@ -89,7 +90,7 @@ static const char http_templates[][128] = {
 
 #define MON_STREAMING_HEADERS "#state:starting\n#delay:%f\n\n#server:%s\n"
 
-#define NUMBER_OF_HTTPTEMPLATE sizeof(http_templates)/100
+#define NUMBER_OF_HTTPTEMPLATE sizeof(http_templates)/HTTP_TEMPLATE_STRLEN
 
 int extern http_templates_length[NUMBER_OF_HTTPTEMPLATE];
 

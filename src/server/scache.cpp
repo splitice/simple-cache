@@ -138,12 +138,14 @@ int main(int argc, char** argv)
 		pidfd = write_pid(settings.pidfile, pid);
 	}
 
+	// Prepare
+	http_templates_init();
+
 	//Timer (Getting time)
 	timer_setup();
 	monitoring_init();
 
 	//Setup
-	http_templates_init();
 	db_open(settings.db_file_path);
 	connection_setup(settings.bind_cache, settings.bind_monitor);
 	signal_handler_install();

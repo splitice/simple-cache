@@ -433,8 +433,8 @@ void monitoring_init(){
 	hostname_len = strlen(hostname);
 
 	// build the response
-	monitoring_rsp_len = http_templates_length[HTTPTEMPLATE_MON_STREAM] + hostname_len;
-	monitoring_rsp = (char*)malloc(monitoring_rsp_len);
+	monitoring_rsp_len = http_templates_length[HTTPTEMPLATE_MON_STREAM] + hostname_len - 2;
+	monitoring_rsp = (char*)malloc(monitoring_rsp_len + 1);
 	sprintf(monitoring_rsp, http_templates[HTTPTEMPLATE_MON_STREAM], hostname);
 
 
