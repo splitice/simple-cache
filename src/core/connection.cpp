@@ -316,7 +316,7 @@ static scache_connection* connection_get(int fd) {
 	scache_connection_node* node = &ctable[CONNECTION_HASH_KEY(fd)];
 	
 	while (node->connection.client_sock != fd) {
-		assert(node->connection.client_sock != -1);
+		assert(node == &ctable[CONNECTION_HASH_KEY(fd)] || node->connection.client_sock != -1);
 		node = node->next;
 		if (node == NULL) {
 			return NULL;
