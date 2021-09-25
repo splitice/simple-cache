@@ -274,12 +274,17 @@ static scache_connection* connection_add(int fd, listener_type client_type) {
 	scache_connection_node* newNode = NULL;
 
 	if (node->connection.client_sock != -1) {
+		assert(node->connection.client_sock != fd);
 		while (node->next != NULL) {
 			assert(node->connection.client_sock != -1);
 			node = node->next;
+			assert(node->connection.client_sock != fd);
 		}
 
 		newNode = (scache_connection_node*)malloc(sizeof(scache_connection_node));
+		if(newNode == NULL){
+			return NULL;
+		}
 	}else{
 		newNode = node;
 	}
@@ -514,12 +519,13 @@ static void* connection_handle_accept(void *arg)
 	}
 
 end:
-	close_fd(epacceptfd);
+	close(epacceptfd);
 
 	return NULL;
 }
 
 void close_fd(int fd){
+	int ret;
 #ifdef DEBUG_BUILD
 	if(scache_listeners.listeners != NULL){
 		for (uint32_t i = 0; i < scache_listeners.listener_count; i++)
@@ -528,7 +534,8 @@ void close_fd(int fd){
 		}
 	}
 #endif
-	close(fd);
+	ret = close(fd);
+	assert(ret == 0);
 }
 
 void connection_event_loop(void (*connection_handler)(scache_connection* connection)) {
@@ -639,6 +646,11 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 					//Handle connection
 					DEBUG("[#%d] A new %s socket was accepted %d\n", fd, listener_type_string(client_type), client_sock);
 					scache_connection* connection = connection_add(client_sock, client_type);
+					if(connection == NULL){
+						PWARN("connection_add() failed to allocate for %d.", client_sock);
+						close(client_sock);
+						continue;
+					}
 					assert(connection->client_sock == client_sock);
 					connection->epollin = true;
 					connection_handler(connection);
