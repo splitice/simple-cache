@@ -31,8 +31,7 @@
 #define MONITORING_DEFAULT_INTERVAL 5
 static char monitoring_strings[0x10000][7] = {};
 static uint8_t monitoring_lens[0x10000] = {};
-
-
+static char hostname[1024];
 
 static void enable_keepalive(int sock) {
     int yes = 1;
@@ -424,7 +423,9 @@ void monitoring_check(){
 }
 
 void monitoring_init(){
-	puts("Monitoring init");
+	hostname[1023] = '\0';
+	gethostname(hostname, 1023);
+	printf("Monitoring init on %s\n", hostname);
 	// Pre-allocate monitoring string values up to a uint16 
 	for(uint32_t i=0; i<=0xffff; i++){
 		char* target = monitoring_strings[i];
