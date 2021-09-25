@@ -314,10 +314,6 @@ static scache_connection* connection_add(int fd, listener_type client_type) {
 
 static scache_connection* connection_get(int fd) {
 	scache_connection_node* node = &ctable[CONNECTION_HASH_KEY(fd)];
-	if (node->connection.client_sock == -1) {
-		return NULL;
-	}
-	assert(node->connection.client_sock >= 0);
 	
 	while (node->connection.client_sock != fd) {
 		assert(node->connection.client_sock != -1);
@@ -335,10 +331,6 @@ bool connection_remove(int fd) {
 	scache_connection_node* temp = NULL;
 	assert(fd >= 0);
 	node = &ctable[CONNECTION_HASH_KEY(fd)];
-	if (node->connection.client_sock == -1) {
-		WARN("Unable to find fd: %d connection entry to remove", fd);
-		return false;
-	}
 	while (node->connection.client_sock != fd) {
 		assert(node->connection.client_sock != -1);
 		temp = node; /* prev */
@@ -349,25 +341,17 @@ bool connection_remove(int fd) {
 		}
 	}
 
-	// Clear current record
-	node->connection.client_sock = -1;
-
 	/* is in the middle */
 	if (temp) { /* prev */
 		//Not the first node in a linked list
 		temp->next = node->next;
 		free(node);
 	}
-	else if (temp = node->next) 
+	else
 	{ 
-		/* Has nodes after it, but is the first node */
-		// Copy next node into current node connection (static memory)
-		memcpy(&(node->connection), &(temp->connection), sizeof(scache_connection));
-
-		//Set node->next to node->next->next then free next->next
-		node->next = temp->next;
-		free(temp);
-	} //Else: Is a single entry in table and just setting to -1 will suffice
+		// Clear current record
+		node->connection.client_sock = -1;
+	}
 
 	return true;
 }
