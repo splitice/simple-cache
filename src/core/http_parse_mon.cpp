@@ -32,6 +32,9 @@
 static char monitoring_strings[0x10000][7] = {};
 static uint8_t monitoring_lens[0x10000] = {};
 static char hostname[1024];
+static uint16_t hostname_len;
+static char* monitoring_rsp = NULL;
+static int monitoring_rsp_len = 0;
 
 static void enable_keepalive(int sock) {
     int yes = 1;
@@ -106,8 +109,9 @@ state_action http_mon_read_eol_inital(scache_connection* connection, char* buffe
 		// register a handler to write the output (and then the request is over)
 		connection->state = 0;
 
-		connection->output_buffer = http_templates[HTTPTEMPLATE_MON_STREAM];
-		connection->output_length = http_templates_length[HTTPTEMPLATE_MON_STREAM];
+		// build the response
+		connection->output_buffer = monitoring_rsp;
+		connection->output_length = monitoring_rsp_len;
 
 		CONNECTION_HANDLER(connection,  http_respond_start_to_count);
 		bool res = connection_register_write(connection);
@@ -423,8 +427,17 @@ void monitoring_check(){
 }
 
 void monitoring_init(){
+	// get the hostname
 	hostname[1023] = '\0';
 	gethostname(hostname, 1023);
+	hostname_len = strlen(hostname);
+
+	// build the response
+	monitoring_rsp_len = http_templates_length[HTTPTEMPLATE_MON_STREAM] + hostname_len;
+	monitoring_rsp = (char*)malloc(monitoring_rsp_len);
+	sprintf(monitoring_rsp, http_templates[HTTPTEMPLATE_MON_STREAM], hostname);
+
+
 	printf("Monitoring init on %s\n", hostname);
 	// Pre-allocate monitoring string values up to a uint16 
 	for(uint32_t i=0; i<=0xffff; i++){
