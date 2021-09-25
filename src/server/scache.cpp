@@ -25,6 +25,7 @@
 #include "settings.h"
 #include "timer.h"
 #include "signal_handle.h"
+#include "http_parse.h"
 
 int write_pid(char* pidFile, __pid_t pid) {
 	int fd, size;
@@ -155,6 +156,7 @@ int main(int argc, char** argv)
 
 	//Cleanup
 	WARN("Starting Cleanup");
+	monitoring_close();
 	timer_cleanup();
 	settings_cleanup();
 	connection_cleanup();

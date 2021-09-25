@@ -449,3 +449,26 @@ void monitoring_init(){
 		monitoring_lens[i] = len + 1;
 	}
 }
+
+void monitoring_close(){
+	scache_connection* conn;
+
+	// Every 5ms we will work down any nodes in mon_head that need to be notified
+	while(mon_head != NULL){
+		conn = mon_head;
+		assert(conn->monitoring.prev == NULL);
+		
+		// move on
+		mon_head = conn->monitoring.next;
+
+
+		// Add to output buffer
+		// this will override anything already there
+		// if we can't write in the time allocated just discard. It's not worth buffering.
+		conn->output_buffer = "q\n";
+		conn->output_length = 2;
+
+		// signal for write registration
+		connection_register_write(conn);
+	}
+}
