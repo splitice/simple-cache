@@ -337,6 +337,7 @@ bool connection_remove(int fd) {
 		node = node->next;
 		if (node == NULL) {
 			WARN("Unable to find fd: %d connection entry to remove, reached end of list", fd);
+			assert(!"fd should exist");
 			return false;
 		}
 	}
