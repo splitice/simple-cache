@@ -365,6 +365,12 @@ static void itoa(int n, char s[])
      reverse(s);
 }
 
+bool monitoing_needs_to_run(){
+	if(mon_head == NULL) return false;
+	if(timercmp(&mon_head->monitoring.scheduled, &current_time, >)) return false;
+	return true;
+}
+
 void monitoring_check(){
 	scache_connection* conn;
 	int fd;

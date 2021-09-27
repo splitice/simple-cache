@@ -27,6 +27,7 @@ void skip_over_newlines(struct read_buffer* rb);
 void monitoring_add(scache_connection* conn);
 void monitoring_destroy(scache_connection* conn);
 void monitoring_close();
+bool monitoing_needs_to_run();
 
 /* Cache functions */
 void cache_destroy(scache_connection* connection);

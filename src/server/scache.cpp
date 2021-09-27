@@ -14,6 +14,7 @@
 #include <sys/sendfile.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <sys/eventfd.h>
 #include <fcntl.h>
 #include <errno.h>
 #include "config.h"
@@ -143,7 +144,8 @@ int main(int argc, char** argv)
 	http_templates_init();
 
 	//Timer (Getting time)
-	timer_setup();
+	int monitoring_fd = eventfd(0, EFD_NONBLOCK);
+	timer_setup(monitoring_fd);
 	monitoring_init();
 
 	//Setup
@@ -152,7 +154,7 @@ int main(int argc, char** argv)
 	signal_handler_install();
 
 	//Connection handling
-	connection_event_loop(http_connection_handler);
+	connection_event_loop(http_connection_handler, monitoring_fd);
 
 	//Cleanup
 	WARN("Starting Cleanup");

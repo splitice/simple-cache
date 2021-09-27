@@ -2,10 +2,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/time.h>
+#include <stdint.h>
+#include <unistd.h>
+#include "http_parse.h"
 #include "timer.h"
 #include "debug.h"
 
 volatile struct timeval current_time;
+static int mon_fd;
 
 static void timer_store_current_time()
 {
@@ -19,22 +23,25 @@ static void timer_store_current_time()
 	//DEBUG("[#] Time is now %d\n", current_time.tv_sec);
 }
 
-void monitoring_check();
-
 static void timer_handler(int signum)
 {
+	uint64_t u = 1;
+
 	// time accurate to the nearest 5ms
 	timer_store_current_time();
 
 	// check for monitoring updates
-	monitoring_check();
-	
+	if(monitoing_needs_to_run()){
+		write(mon_fd, &u, sizeof(u));
+	}	
 }
 
-void timer_setup()
+void timer_setup(int evfd)
 {
 	struct sigaction sa;
 	struct itimerval timer;
+
+	mon_fd = evfd;
 
 	/* Store current time */
 	timer_store_current_time();

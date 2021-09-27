@@ -8,7 +8,7 @@ bool connection_register_write(struct scache_connection* c);
 bool connection_register_read(struct scache_connection* c);
 int connection_open_listener(struct scache_bind bind);
 void connection_close_listeners();
-void connection_event_loop(void(*connection_handler)(scache_connection* connection));
+void connection_event_loop(void(*connection_handler)(scache_connection* connection), int monitoring_fd);
 void connection_setup(struct scache_binds cache_binds, struct scache_binds cache_monitor);
 void connection_cleanup();
 bool connection_remove(int fd);

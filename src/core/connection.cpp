@@ -523,7 +523,9 @@ void close_fd(int fd){
 	assert(ret == 0);
 }
 
-void connection_event_loop(void (*connection_handler)(scache_connection* connection)) {
+void monitoring_check();
+
+void connection_event_loop(void (*connection_handler)(scache_connection* connection), int monitoring_fd) {
 	epfd = epoll_create1(0);
 	struct epoll_event events[NUM_EVENTS];
 	int max_listener = 0;
@@ -557,7 +559,15 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 	if (res != 0)
 		PFATAL("can't create mon accept thread");
 	
-	//Add messaging socket
+	// Add monitoring socket
+	memset(&ev, 0, sizeof(ev));
+	ev.events = EPOLLIN;
+	ev.data.fd = monitoring_fd;
+	res = epoll_ctl(epfd, EPOLL_CTL_ADD, monitoring_fd, &ev);
+	if (res != 0)
+		PFATAL("can't create wait on eventfd %d", efd);
+
+	// Add monitoring socket
 	memset(&ev, 0, sizeof(ev));
 	ev.events = EPOLLIN;
 	ev.data.fd = efd;
@@ -584,12 +594,12 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 			}
 		} while(nfds == 0 && !stop_soon);
 
-
-		// First accept connections
+		// handle evfds first
 		for (int n = 0; n < nfds; n++) {
 			int fd = events[n].data.fd;
 			if (fd == efd)
-			{				
+			{		
+				// accept connections		
 				while (!stop_soon)
 				{
 					res = read(fd, &u, sizeof(u));
@@ -640,6 +650,10 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 					connection->epollin = true;
 					connection_handler(connection);
 				}
+			} else if(monitoring_fd == fd){
+				// send out monitoring messages
+				res = read(fd, &u, sizeof(u));
+				monitoring_check();
 			}
 		}
 
