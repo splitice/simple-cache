@@ -452,6 +452,7 @@ void monitoring_init(){
 
 void monitoring_close(){
 	scache_connection* conn;
+	int flag = 1; 
 
 	// Every 5ms we will work down any nodes in mon_head that need to be notified
 	while(mon_head != NULL){
@@ -461,14 +462,8 @@ void monitoring_close(){
 		// move on
 		mon_head = conn->monitoring.next;
 
-
-		// Add to output buffer
-		// this will override anything already there
-		// if we can't write in the time allocated just discard. It's not worth buffering.
-		conn->output_buffer = "q\n";
-		conn->output_length = 2;
-
-		// signal for write registration
-		connection_register_write(conn);
+		// hard write before close
+		write(conn->client_sock, "q\n", 2);
+		shutdown(conn->client_sock, SHUT_WR);
 	}
 }
