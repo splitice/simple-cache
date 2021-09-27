@@ -120,7 +120,7 @@ static __pid_t fork_off() {
 /* Time to go down the rabbit hole */
 int main(int argc, char** argv)
 {
-	int pidfd;
+	int pidfd, monitoring_fd;
 
 	//Settings
 	settings_parse_arguments(argc, argv);
@@ -144,7 +144,7 @@ int main(int argc, char** argv)
 	http_templates_init();
 
 	//Timer (Getting time)
-	int monitoring_fd = eventfd(0, EFD_NONBLOCK);
+	monitoring_fd = eventfd(0, EFD_NONBLOCK);
 	timer_setup(monitoring_fd);
 	monitoring_init();
 
@@ -163,6 +163,7 @@ int main(int argc, char** argv)
 	settings_cleanup();
 	connection_cleanup();
 	db_close();
+	close(monitoring_fd);
 
 	//PID file cleanup
 	if (settings.pidfile) {
