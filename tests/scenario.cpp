@@ -129,7 +129,8 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 					} else{
 						command = shutdown_duplex_command;
 					}
-					if (strncmp(line+1, UNIT_DELAY, 5) == 0){
+					line --;
+					if (strncmp(line+2, UNIT_DELAY, 5) == 0){
 						printf("End connection after step: %c\n", *line);
 						free(line);
 						line = NULL;

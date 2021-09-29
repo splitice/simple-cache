@@ -660,13 +660,13 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 		// Then process existing connections
 		for (int n = 0; n < nfds; n++) {
 			int fd = events[n].data.fd;
-			if (fd != efd)
+			if (fd != efd && fd != monitoring_fd)
 			{
 				DEBUG("[#%d] Got socket event %d (in=%d, out=%d, hup=%d)\n", fd, events[n].events, events[n].events & EPOLLIN ? 1 : 0, events[n].events & EPOLLOUT ? 1 : 0, events[n].events & EPOLLHUP ? 1 : 0);
+				bool do_close = events[n].events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP);
 				scache_connection* connection = connection_get(fd);
 				if (connection != NULL) {
 					assert(connection->client_sock == fd);
-					bool do_close = events[n].events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP);
 
 					if (events[n].events & EPOLLIN) {
 						if (http_read_handle(connection) == close_connection) {
@@ -678,41 +678,37 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 							do_close = true;
 						}
 					}
-					
-					if (do_close) {
-						DEBUG("[#%d] Closing connection due to err:%d hup:%d rdhup:%d\n", fd, !! (events[n].events&EPOLLERR), !! (events[n].events&EPOLLHUP), !! (events[n].events&EPOLLRDHUP));
-						http_cleanup(connection);
-						assert(fd != 0 || (settings.daemon_mode && fd >= 0));
-						if(connection_remove(fd)){
-							assert(connection_get(fd) == NULL);
-		#ifdef DEBUG_BUILD
-							if (!connection_any()) {
-								db_check_table_refs();
-							}
-		#endif
-						} else {
-							WARN("Unable to remove connection %d (not found in table)", fd);
-						}
-
-						//Close connection socket
-						close_fd(fd);
-					}
 				}
-				else if(fd == efd)
+				else
 				{
 					WARN("Unknown connection %d (in=%d, out=%d, hup=%d)\n", fd, events[n].events & EPOLLIN ? 1 : 0, events[n].events & EPOLLOUT ? 1 : 0, events[n].events & EPOLLHUP ? 1 : 0);
-					if(fd) assert(fd);
+
+
+					// always an error!
 					assert(fd != 0 || (settings.daemon_mode && fd >= 0));
+					assert(!fd);
 					
-					// Ensure connection has been removed
-					ev.events = 0;
-					ev.data.fd = fd;
-					res = epoll_ctl(epfd, EPOLL_CTL_DEL, fd, &ev);
-					if (res != 0) {
-						PFATAL("epoll_ctl() failed.");
-					}
+					do_close = true;
 				}
-				
+					
+				if (do_close) {
+					DEBUG("[#%d] Closing connection due to err:%d hup:%d rdhup:%d\n", fd, !! (events[n].events&EPOLLERR), !! (events[n].events&EPOLLHUP), !! (events[n].events&EPOLLRDHUP));
+					http_cleanup(connection);
+					assert(fd != 0 || (settings.daemon_mode && fd >= 0));
+					if(connection_remove(fd)){
+						assert(connection_get(fd) == NULL);
+	#ifdef DEBUG_BUILD
+						if (!connection_any()) {
+							db_check_table_refs();
+						}
+	#endif
+					} else {
+						WARN("Unable to remove connection %d (not found in table)", fd);
+					}
+
+					//Close connection socket
+					close_fd(fd);
+				}
 			}
 		}
 	}
