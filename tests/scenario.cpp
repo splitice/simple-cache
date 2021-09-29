@@ -22,22 +22,33 @@
 #include "debug.h"
 
 #define UNIT_REQUEST ">>>>>"
-#define UNIT_RESPONSE "-----"
+#define UNIT_EXPECT_RESPONSE "-----"
+#define UNIT_EXPECT_CLOSE "----c"
 #define UNIT_DELAY "*****"
 #define UNIT_SEPERATOR_LEN 6
 
 #define STATE_HEADER 0
 #define STATE_REQUEST 1
 #define STATE_RESPONSE 2
+#define STATE_EXPECT_CLOSE 3
 
-bool extract_unit(FILE* f, std::string& request, std::string& expect, int& connection, bool& close){
+enum unit_command{
+	none = 0,
+	close_command,
+	shutdown_read_command,
+	shutdown_write_command,
+	shutdown_duplex_command,
+	expect_close
+};
+
+bool extract_unit(FILE* f, std::string& request, std::string& expect, int& connection, unit_command& command){
 	char * line = NULL;
 	size_t len = 0;
 	ssize_t read;
 	int state = STATE_HEADER;
 	long last_pos = -1;
 	connection = 0;
-	close = false;
+	command = none;
 	while ((read = getline(&line, &len, f)) != -1) {
 		int expect_len = UNIT_SEPERATOR_LEN;
 		if (read >= 2){
@@ -77,12 +88,20 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 		case STATE_REQUEST:
 			last_pos = ftell(f);
 			if (read == UNIT_SEPERATOR_LEN){
-				if (strncmp(line, UNIT_RESPONSE, 5) == 0){
-					state++;
+				if (strncmp(line, UNIT_EXPECT_RESPONSE, 5) == 0){
+					state = STATE_RESPONSE;
+					break;
+				}
+				if (strncmp(line, UNIT_EXPECT_CLOSE, 5) == 0){
+					state = STATE_EXPECT_CLOSE;
 					break;
 				}
 			}
 			request += line;
+			break;
+		case STATE_EXPECT_CLOSE:
+			command = expect_close;
+			free(line);
 			break;
 		case STATE_RESPONSE:
 			//printf("TravisCI (%d): %s\n", read, line);
@@ -97,9 +116,25 @@ bool extract_unit(FILE* f, std::string& request, std::string& expect, int& conne
 				if (*line == 'c'){
 					if (strncmp(line+1, UNIT_DELAY, 5) == 0){
 						printf("Close connection after step: %c\n", *line);
-						close = true;
+						command = close_command;
 						free(line);
 						line = NULL;
+					}
+				} else if (*line == 's'){
+					line++;
+					if(*line == 'r'){
+						command = shutdown_read_command;
+					} else if(*line == 'w') {
+						command = shutdown_write_command;
+					} else{
+						command = shutdown_duplex_command;
+					}
+					if (strncmp(line+1, UNIT_DELAY, 5) == 0){
+						printf("End connection after step: %c\n", *line);
+						free(line);
+						line = NULL;
+					}else{
+						command = none;
 					}
 				} else{
 					char* buf = line;
@@ -379,13 +414,13 @@ bool execute_file(const char* filename, int port){
 	std::string request;
 	std::string expect;
 	int connection;
-	bool close_connection = false;
+	unit_command cmd = none;
 	std::map<int, int> connections;
 
 	int step = 1;
 	do {
 		printf("Running scenarios \"%s\" step %d\n", filename, step);
-		more = extract_unit(f, request, expect, connection, close_connection);
+		more = extract_unit(f, request, expect, connection, cmd);
 
 		if (request.empty() && expect.empty()){
 			fclose(f);
@@ -420,9 +455,22 @@ bool execute_file(const char* filename, int port){
 		}
 
 		//Close connection if asked
-		if (close_connection){
+		if (cmd == close_command)
+		{
 			close(connections[connection]);
 			connections.erase(connections.find(connection));
+		}
+		else if (cmd == shutdown_read_command)
+		{
+			shutdown(connections[connection], SHUT_RD);
+		}
+		else if (cmd == shutdown_write_command)
+		{
+			shutdown(connections[connection], SHUT_WR);
+		}
+		else 
+		{
+			shutdown(connections[connection], SHUT_RDWR);
 		}
 
 		//Are there more tests

@@ -40,7 +40,7 @@ static void enable_keepalive(int sock) {
     int yes = 1;
 	setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(int));
 
-    int idle = MONITORING_DEFAULT_INTERVAL + 1
+    int idle = MONITORING_DEFAULT_INTERVAL + 1;
 	setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, &idle, sizeof(int));
 
     int interval = 3;

@@ -23,6 +23,7 @@ jobs:
       run: |
         PWD=$(pwd)
         ./tests/${{ matrix.release }}/tests $PWD/src/server/${{ matrix.release }}/scache $PWD/testcases/
+      timeout-minutes: 2
     - name: valgrind test
       run: |
         PWD=$(pwd)
