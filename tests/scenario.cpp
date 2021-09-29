@@ -468,7 +468,7 @@ bool execute_file(const char* filename, int port){
 		{
 			shutdown(connections[connection], SHUT_WR);
 		}
-		else 
+		else if (cmd == shutdown_duplex_command)
 		{
 			shutdown(connections[connection], SHUT_RDWR);
 		}
