@@ -10,9 +10,13 @@
 
 #ifdef DEBUG_BUILD
 #define DB_LRU_EVERY 1
-#define DEBUG_MONITORING TRUE
+#define DEBUG_MONITORING true
 #else
 #define DB_LRU_EVERY 50
+#endif
+
+#ifndef DB_ENABLE_COPY_ON_WRITE
+#define DB_ENABLE_COPY_ON_WRITE true
 #endif
 
 #define DEFAULT_LISTING_LIMIT 10000

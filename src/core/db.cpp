@@ -116,7 +116,9 @@ void db_validate_lru() {
 }
 
 void db_lru_remove_node(cache_entry* entry) {
+#ifdef DEBUG_BUILD
 	assert(!entry->lru_removed);
+#endif
 	if (entry->lru_prev != NULL) {
 		assert(db.lru_head != entry);
 		entry->lru_prev->lru_next = entry->lru_next;
@@ -167,7 +169,9 @@ void db_lru_insert(cache_entry* entry) {
 }
 
 void db_lru_hit(cache_entry* entry) {
+#ifdef DEBUG_BUILD
 	assert(!entry->lru_removed);
+#endif
 
 	//Remove from current position
 	db_lru_remove_node(entry);
@@ -460,7 +464,7 @@ void db_lru_gc() {
 	if(currently_flushing(WNOHANG)) return;
 
 	// Flush index
-	pid_t pid = db_index_flush(true);
+	pid_t pid = db_index_flush(DB_ENABLE_COPY_ON_WRITE);
 	if(pid == -1){
 		PWARN("Unable to fork");
 		return;
@@ -1351,6 +1355,7 @@ static void db_close_blockfile() {
 }
 
 static bool full_write(int fd, const char* buffer, int buffer_length){
+	assert(buffer != NULL);
 	int ret;
 	do {
 		ret = write(fd, buffer, buffer_length);
@@ -1358,8 +1363,10 @@ static bool full_write(int fd, const char* buffer, int buffer_length){
 			return false;
 		}
 		buffer_length -= ret;
+		assert(buffer_length >= 0);
 		buffer += ret;
-	} while(buffer_length > 0);
+	} while(buffer_length != 0);
+
 	return true;
 }
 
@@ -1395,6 +1402,7 @@ static pid_t db_index_flush(bool copyOnWrite){
 	block_free_node *free_node = db.free_blocks;
 	while(free_node != NULL){
 		temp = snprintf(buffer, sizeof(buffer), "f:%u\n", free_node->block_number);
+		assert(temp > 0);
 		if(!full_write(fd, buffer, temp)) goto close_fd;
 		free_node = free_node->next;
 	}
@@ -1404,6 +1412,7 @@ static pid_t db_index_flush(bool copyOnWrite){
 		if (kh_exist(db.tables, ke)) {
 			//Write table to index
 			table = kh_val(db.tables, ke);
+			if(table->deleted) continue;
 			if(!full_write(fd, "t:", 2)) goto close_fd;
 			if(!full_write(fd, table->key, table->key_length)) goto close_fd;
 			if(!full_write(fd, "\n", 1)) goto close_fd;
@@ -1415,7 +1424,8 @@ static pid_t db_index_flush(bool copyOnWrite){
 					if(ce->writing || ce->deleted) continue;
 
 					//Write entry key to index
-					temp = snprintf(buffer, sizeof(buffer), "%s:%d:%u:%lu:%u:", ce->block >= 0 ? "b":"e", ce->block, ce->data_length, ce->expires, ce->it);
+					temp = snprintf(buffer, sizeof(buffer), "%c:%d:%u:%lu:%u:", ce->block >= 0 ? 'b':'e', ce->block, ce->data_length, ce->expires, ce->it);
+					assert(temp > 0);
 					if(!full_write(fd, buffer, temp)) goto close_fd;
 					if(!full_write(fd, ce->key, ce->key_length)) goto close_fd;
 					if(!full_write(fd, "\n", 1)) goto close_fd;
@@ -1429,11 +1439,15 @@ static pid_t db_index_flush(bool copyOnWrite){
 	fd = -1;
 
 	// db.temp -> db.index & blockfile.temp -> blockfile.save
-	snprintf(buffer, sizeof(buffer), "%s/db.temp", db.path_root);
-	snprintf(buffer2, sizeof(buffer2), "%s/index.save", db.path_root);
+	temp = snprintf(buffer, sizeof(buffer), "%s/db.temp", db.path_root);
+	assert(temp > 0);
+	temp = snprintf(buffer2, sizeof(buffer2), "%s/index.save", db.path_root);
 	unlink(buffer2);
-	snprintf(buffer3, sizeof(buffer3), "%s.temp", db.path_blockfile);
-	snprintf(buffer4, sizeof(buffer4), "%s.save", db.path_blockfile);
+	temp = snprintf(buffer3, sizeof(buffer3), "%s.temp", db.path_blockfile);
+	assert(temp > 0);
+	temp = snprintf(buffer4, sizeof(buffer4), "%s.save", db.path_blockfile);
+	assert(temp > 0);
+
 	rename(buffer, buffer2);
 	rename(buffer3, buffer4);
 	unlink(buffer3);

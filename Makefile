@@ -16,3 +16,8 @@ install: core server
 	cp "src/server/${CONFIG}/scache" /usr/local/bin/scache
 	chmod +x /usr/local/bin/scache
 	echo "Installed to /usr/local/bin/scache";
+
+clean:
+	cd src/server && make clean && cd ..
+	cd src/core && make clean && cd ../..
+	cd tests && make clean && cd ..

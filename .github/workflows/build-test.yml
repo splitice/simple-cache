@@ -12,23 +12,31 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        release: ["Release", "Debug"]
+        target: 
+          - build: Release
+            flags: "-DNDEBUG -DRELEASE"
+          - build: Release
+            flags: "-DDEBUG_BUILD"
+          - build: Debug
+            flags: "-DDEBUG_BUILD"
+          - build: Debug
+            flags: "-DDB_ENABLE_COPY_ON_WRITE=false -DDEBUG_BUILD"
     steps:
     - name: Checkout
       uses: actions/checkout@v2
     - name: Build
       run: |
-        make all CONFIG=${{ matrix.release }}
+        make all CONFIG=${{ matrix.target.build }} CFLAGS="${{ matrix.target.flags }}"
     - name: Main tests
       run: |
         PWD=$(pwd)
-        ./tests/${{ matrix.release }}/tests $PWD/src/server/${{ matrix.release }}/scache $PWD/testcases/
+        ./tests/${{ matrix.target.release }}/tests $PWD/src/server/scache $PWD/testcases/
       timeout-minutes: 2
     - name: valgrind test
       run: |
         PWD=$(pwd)
         sudo apt-get install valgrind
-        valgrind --leak-check=full --show-leak-kinds=all ./tests/${{ matrix.release }}/tests $PWD/src/server/${{ matrix.release }}/scache $PWD/testcases/
+        valgrind --leak-check=full --show-leak-kinds=all ./tests/tests $PWD/src/server/scache $PWD/testcases/
     - name: Test rbuf sizes
       run: |
         cd tests
@@ -58,4 +66,4 @@ jobs:
 
         query &
 
-        timeout --kill-after=3 --preserve-status 2m valgrind --leak-check=full --show-leak-kinds=all src/server/${{ matrix.release }}/scache -B 127.0.0.1:8082
+        timeout --kill-after=3 --preserve-status 2m valgrind --leak-check=full --show-leak-kinds=all src/server/scache -B 127.0.0.1:8082

@@ -120,7 +120,8 @@ static __pid_t fork_off() {
 /* Time to go down the rabbit hole */
 int main(int argc, char** argv)
 {
-	int pidfd, monitoring_fd;
+	int pidfd = 0;
+	int monitoring_fd;
 
 	//Settings
 	settings_parse_arguments(argc, argv);

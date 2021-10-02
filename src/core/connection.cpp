@@ -678,37 +678,35 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 							do_close = true;
 						}
 					}
+
+					if (do_close) {
+						DEBUG("[#%d] Closing connection due to err:%d hup:%d rdhup:%d\n", fd, !! (events[n].events&EPOLLERR), !! (events[n].events&EPOLLHUP), !! (events[n].events&EPOLLRDHUP));
+						http_cleanup(connection);
+						assert(fd != 0 || (settings.daemon_mode && fd >= 0));
+						if(connection_remove(fd)){
+							assert(connection_get(fd) == NULL);
+		#ifdef DEBUG_BUILD
+							if (!connection_any()) {
+								db_check_table_refs();
+							}
+		#endif
+						} else {
+							WARN("Unable to remove connection %d (not found in table)", fd);
+						}
+					}
 				}
 				else
 				{
 					WARN("Unknown connection %d (in=%d, out=%d, hup=%d)\n", fd, events[n].events & EPOLLIN ? 1 : 0, events[n].events & EPOLLOUT ? 1 : 0, events[n].events & EPOLLHUP ? 1 : 0);
 
-
 					// always an error!
 					assert(fd != 0 || (settings.daemon_mode && fd >= 0));
 					assert(!fd);
 					
-					do_close = true;
-				}
-					
-				if (do_close) {
-					DEBUG("[#%d] Closing connection due to err:%d hup:%d rdhup:%d\n", fd, !! (events[n].events&EPOLLERR), !! (events[n].events&EPOLLHUP), !! (events[n].events&EPOLLRDHUP));
-					http_cleanup(connection);
-					assert(fd != 0 || (settings.daemon_mode && fd >= 0));
-					if(connection_remove(fd)){
-						assert(connection_get(fd) == NULL);
-	#ifdef DEBUG_BUILD
-						if (!connection_any()) {
-							db_check_table_refs();
-						}
-	#endif
-					} else {
-						WARN("Unable to remove connection %d (not found in table)", fd);
-					}
-
 					//Close connection socket
 					close_fd(fd);
 				}
+					
 			}
 		}
 	}

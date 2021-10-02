@@ -44,7 +44,7 @@
 #define REQUEST_GETTABLE (REQUEST_HTTPGET | REQUEST_CACHE_LEVELTABLE)
 
 /* Helpers */
-#define REQUEST_IS(type, request_type) (((request_type & 0x0FF0 == 0) || (type & (0x0FF0 & request_type)) == (request_type & 0x0FF0)) && ((request_type & 0x000F == 0) || (type & (0x000F & request_type)) == (request_type & 0x000F)))
+#define REQUEST_IS(type, request_type) (((((request_type) & 0x0FF0) == 0) || ((type) & (0x0FF0 & (request_type))) == ((request_type) & 0x0FF0)) && ((((request_type) & 0x000F) == 0) || ((type) & (0x000F & (request_type))) == ((request_type) & 0x000F)))
 
 /* ===[ HTTP TEMPLATES ]=== */
 #define HTTPTEMPLATE_HEADERS200 0

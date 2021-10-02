@@ -170,3 +170,7 @@ VisualGDBCache
 
 gcc_Debug.h
 gcc_Release.h
+*.o
+*.a
+src/server/scache
+tests/tests
