@@ -83,7 +83,7 @@ bool connection_register_write(struct scache_connection* c) {
 bool connection_register_read(struct scache_connection* c) {
 	c->epollout = false;
 	c->epollin = true;
-	return connection_event_update(c->client_sock, EPOLLIN | EPOLLHUP | EPOLLRDHUP);
+	return connection_event_update(c->client_sock, EPOLLIN | EPOLLHUP | (c->epollrdhup ? 0 : EPOLLRDHUP));
 }
 
 void connection_setup(struct scache_binds cache_binds, struct scache_binds monitor_binds) {
@@ -301,7 +301,7 @@ static scache_connection* connection_add(int fd, listener_type client_type) {
 
 	// do last as marks connection slot as used
 	newNode->connection.client_sock = fd;
-	newNode->connection.epollout = newNode->connection.epollin = false;
+	newNode->connection.epollout = newNode->connection.epollin = newNode->connection.epollrdhup = false;
 
 	// this is a chained connection
 	if(node != newNode){
@@ -594,6 +594,8 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 			}
 		} while(nfds == 0 && !stop_soon);
 
+
+
 		// handle evfds first
 		for (int n = 0; n < nfds; n++) {
 			int fd = events[n].data.fd;
@@ -662,8 +664,8 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 			int fd = events[n].data.fd;
 			if (fd != efd && fd != monitoring_fd)
 			{
-				DEBUG("[#%d] Got socket event %d (in=%d, out=%d, hup=%d)\n", fd, events[n].events, events[n].events & EPOLLIN ? 1 : 0, events[n].events & EPOLLOUT ? 1 : 0, events[n].events & EPOLLHUP ? 1 : 0);
-				bool do_close = events[n].events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP);
+				DEBUG("[#%d] Got socket event %d (in=%d, out=%d, hup=%d, rdhup=%d)\n", fd, events[n].events, events[n].events & EPOLLIN ? 1 : 0, events[n].events & EPOLLOUT ? 1 : 0, events[n].events & EPOLLHUP ? 1 : 0, events[n].events & EPOLLRDHUP ? 1 : 0);
+				bool do_close = events[n].events & (EPOLLERR | EPOLLHUP);
 				scache_connection* connection = connection_get(fd);
 				if (connection != NULL) {
 					assert(connection->client_sock == fd);
@@ -679,25 +681,43 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 						}
 					}
 
+					if(events[n].events & EPOLLRDHUP){
+						connection->epollrdhup = true;
+						if(!connection->epollout){
+							do_close = true;
+						}else{
+							assert(!connection->epollin);
+						}
+					}
+
 					if (do_close) {
-						DEBUG("[#%d] Closing connection due to err:%d hup:%d rdhup:%d\n", fd, !! (events[n].events&EPOLLERR), !! (events[n].events&EPOLLHUP), !! (events[n].events&EPOLLRDHUP));
+						DEBUG("[#%d] Closing connection %d due to err:%d hup:%d rdhup:%d\n", fd, fd, !! (events[n].events&EPOLLERR), !! (events[n].events&EPOLLHUP), !! (events[n].events&EPOLLRDHUP));
 						http_cleanup(connection);
 						assert(fd != 0 || (settings.daemon_mode && fd >= 0));
 						if(connection_remove(fd)){
 							assert(connection_get(fd) == NULL);
-		#ifdef DEBUG_BUILD
+#ifdef DEBUG_BUILD
 							if (!connection_any()) {
 								db_check_table_refs();
 							}
-		#endif
+#endif
+							close_fd(fd);
 						} else {
+#ifdef DEBUG_BUILD
+							FATAL("Unable to remove connection %d (not found in table)", fd);
+#else
 							WARN("Unable to remove connection %d (not found in table)", fd);
+#endif
 						}
 					}
 				}
 				else
 				{
+#ifdef DEBUG_BUILD
+					FATAL("Unknown connection %d (in=%d, out=%d, hup=%d)\n", fd, events[n].events & EPOLLIN ? 1 : 0, events[n].events & EPOLLOUT ? 1 : 0, events[n].events & EPOLLHUP ? 1 : 0);
+#else
 					WARN("Unknown connection %d (in=%d, out=%d, hup=%d)\n", fd, events[n].events & EPOLLIN ? 1 : 0, events[n].events & EPOLLOUT ? 1 : 0, events[n].events & EPOLLHUP ? 1 : 0);
+#endif
 
 					// always an error!
 					assert(fd != 0 || (settings.daemon_mode && fd >= 0));

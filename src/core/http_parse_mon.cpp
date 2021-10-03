@@ -390,8 +390,9 @@ void monitoring_check(){
 
 		// If buffer wasnt cleared already, then we will need to disconnect
 		if(conn->output_buffer != NULL){
-			http_cleanup(conn);
 			fd = conn->client_sock;
+			DEBUG("Failed to output buffer to monitoring connection, will close fd %d\n", fd);
+			http_cleanup(conn);
 			connection_remove(fd);
 			close_fd(fd);
 			continue;

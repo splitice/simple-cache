@@ -44,7 +44,8 @@ struct scache_connection {
 	uint16_t method;
 	bool cache_writing,
 	     epollin,
-		 epollout;
+		 epollout,
+		 epollrdhup;
 
 	listener_type ltype;
 
