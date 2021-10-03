@@ -24,7 +24,8 @@ jobs:
       uses: actions/checkout@v2
     - name: Build
       run: |
-        make all CONFIG=${{ matrix.target.build }} CFLAGS="${{ matrix.target.flags }}"
+        RELEASE_VERSION=$(echo ${GITHUB_REF:11})
+        make all CONFIG=${{ matrix.target.build }} CFLAGS="${{ matrix.target.flags }} -DSCACHE_VERSION=\\\"$RELEASE_VERSION\\\" -DSCACHE_REVISION=\\\"${{ github.sha }}\\\""
     - name: Main tests
       run: |
         PWD=$(pwd)
@@ -52,9 +53,12 @@ jobs:
 
         function query {
           sleep 2
+          curl 127.0.0.1:8081
+          sleep 1
+
           for i in {1..50}
           do
-            curl 127.0.0.1:8082/conn &
+            curl -q 127.0.0.1:8082/conn &
           done
 
           sleep 110
@@ -62,6 +66,8 @@ jobs:
           killall curl
         }
 
+
         query &
 
-        timeout --kill-after=3 --preserve-status 2m valgrind --leak-check=full --show-leak-kinds=all src/server/scache -B 127.0.0.1:8082
+
+        timeout --kill-after=3 --preserve-status 2m valgrind --leak-check=full --show-leak-kinds=all src/server/scache -b 127.0.0.1:8081 -B 127.0.0.1:8082

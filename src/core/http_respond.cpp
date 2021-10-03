@@ -84,6 +84,8 @@ state_action http_respond_stats(scache_connection* connection) {
 	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Stats Deletes: %" PRIu64 "\r\n", details->db_stats_deletes);
 	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Stats Gets: %" PRIu64 "\r\n", details->db_stats_gets);
 	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "DB Stats Inserts: %" PRIu64 "\r\n", details->db_stats_inserts);
+	stat_ptr += snprintf(stat_ptr, sizeof(stat_buffer) - (stat_ptr - stat_buffer), "Scache Version: %s\r\nScache Revision: %s\r\n", SCACHE_VERSION, SCACHE_REVISION);
+
 
 	int content_length = stat_ptr - stat_buffer;
 	int header_length = snprintf(header_buffer, sizeof(header_buffer), http_templates[HTTPTEMPLATE_200CONTENT_LENGTH], content_length);

@@ -26,3 +26,11 @@
 #ifndef _LARGEFILE_SOURCE
 #define _LARGEFILE_SOURCE 1
 #endif
+
+#ifndef SCACHE_VERSION
+#define SCACHE_VERSION "0.0.0"
+#endif
+
+#ifndef SCACHE_REVISION
+#define SCACHE_REVISION "<unknown>"
+#endif
