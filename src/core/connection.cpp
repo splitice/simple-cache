@@ -521,6 +521,7 @@ void close_fd(int fd){
 #endif
 	ret = close(fd);
 	assert(ret == 0);
+	DEBUG("[#%d] Closed FD\n", fd)
 }
 
 void monitoring_check();
@@ -687,11 +688,12 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 							do_close = true;
 						}else{
 							assert(!connection->epollin);
+							connection_register_write(connection);
 						}
 					}
 
 					if (do_close) {
-						DEBUG("[#%d] Closing connection %d due to err:%d hup:%d rdhup:%d\n", fd, fd, !! (events[n].events&EPOLLERR), !! (events[n].events&EPOLLHUP), !! (events[n].events&EPOLLRDHUP));
+						DEBUG("[#%d] Closing connection %d due to err:%d hup:%d rdhup:%d\n", fd, !! (events[n].events&EPOLLERR), !! (events[n].events&EPOLLHUP), !! (events[n].events&EPOLLRDHUP));
 						http_cleanup(connection);
 						assert(fd != 0 || (settings.daemon_mode && fd >= 0));
 						if(connection_remove(fd)){
@@ -704,9 +706,9 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 							close_fd(fd);
 						} else {
 #ifdef DEBUG_BUILD
-							FATAL("Unable to remove connection %d (not found in table)", fd);
+							FATAL("[#%d] Unable to remove connection (not found in table)", fd);
 #else
-							WARN("Unable to remove connection %d (not found in table)", fd);
+							WARN("[#%d] Unable to remove connection (not found in table)", fd);
 #endif
 						}
 					}
@@ -714,9 +716,9 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 				else
 				{
 #ifdef DEBUG_BUILD
-					FATAL("Unknown connection %d (in=%d, out=%d, hup=%d)\n", fd, events[n].events & EPOLLIN ? 1 : 0, events[n].events & EPOLLOUT ? 1 : 0, events[n].events & EPOLLHUP ? 1 : 0);
+					FATAL("[#%d] Unknown connection (in=%d, out=%d, hup=%d)\n", fd, events[n].events & EPOLLIN ? 1 : 0, events[n].events & EPOLLOUT ? 1 : 0, events[n].events & EPOLLHUP ? 1 : 0);
 #else
-					WARN("Unknown connection %d (in=%d, out=%d, hup=%d)\n", fd, events[n].events & EPOLLIN ? 1 : 0, events[n].events & EPOLLOUT ? 1 : 0, events[n].events & EPOLLHUP ? 1 : 0);
+					WARN("[#%d] Unknown connection (in=%d, out=%d, hup=%d)\n", fd, events[n].events & EPOLLIN ? 1 : 0, events[n].events & EPOLLOUT ? 1 : 0, events[n].events & EPOLLHUP ? 1 : 0);
 #endif
 
 					// always an error!
