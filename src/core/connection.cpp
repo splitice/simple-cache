@@ -682,7 +682,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 						}
 					}
 
-					if(events[n].events & EPOLLRDHUP){
+					if(!do_close && events[n].events & EPOLLRDHUP){
 						connection->epollrdhup = true;
 						if(!connection->epollout){
 							do_close = true;
