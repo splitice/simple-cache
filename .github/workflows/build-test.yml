@@ -3,11 +3,11 @@ name: build and test
 on:
   push:
   schedule:
-    - cron:  '*/5 * * * *'
+    - cron:  '*/30 * * * *'
 
 
 jobs:
-  build-and-test:
+  build:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -15,10 +15,13 @@ jobs:
         target: 
           - build: Release
             flags: ""
+            asset: release
           - build: Debug
             flags: ""
+            asset: debug
           - build: Debug
             flags: "-DDB_ENABLE_COPY_ON_WRITE=false"
+            asset: debug-debug-no-copy-on-write
     steps:
     - name: Checkout
       uses: actions/checkout@v2
@@ -26,28 +29,150 @@ jobs:
       run: |
         RELEASE_VERSION=$(echo ${GITHUB_REF:11})
         make all CONFIG=${{ matrix.target.build }} CFLAGS="${{ matrix.target.flags }} -DSCACHE_VERSION=\\\"$RELEASE_VERSION\\\" -DSCACHE_REVISION=\\\"${{ github.sha }}\\\""
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v1
+      with:
+        name: ${{ matrix.target.asset }}-scache
+        path: src/server/scache
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v1
+      with:
+        name: ${{ matrix.target.asset }}-tests
+        path: tests/tests
+  tests_main:
+    runs-on: ubuntu-latest
+    needs: [build]
+    strategy:
+      fail-fast: false
+      matrix:
+        target: 
+          - build: Release
+            asset: release
+          - build: Debug
+            asset: debug
+          - build: Debug
+            asset: debug-debug-no-copy-on-write
+    steps:  
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Download artifacts
+      uses: actions/download-artifact@v1
+      with:
+        name: ${{ matrix.target.asset }}-scache
+        path: src/server
+    - name: Download artifacts
+      uses: actions/download-artifact@v1
+      with:
+        name: ${{ matrix.target.asset }}-tests
+        path: tests
     - name: Main tests
       run: |
         PWD=$(pwd)
-        ./tests/${{ matrix.target.release }}/tests $PWD/src/server/scache $PWD/testcases/
+        chmod +x ./tests/tests ./src/server/scache
+
+        ./tests/tests $PWD/src/server/scache $PWD/testcases/
       timeout-minutes: 2
+  tests_valgrind:
+    runs-on: ubuntu-latest
+    needs: [build]
+    strategy:
+      fail-fast: false
+      matrix:
+        target: 
+          - build: Release
+            asset: release
+          - build: Debug
+            asset: debug
+          - build: Debug
+            asset: debug-debug-no-copy-on-write
+    steps:  
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Download artifacts
+      uses: actions/download-artifact@v1
+      with:
+        name: ${{ matrix.target.asset }}-scache
+        path: src/server
+    - name: Download artifacts
+      uses: actions/download-artifact@v1
+      with:
+        name: ${{ matrix.target.asset }}-tests
+        path: tests
     - name: valgrind test
       run: |
         PWD=$(pwd)
+        chmod +x ./tests/tests ./src/server/scache
+
         sudo apt-get install valgrind
         valgrind --leak-check=full --show-leak-kinds=all ./tests/tests $PWD/src/server/scache $PWD/testcases/
+  tests_rbuf:
+    runs-on: ubuntu-latest
+    needs: [build]
+    strategy:
+      fail-fast: false
+      matrix:
+        target: 
+          - build: Release
+            asset: release
+          - build: Debug
+            asset: debug
+          - build: Debug
+            asset: debug-debug-no-copy-on-write
+    steps:  
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Download artifacts
+      uses: actions/download-artifact@v1
+      with:
+        name: ${{ matrix.target.asset }}-scache
+        path: src/server
+    - name: Download artifacts
+      uses: actions/download-artifact@v1
+      with:
+        name: ${{ matrix.target.asset }}-tests
+        path: tests/tests
     - name: Test rbuf sizes
       run: |
+        chmod +x ./tests/tests ./src/server/scache
         cd tests
+
         for i in 1024 2048 4096 8192; do
           g++ -DDEBUG_BUILD -DBUFFER_SIZE=$i -I../src/core/ ../src/core/read_buffer.cpp test_rbuffer_standalone.cpp tests_rbuffer.cpp scenario.cpp
           echo "Testing $i rbuf"
           ./a.out
         done
+  tests_valgrind_monitoring:
+    runs-on: ubuntu-latest
+    needs: [build]
+    strategy:
+      fail-fast: false
+      matrix:
+        target: 
+          - build: Release
+            asset: release
+          - build: Debug
+            asset: debug
+          - build: Debug
+            asset: debug-debug-no-copy-on-write
+    steps:  
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Download artifacts
+      uses: actions/download-artifact@v1
+      with:
+        name: ${{ matrix.target.asset }}-scache
+        path: src/server
+    - name: Download artifacts
+      uses: actions/download-artifact@v1
+      with:
+        name: ${{ matrix.target.asset }}-tests
+        path: tests
     - name: Valgrind monitoring test
       run: |
+        chmod +x ./tests/tests ./src/server/scache
+
         sudo mkdir -p /var/lib/scache/ &
-        sudo apt-get install psmisc
+        sudo apt-get install psmisc valgrind
         wait
         sudo chmod 0777 /var/lib/scache/ -R
 
@@ -69,5 +194,30 @@ jobs:
 
         query &
 
-
         timeout --kill-after=3 --preserve-status 2m valgrind --leak-check=full --show-leak-kinds=all src/server/scache -b 127.0.0.1:8081 -B 127.0.0.1:8082
+  tests_php_api:
+    runs-on: ubuntu-latest
+    needs: [build]
+    strategy:
+      fail-fast: false
+      matrix:
+        target: 
+          - build: Release
+            asset: release
+          - build: Debug
+            asset: debug
+          - build: Debug
+            asset: debug-debug-no-copy-on-write
+    steps:  
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Download artifacts
+      uses: actions/download-artifact@v1
+      with:
+        name: ${{ matrix.target.asset }}-scache
+        path: src/server
+    - name: Setup PHP with PECL extension
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.0'
+        extensions: curl
