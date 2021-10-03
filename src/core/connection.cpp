@@ -451,19 +451,19 @@ static void* connection_handle_accept(void *arg)
 
 					// Connection will be non-blocking
 					if (connection_non_blocking(client_sock) < 0)
-						PFATAL("Setting connection to non blocking failed on fd %d of type %s.", fd, listener_type_string(our_type));
+						PFATAL("[#%d] Setting connection to non blocking failed for type %s.", client_sock, listener_type_string(our_type));
 					
 					// Set TCP options
 					if(-1 == setsockopt(client_sock, IPPROTO_TCP, TCP_NODELAY, (const char*)&enable, sizeof(enable))){
-						DEBUG("[#] Unable to set tcp nodelay\n");
+						DEBUG("[#%d] Unable to set tcp nodelay\n", client_sock);
 					}
 					//setsockopt(client_sock, IPPROTO_TCP, TCP_CORK, &state, sizeof(state));
 					
 					connections_queued* q = (connections_queued*)malloc(sizeof(connections_queued));
 					if(q == NULL){
-						close_fd(client_sock);
 						n++;
-						WARN("[#] failed to allocate memory for connection. Abandoning incoming connection.");
+						WARN("[#%d] failed to allocate memory for connection. Abandoning incoming connection.", client_sock);
+						close_fd(client_sock);
 						continue;
 					}
 					q->client_sock = client_sock;
@@ -521,7 +521,7 @@ void close_fd(int fd){
 #endif
 	ret = close(fd);
 	assert(ret == 0);
-	DEBUG("[#%d] Closed FD\n", fd)
+	DEBUG("[#%d] Closed FD\n", fd);
 }
 
 void monitoring_check();
