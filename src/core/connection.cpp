@@ -723,11 +723,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 				}
 				else
 				{
-#ifdef DEBUG_BUILD
-					FATAL("[#%d] Unknown connection (in=%d, out=%d, hup=%d)\n", fd, events[n].events & EPOLLIN ? 1 : 0, events[n].events & EPOLLOUT ? 1 : 0, events[n].events & EPOLLHUP ? 1 : 0);
-#else
 					WARN("[#%d] Unknown connection (in=%d, out=%d, hup=%d)\n", fd, events[n].events & EPOLLIN ? 1 : 0, events[n].events & EPOLLOUT ? 1 : 0, events[n].events & EPOLLHUP ? 1 : 0);
-#endif
 
 					// always an error!
 					assert(fd != 0 || (settings.daemon_mode && fd >= 0));
