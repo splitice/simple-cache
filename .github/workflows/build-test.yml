@@ -14,13 +14,11 @@ jobs:
       matrix:
         target: 
           - build: Release
-            flags: "-DNDEBUG -DRELEASE"
-          - build: Release
-            flags: "-DDEBUG_BUILD"
+            flags: ""
           - build: Debug
-            flags: "-DDEBUG_BUILD"
+            flags: ""
           - build: Debug
-            flags: "-DDB_ENABLE_COPY_ON_WRITE=false -DDEBUG_BUILD"
+            flags: "-DDB_ENABLE_COPY_ON_WRITE=false"
     steps:
     - name: Checkout
       uses: actions/checkout@v2

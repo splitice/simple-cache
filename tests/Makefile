@@ -6,7 +6,7 @@ CC	 = g++
 _CFLAGS	 = -g -c -Wall -I../src/core -fPIC $(CFLAGS)
 LFLAGS	 = -lpthread
 
-ifeq ($(CONFIG),"Debug")
+ifeq ($(CONFIG), Debug)
 	_CFLAGS += -DDEBUG_BUILD -O0
 else
 	_CFLAGS += -DNDEBUG -DRELEASE -O3
