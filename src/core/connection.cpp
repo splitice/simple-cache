@@ -233,6 +233,9 @@ int connection_open_listener(struct scache_bind ibind) {
 	if (listenfd < 0) {
 		goto fail;
 	}
+	if(fcntl (listenfd, F_SETFD, FD_CLOEXEC) != 0){
+		goto fail;
+	}
 
 	/* Enable address reuse */
 	if (ibind.af == AF_INET || ibind.af == AF_INET6)
@@ -448,6 +451,11 @@ static void* connection_handle_accept(void *arg)
 				}
 				else {
 					DEBUG("[#] Accepted connection %d on fd %d of type %s\n", client_sock, fd, listener_type_string(our_type));
+
+					
+					if(fcntl (client_sock, F_SETFD, FD_CLOEXEC) != 0){
+						PFATAL("[#%d] Setting socket cloexec failed for type %s.", client_sock, listener_type_string(our_type));
+					}
 
 					// Connection will be non-blocking
 					if (connection_non_blocking(client_sock) < 0)
@@ -682,7 +690,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 						}
 					}
 
-					if(!do_close && events[n].events & EPOLLRDHUP){
+					if(!do_close && (events[n].events & EPOLLRDHUP)){
 						connection->epollrdhup = true;
 						if(!connection->epollout){
 							do_close = true;
