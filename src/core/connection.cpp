@@ -644,7 +644,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 					ev.data.fd = client_sock;
 					res = epoll_ctl(epfd, EPOLL_CTL_ADD, client_sock, &ev);
 					if (res != 0) {
-						PWARN("epoll_ctl() failed to add %d.", client_sock);
+						PWARN("[#%d] epoll_ctl() failed to add %d.", client_sock, errno);
 						close(client_sock);
 						continue;
 					}
@@ -653,7 +653,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 					DEBUG("[#%d] A new %s socket was accepted %d\n", fd, listener_type_string(client_type), client_sock);
 					scache_connection* connection = connection_add(client_sock, client_type);
 					if(connection == NULL){
-						PWARN("connection_add() failed to allocate for %d.", client_sock);
+						PWARN("[#%d] epoll_ctl() failed to add %d.", client_sock, errno);
 						close(client_sock);
 						continue;
 					}
@@ -723,13 +723,13 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 				}
 				else
 				{
-					WARN("[#%d] Unknown connection (in=%d, out=%d, hup=%d)\n", fd, events[n].events & EPOLLIN ? 1 : 0, events[n].events & EPOLLOUT ? 1 : 0, events[n].events & EPOLLHUP ? 1 : 0);
+					DEBUG("[#%d] Unknown connection (in=%d, out=%d, hup=%d)\n", fd, events[n].events & EPOLLIN ? 1 : 0, events[n].events & EPOLLOUT ? 1 : 0, events[n].events & EPOLLHUP ? 1 : 0);
 
 					// always an error!
 					assert(fd != 0 || (settings.daemon_mode && fd >= 0));
 					
 					//Close connection socket
-					close_fd(fd);
+					res = epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
 				}
 					
 			}
