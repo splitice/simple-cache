@@ -256,7 +256,8 @@ jobs:
           curl 127.0.0.1:8081
           sleep 1
 
-          ssh -e
+          set -e
+          set -x 
           for x in tests/php/test_*.php; do
             echo "Doing test $x"
             php "$x"
@@ -266,7 +267,7 @@ jobs:
         run_tests &
         pids="$!:php"
 
-        timeout --kill-after=3 --preserve-status 2m valgrind --leak-check=full --show-leak-kinds=all src/server/scache -b 127.0.0.1:8081 -B 127.0.0.1:8082
+        timeout --kill-after=2 --preserve-status 2m valgrind --leak-check=full --show-leak-kinds=all src/server/scache -b 127.0.0.1:8081 -B 127.0.0.1:8082
 
         wait_all
       shell: bash
