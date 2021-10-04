@@ -829,11 +829,23 @@ void db_target_setup(struct cache_target* target, struct cache_entry* entry, boo
 	}
 }
 
+
+static void db_entry_delete(cache_entry* entry){
+	get_key_path(entry, filename_buffer);
+	DEBUG("Deleting %s\n", filename_buffer);
+	unlink(filename_buffer);
+}
+
+
 void db_target_entry_close(cache_target* target) {
 	if (target->entry != NULL) {
 		if (target->fd != db.fd_blockfile && target->fd >= 0) {
 			assert(target->fd > 0 || (settings.daemon_mode && target->fd >= 0));
 			close_fd(target->fd, "file descriptor (cache file)");
+
+			if(target->entry->writing){
+				db_entry_delete(target->entry);
+			}
 		}
 
 		target->fd = -1;
@@ -1008,9 +1020,7 @@ void db_entry_handle_softdelete(cache_entry* entry, khiter_t k) {
 
 	//If this is contained within a file, delete
 	if (IS_SINGLE_FILE(entry)) {
-		get_key_path(entry, filename_buffer);
-		DEBUG("Deleting %s\n", filename_buffer);
-		unlink(filename_buffer);
+		db_entry_delete(entry);
 	}
 
 	//Dont need the key any more, deleted
