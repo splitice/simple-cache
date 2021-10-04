@@ -62,7 +62,7 @@ static pthread_mutex_t cq_lock;
 
 /* Methods */
 static bool connection_event_update(int fd, uint32_t events) {
-	struct epoll_event ev;
+	struct epoll_event ev = {};
 	assert(fd != 0 || fd);
 	memset(&ev, 0, sizeof(ev));
 	ev.events = events;
@@ -387,7 +387,7 @@ static unsigned int connection_any() {\
 
 static void* connection_handle_accept(void *arg)
 {
-	struct epoll_event ev;
+	struct epoll_event ev = {};
 	int epacceptfd = epoll_create1(0);
 	memset(&ev, 0, sizeof(ev));
 	struct epoll_event events[NUM_EVENTS_ACCEPT];
@@ -541,7 +541,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 	int res;
 	int efd;
 	pthread_t tid[2];
-	struct epoll_event ev;
+	struct epoll_event ev = {};
 	uint64_t u;
 	connection_thread_arg thread_arg[2];
 	
