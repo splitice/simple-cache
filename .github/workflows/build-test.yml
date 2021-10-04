@@ -221,3 +221,50 @@ jobs:
       with:
         php-version: '8.0'
         extensions: curl
+    - name: Prepare
+      run: |      
+        apt-get install -y valgrind &
+        wget https://raw.githubusercontent.com/composer/getcomposer.org/76a7060ccb93902cd7576b67264ad91c8a2700e2/web/installer -O - -q | php -- --quiet
+        cd tests/php
+        composer install
+        cd ../../
+        wait
+    - name: PHP tests
+      run: |
+        chmod +x ./src/server/scache
+
+
+        pids=""
+        function wait_all {
+            for p in $pids; do
+                IFS=" " read -r -a arrIN <<< "${p//:/ }"
+                if wait "${arrIN[0]}"; then
+                    echo "Task \"${arrIN[1]}\" (${arrIN[0]}) succeeded"
+                else
+                    echo "Task \"${arrIN[1]}\" (${arrIN[0]}) fail"
+                    exit 1
+                fi
+            done
+        }
+
+        function run_tests {
+          sleep 2
+          curl 127.0.0.1:8081
+          sleep 1
+
+          ssh -e
+          for x in tests/php/test_*.php; do
+            echo "Doing test $x"
+            php "$x"
+          done
+        }
+
+        run_tests &
+        pids="$!:php"
+
+        timeout --kill-after=3 --preserve-status 2m valgrind --leak-check=full --show-leak-kinds=all src/server/scache -b 127.0.0.1:8081 -B 127.0.0.1:8082
+
+        wait_all
+      shell: bash
+        
+

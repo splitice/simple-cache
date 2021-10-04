@@ -1,0 +1,13 @@
+{
+    "name": "splitice/simple-cache-test",
+    "authors": [
+        {
+            "name": "Mathew Heard",
+            "email": "mheard@x4b.net"
+        }
+    ],
+    "require": {
+        "splitice/php-simplecache-api": "dev-master"
+    },
+    "minimum-stability": "dev"
+}
