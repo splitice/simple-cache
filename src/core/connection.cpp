@@ -727,7 +727,6 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 
 					// always an error!
 					assert(fd != 0 || (settings.daemon_mode && fd >= 0));
-					assert(!fd);
 					
 					//Close connection socket
 					close_fd(fd);
