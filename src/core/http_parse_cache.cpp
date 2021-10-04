@@ -463,9 +463,11 @@ static state_action http_read_header_extraction(scache_connection* connection, c
 
 					if (IS_SINGLE_FILE(connection->cache.target.key.entry)) {
 						connection->cache.target.key.end_position = connection->cache.target.key.entry->data_length;
+						assert(connection->cache.target.key.end_position - connection->cache.target.key.position == content_length);
 					}
 					else{
 						connection->cache.target.key.end_position = connection->cache.target.key.position + connection->cache.target.key.entry->data_length;
+						assert(connection->cache.target.key.end_position - connection->cache.target.key.position == content_length);
 					}
 				}
 				else{
