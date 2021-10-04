@@ -83,7 +83,7 @@ bool connection_register_write(struct scache_connection* c) {
 bool connection_register_read(struct scache_connection* c) {
 	c->epollout = false;
 	c->epollin = true;
-	return connection_event_update(c->client_sock, EPOLLIN | EPOLLHUP | (c->epollrdhup ? 0 : EPOLLRDHUP));
+	return connection_event_update(c->client_sock, EPOLLIN | EPOLLHUP | EPOLLRDHUP);
 }
 
 void connection_setup(struct scache_binds cache_binds, struct scache_binds monitor_binds) {
@@ -434,7 +434,7 @@ static void* connection_handle_accept(void *arg)
 			}
 			else if (events[n].events & EPOLLIN)
 			{
-				DEBUG("[#] Accepting connection from fd %d of type %s\n", fd, listener_type_string(our_type));
+				//DEBUG("[#] Accepting connection from fd %d of type %s\n", fd, listener_type_string(our_type));
 				int client_sock = accept(fd, NULL, NULL);
 
 				if (client_sock < 0) {
@@ -471,7 +471,7 @@ static void* connection_handle_accept(void *arg)
 					if(q == NULL){
 						n++;
 						WARN("[#%d] failed to allocate memory for connection. Abandoning incoming connection.", client_sock);
-						close_fd(client_sock);
+						close_fd(client_sock, "socket");
 						continue;
 					}
 					q->client_sock = client_sock;
@@ -517,7 +517,7 @@ end:
 	return NULL;
 }
 
-void close_fd(int fd){
+void close_fd(int fd, const char* descriptor_type){
 	int ret;
 #ifdef DEBUG_BUILD
 	if(scache_listeners.listeners != NULL){
@@ -529,7 +529,7 @@ void close_fd(int fd){
 #endif
 	ret = close(fd);
 	assert(ret == 0);
-	DEBUG("[#%d] Closed FD\n", fd);
+	DEBUG("[#%d] Closed %s\n", fd, descriptor_type);
 }
 
 void monitoring_check();
@@ -692,11 +692,10 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 
 					if(!do_close && (events[n].events & EPOLLRDHUP)){
 						connection->epollrdhup = true;
-						if(!connection->epollout){
+						if(connection->epollin){
 							do_close = true;
 						}else{
-							assert(!connection->epollin);
-							connection_register_write(connection);
+							assert(connection->epollout);
 						}
 					}
 
@@ -711,7 +710,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 								db_check_table_refs();
 							}
 #endif
-							close_fd(fd);
+							close_fd(fd, "socket");
 						} else {
 #ifdef DEBUG_BUILD
 							FATAL("[#%d] Unable to remove connection (not found in table)", fd);
@@ -737,7 +736,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 	}
 
 end:
-	close_fd(epfd);
+	close_fd(epfd, "epoll socket");
 	
 	errno = pthread_join(tid[0], NULL);
 	if(errno != 0) {
@@ -748,7 +747,7 @@ end:
 		PFATAL("failed to join mon thread");
 	}
 
-	close_fd(efd);
+	close_fd(efd, "eventfd");
 }
 
 /*
@@ -763,7 +762,7 @@ void connection_cleanup_http(scache_connection_node* connection, bool toFree = f
 		http_cleanup(&connection->connection);
 		fd = connection->connection.client_sock;
 		connection->connection.client_sock = -1;
-		close_fd(fd);
+		close_fd(fd, "socket");
 	}
 
 	connection->connection.epollout = connection->connection.epollin = false;

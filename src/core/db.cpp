@@ -607,7 +607,7 @@ static bool db_load_from_save(){
 	db.fd_blockfile = open(buffer, O_RDWR | O_LARGEFILE , S_IRUSR | S_IWUSR);
 	if(db.fd_blockfile == -1){
 		PWARN("Unable to open saved block file");
-		close_fd(fd);
+		close_fd(fd, "file descriptor");
 		return ret;
 	}
 	off64_t size = lseek64(db.fd_blockfile, 0L, SEEK_END);
@@ -701,11 +701,11 @@ static bool db_load_from_save(){
 close_fd:
 	fclose(fp);
 close_fd2:
-	if(fp == NULL) close_fd(fd);
+	if(fp == NULL) close_fd(fd, "file desriptor (cache file)");
 
 	fd = db.fd_blockfile;
 	db.fd_blockfile = -1;
-	close_fd(fd);
+	close_fd(fd, "file descriptor (blockfile)");
 
 	
 	return ret;
@@ -833,7 +833,7 @@ void db_target_entry_close(cache_target* target) {
 	if (target->entry != NULL) {
 		if (target->fd != db.fd_blockfile && target->fd >= 0) {
 			assert(target->fd > 0 || (settings.daemon_mode && target->fd >= 0));
-			close_fd(target->fd);
+			close_fd(target->fd, "file descriptor (cache file)");
 		}
 
 		target->fd = -1;
@@ -1436,7 +1436,7 @@ static pid_t db_index_flush(bool copyOnWrite){
 	}
 
 	// close index file
-	close_fd(fd);
+	close_fd(fd, "file descriptor (index)");
 	fd = -1;
 
 	// db.temp -> db.index & blockfile.temp -> blockfile.save
@@ -1458,7 +1458,7 @@ static pid_t db_index_flush(bool copyOnWrite){
 	
 	close_fd:
 	if(fd != -1) {
-		close_fd(fd);
+		close_fd(fd, "file descriptor (index)");
 	}
 
 	if(copyOnWrite){

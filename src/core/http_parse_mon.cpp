@@ -394,7 +394,7 @@ void monitoring_check(){
 			DEBUG("Failed to output buffer to monitoring connection, will close fd %d\n", fd);
 			http_cleanup(conn);
 			connection_remove(fd);
-			close_fd(fd);
+			close_fd(fd, "monitoring socket");
 			continue;
 		}
 

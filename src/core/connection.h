@@ -15,7 +15,7 @@ bool connection_remove(int fd);
 bool connection_stop_soon();
 
 
-void close_fd(int fd);
+void close_fd(int fd, const char* descriptor_type);
 
 #define CONNECTION_HANDLER_ACTUAL(con, value) (con)->handler = (value) 
 #define _DEBUG_CONNECTION_HANDLER
