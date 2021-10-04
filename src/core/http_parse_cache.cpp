@@ -704,6 +704,7 @@ state_action http_cache_handle_request_body(scache_connection* connection) {
 				to_write = max_write;
 			}
 
+			RBUF_READMOVE(connection->input, to_write);
 			connection->cache.target.key.position += to_write;
 		}
 	}

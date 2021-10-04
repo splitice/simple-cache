@@ -459,6 +459,7 @@ void db_lru_gc() {
 	{
 		db_expire_cursor();
 	}
+	DEBUG("Completed %s\n", do_lru?"LRU GC":"Expiration Cursor");
 
 	// Check for running flush
 	if(currently_flushing(WNOHANG)) return;

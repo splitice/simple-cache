@@ -11,7 +11,7 @@
 #ifdef DEBUG_BUILD
 #define DB_LRU_EVERY 1
 #define DEBUG_MONITORING true
-#else
+#elif !defined(DB_LRU_EVERY)
 #define DB_LRU_EVERY 50
 #endif
 
