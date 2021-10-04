@@ -169,6 +169,7 @@ jobs:
         path: tests
     - name: Valgrind monitoring test
       run: |
+        mkdir -p /var/lib/scache/
         chmod +x ./tests/tests ./src/server/scache
 
         sudo mkdir -p /var/lib/scache/ &
@@ -231,6 +232,7 @@ jobs:
         wait
     - name: PHP tests
       run: |
+        mkdir -p /var/lib/scache/
         chmod +x ./src/server/scache
 
 
