@@ -26,6 +26,10 @@ typedef enum {
 	close_connection, registered_write, needs_more_read, continue_processing
 } state_action;
 
+static const char *state_action_string[] = {
+    "close_connection", "registered_write", "needs_more_read", "continue_processing"
+};
+
 typedef enum {
 	cache_listener, mon_listener
 } listener_type;

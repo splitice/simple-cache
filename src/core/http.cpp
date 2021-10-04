@@ -85,7 +85,7 @@ state_action http_read_handle(scache_connection* connection) {
 	//Handle buffer is full, not being processed
 	if (run != registered_write && run != close_connection && run != close_connection && num == 0 && rbuf_write_remaining(&connection->input) == 0) {
 		const char* handling = "<unknown>";
-		WARN("Buffer overflowed while handling %s (epollin=%d), will disconnect", connection->handler_name, connection->epollin);
+		WARN("Buffer overflowed while handling %s which returned %s (epollin=%d), will disconnect", connection->handler_name, state_action_string[run], connection->epollin);
 		return close_connection;
 	}
 
