@@ -196,7 +196,7 @@ jobs:
 
         query &
 
-        timeout --kill-after=3 --preserve-status 2m valgrind --leak-check=full --show-leak-kinds=all src/server/scache -b 127.0.0.1:8081 -B 127.0.0.1:8082
+        timeout --kill-after=5 --preserve-status 2m valgrind --leak-check=full --show-leak-kinds=all src/server/scache -b 127.0.0.1:8081 -B 127.0.0.1:8082
   tests_php_api:
     runs-on: ubuntu-latest
     needs: [build]
@@ -267,7 +267,7 @@ jobs:
         run_tests &
         pids="$!:php"
 
-        timeout --kill-after=2 --preserve-status 2m valgrind --leak-check=full --show-leak-kinds=all src/server/scache -b 127.0.0.1:8081 -B 127.0.0.1:8082
+        timeout --kill-after=5 --preserve-status 2m valgrind --leak-check=full --show-leak-kinds=all src/server/scache -b 127.0.0.1:8081 -B 127.0.0.1:8082
 
         wait_all
       shell: bash

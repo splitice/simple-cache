@@ -9,7 +9,7 @@
 volatile extern sig_atomic_t stop_soon;
 static void abort_handler(int sig) {
 	if (stop_soon) {
-		FATAL("Force exit, second signal received");
+		FATAL("Force exit: A second signal (%s) received", strsignal(sig));
 	}
 	WARN("Shutting down pid %d due to %s", getpid(), strsignal(sig));
 	stop_soon = 1;
