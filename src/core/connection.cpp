@@ -20,7 +20,7 @@
 #include <netinet/tcp.h>
 #include <sys/eventfd.h>
 #include <pthread.h>
-#include <vector>
+#include <set>
 #include <algorithm>
 #include <fcntl.h>
 #include <errno.h>
@@ -38,7 +38,7 @@ listener_collection scache_listeners = { .listeners = NULL, .listener_count = 0 
 
 int epfd;
 volatile sig_atomic_t stop_soon = 0;
-static std::vector<scache_connection*> connections;
+static std::set<scache_connection*> connections;
 
 bool connection_stop_soon(){
 	return stop_soon != 0;
@@ -286,7 +286,7 @@ static scache_connection* connection_add(int fd, connection_ctype client_type) {
 	connection->client_sock = fd;
 	connection->epollout = connection->epollin = connection->epollrdhup = false;
 
-	connections.push_back(connection);
+	connections.insert(connection);
 
 	return connection;
 }
@@ -299,7 +299,7 @@ bool connection_remove(scache_connection* conn) {
 	}
 	conn->client_sock = -1;
 
-	auto it = std::find(connections.begin(), connections.end(), conn);
+	auto it = connections.find(conn);
 	if(it != connections.end()){
 		connections.erase(it);
 	}else{
