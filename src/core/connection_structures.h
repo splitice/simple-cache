@@ -66,11 +66,6 @@ struct scache_connection {
 	};
 };
 
-struct scache_connection_node {
-	struct scache_connection connection;
-	struct scache_connection_node* next;
-};
-
 struct listener_entry
 {
 	int fd;
