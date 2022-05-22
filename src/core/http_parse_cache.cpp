@@ -726,7 +726,7 @@ state_action http_cache_handle_request_body(scache_connection* connection) {
 }
 
 void cache_destroy(scache_connection* connection){
-	assert(connection->ltype == cache_listener);
+	assert(connection->ltype == cache_connection);
 	if (REQUEST_IS(connection->method, REQUEST_CACHE_LEVELKEY)) {
 		if (connection->cache_writing) {
 			cache_entry* entry = connection->cache.target.key.entry;

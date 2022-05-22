@@ -20,6 +20,8 @@
 #include <netinet/tcp.h>
 #include <sys/eventfd.h>
 #include <pthread.h>
+#include <vector>
+#include <algorithm>
 #include <fcntl.h>
 #include <errno.h>
 #include "connection.h"
@@ -33,10 +35,10 @@
 
 /* Globals */
 listener_collection scache_listeners = { .listeners = NULL, .listener_count = 0 };
-struct scache_connection_node ctable[CONNECTION_HASH_ENTRIES] = { 0 };
 
 int epfd;
 volatile sig_atomic_t stop_soon = 0;
+static std::vector<scache_connection*> connections;
 
 bool connection_stop_soon(){
 	return stop_soon != 0;
@@ -45,14 +47,14 @@ bool connection_stop_soon(){
 struct connection_thread_arg
 {
 	int eventfd;
-	listener_type type;
+	connection_ctype type;
 	bool ready;
 };
 
 struct connections_queued
 {
 	int client_sock;
-	listener_type client_type;
+	connection_ctype client_type;
 	connections_queued* next;
 };
 
@@ -61,15 +63,15 @@ static volatile connections_queued* cq_tail = NULL;
 static pthread_mutex_t cq_lock;
 
 /* Methods */
-static bool connection_event_update(int fd, uint32_t events) {
+static bool connection_event_update(scache_connection* conn, uint32_t events) {
 	struct epoll_event ev = {};
-	assert(fd != 0 || fd);
+	assert(conn->client_sock > 0);
 	memset(&ev, 0, sizeof(ev));
 	ev.events = events;
-	ev.data.fd = fd;
-	int res = epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev);
+	ev.data.ptr = conn;
+	int res = epoll_ctl(epfd, EPOLL_CTL_MOD, conn->client_sock, &ev);
 	if (res != 0) {
-		DEBUG("[#] epoll_ctl() update failed on fd: %d.\n", fd);
+		DEBUG("[#] epoll_ctl() update failed on fd: %d.\n", conn->client_sock);
 	}
 	return res == 0;
 }
@@ -77,22 +79,17 @@ static bool connection_event_update(int fd, uint32_t events) {
 bool connection_register_write(struct scache_connection* c) {
 	c->epollout = true;
 	c->epollin = false;
-	return connection_event_update(c->client_sock, EPOLLOUT | EPOLLHUP);
+	return connection_event_update(c, EPOLLOUT | EPOLLHUP);
 }
 
 bool connection_register_read(struct scache_connection* c) {
 	c->epollout = false;
 	c->epollin = true;
-	return connection_event_update(c->client_sock, EPOLLIN | EPOLLHUP | EPOLLRDHUP);
+	return connection_event_update(c, EPOLLIN | EPOLLHUP | EPOLLRDHUP);
 }
 
 void connection_setup(struct scache_binds cache_binds, struct scache_binds monitor_binds) {
 	int i;
-
-	for (i = 0; i < CONNECTION_HASH_ENTRIES; i++) {
-		ctable[i].connection.client_sock = -1;
-		ctable[i].connection.epollin = ctable[i].connection.epollout = false;
-	}
 
 	// Allocate for all caching listeners
 	scache_listeners.listener_count = cache_binds.num + monitor_binds.num;
@@ -272,117 +269,51 @@ fail:
 	return -1;
 }
 
-static scache_connection* connection_add(int fd, listener_type client_type) {
-	scache_connection_node* node = &ctable[CONNECTION_HASH_KEY(fd)];
-	scache_connection_node* newNode = NULL;
-
-	if (node->connection.client_sock != -1) {
-		assert(node->connection.client_sock != fd);
-		while (node->next != NULL) {
-			assert(node->connection.client_sock != -1);
-			node = node->next;
-			assert(node->connection.client_sock != fd);
-		}
-
-		newNode = (scache_connection_node*)malloc(sizeof(scache_connection_node));
-		if(newNode == NULL){
-			return NULL;
-		}
-	}else{
-		newNode = node;
-	}
+static scache_connection* connection_add(int fd, connection_ctype client_type) {
+	scache_connection* connection = (scache_connection*)malloc(sizeof(scache_connection));
 	
 	// Initialize connection
-	memset(newNode, 0, sizeof(*newNode)); /* .connection = {}, .next = NULL */
+	memset(connection, 0, sizeof(*connection));
 
 	// safe to set first
-	newNode->connection.ltype = client_type;
+	connection->ltype = client_type;
 	if(client_type == cache_listener){
-		newNode->connection.cache.target.key.fd = -1;
+		connection->cache.target.key.fd = -1;
 	}
-	rbuf_init(&newNode->connection.input);
+	rbuf_init(&connection->input);
 
 	// do last as marks connection slot as used
-	newNode->connection.client_sock = fd;
-	newNode->connection.epollout = newNode->connection.epollin = newNode->connection.epollrdhup = false;
+	connection->client_sock = fd;
+	connection->epollout = connection->epollin = connection->epollrdhup = false;
 
-	// this is a chained connection
-	if(node != newNode){
-		node->next = newNode;
-		node = newNode;
-	}
+	connections.push_back(connection);
 
-	return &node->connection;
+	return connection;
 }
 
-static scache_connection* connection_get(int fd) {
-	scache_connection_node* node = &ctable[CONNECTION_HASH_KEY(fd)];
-	
-	while (node->connection.client_sock != fd) {
-		assert(node == &ctable[CONNECTION_HASH_KEY(fd)] || node->connection.client_sock != -1);
-		node = node->next;
-		if (node == NULL) {
-			return NULL;
-		}
+bool connection_remove(scache_connection* conn) {
+	int fd = conn->client_sock;
+	assert(conn->client_sock >= 0);
+	if(epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL) < 0){
+		return false;
+	}
+	conn->client_sock = -1;
+
+	auto it = std::find(connections.begin(), connections.end(), conn);
+	if(it != connections.end()){
+		connections.erase(it);
+	}else{
+		WARN("connection not found");
 	}
 
-	return &(node->connection);
-}
-
-bool connection_remove(int fd) {
-	scache_connection_node* node;
-	scache_connection_node* temp = NULL;
-	assert(fd >= 0);
-	node = &ctable[CONNECTION_HASH_KEY(fd)];
-	while (node->connection.client_sock != fd) {
-		assert(node->connection.client_sock != -1);
-		temp = node; /* prev */
-		node = node->next;
-		if (node == NULL) {
-			WARN("Unable to find fd: %d connection entry to remove, reached end of list", fd);
-			assert(!"fd should exist");
-			return false;
-		}
-	}
-
-	/* is in the middle */
-	if (temp) { /* prev */
-		//Not the first node in a linked list
-		temp->next = node->next;
-		free(node);
-	}
-	else
-	{ 
-		// Clear current record
-		node->connection.client_sock = -1;
-	}
+	free(conn);
+	close_fd(fd, "socket");
 
 	return true;
 }
 
-static unsigned int connection_count() {
-	unsigned count = 0;
-	for (unsigned int i = 0; i < CONNECTION_HASH_ENTRIES; i++) {
-		scache_connection_node* target = &ctable[i];
-		do {
-			if (target->connection.client_sock == -1) {
-				break;
-			}
-			count++;
-			target = target->next;
-		} while (target != NULL);
-	}
-
-	return count;
-}
-
 static unsigned int connection_any() {\
-	for (unsigned int i = 0; i < CONNECTION_HASH_ENTRIES; i++) {
-		scache_connection_node* target = &ctable[i];
-		if (target->connection.client_sock != -1) return true;
-	}
-
-	return false;
+	return connections.size();
 }
 
 static void* connection_handle_accept(void *arg)
@@ -394,9 +325,17 @@ static void* connection_handle_accept(void *arg)
 	int res;
 	connection_thread_arg* thread_arg = (connection_thread_arg*)arg;
 	uint64_t u = 1;
-	listener_type our_type = thread_arg->type;
+	connection_ctype our_type = thread_arg->type;
+	connection_ctype client_type;
 	int eventfd = thread_arg->eventfd;
 	int enable = 1;
+
+	assert(our_type == cache_listener || our_type == mon_listener);
+	if(our_type == cache_listener){
+		client_type = cache_connection;
+	}else{
+		client_type = mon_connection;
+	}
 	
 	for (uint32_t i = 0; i < scache_listeners.listener_count; i++)
 	{
@@ -434,32 +373,32 @@ static void* connection_handle_accept(void *arg)
 			}
 			else if (events[n].events & EPOLLIN)
 			{
-				//DEBUG("[#] Accepting connection from fd %d of type %s\n", fd, listener_type_string(our_type));
+				//DEBUG("[#] Accepting connection from fd %d of type %s\n", fd, connection_type_string(our_type));
 				int client_sock = accept(fd, NULL, NULL);
 
 				if (client_sock < 0) {
 					if (errno != EAGAIN && errno != EWOULDBLOCK)
 					{
 						if(errno == ENOTSOCK){
-							PFATAL("[#] accept() failed on fd %d of type %s", fd, listener_type_string(our_type));
+							PFATAL("[#] accept() failed on fd %d of type %s", fd, connection_type_string(our_type));
 						}else{
-							WARN("[#] accept() failed on fd %d of type %s. Error: %s", fd, listener_type_string(our_type), strerror(errno));
+							WARN("[#] accept() failed on fd %d of type %s. Error: %s", fd, connection_type_string(our_type), strerror(errno));
 						}
 					}
 					n++;
 					continue;
 				}
 				else {
-					DEBUG("[#] Accepted connection %d on fd %d of type %s\n", client_sock, fd, listener_type_string(our_type));
+					DEBUG("[#] Accepted connection %d on fd %d of type %s\n", client_sock, fd, connection_type_string(client_type));
 
 					
 					if(fcntl (client_sock, F_SETFD, FD_CLOEXEC) != 0){
-						PFATAL("[#%d] Setting socket cloexec failed for type %s.", client_sock, listener_type_string(our_type));
+						PFATAL("[#%d] Setting socket cloexec failed for type %s.", client_sock, connection_type_string(client_type));
 					}
 
 					// Connection will be non-blocking
 					if (connection_non_blocking(client_sock) < 0)
-						PFATAL("[#%d] Setting connection to non blocking failed for type %s.", client_sock, listener_type_string(our_type));
+						PFATAL("[#%d] Setting connection to non blocking failed for type %s.", client_sock, connection_type_string(client_type));
 					
 					// Set TCP options
 					if(-1 == setsockopt(client_sock, IPPROTO_TCP, TCP_NODELAY, (const char*)&enable, sizeof(enable))){
@@ -475,7 +414,7 @@ static void* connection_handle_accept(void *arg)
 						continue;
 					}
 					q->client_sock = client_sock;
-					q->client_type = our_type;
+					q->client_type = client_type;
 					q->next = NULL;
 					
 					// Insert connection into queue
@@ -543,7 +482,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 	pthread_t tid[2];
 	struct epoll_event ev = {};
 	uint64_t u;
-	connection_thread_arg thread_arg[2];
+	volatile connection_thread_arg thread_arg[2];
 	
 	//Init Mutex
 	if (pthread_mutex_init(&cq_lock, NULL) != 0)
@@ -561,25 +500,29 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 	thread_arg[0].ready = thread_arg[1].ready = false;
 
 	// Start Acceptor threads
-	res = pthread_create(&tid[0], NULL, &connection_handle_accept, (void*)thread_arg);
+	res = pthread_create(&tid[0], NULL, &connection_handle_accept, (void*)&thread_arg[0]);
 	if (res != 0)
 		PFATAL("can't create cache accept thread");
-	res = pthread_create(&tid[1], NULL, &connection_handle_accept, (void*)(thread_arg + 1));
+	res = pthread_create(&tid[1], NULL, &connection_handle_accept, (void*)(&thread_arg[1]));
 	if (res != 0)
 		PFATAL("can't create mon accept thread");
 	
 	// Add monitoring socket
+	scache_connection monitoring_connection;
+	monitoring_connection.client_sock = monitoring_fd;
 	memset(&ev, 0, sizeof(ev));
 	ev.events = EPOLLIN;
-	ev.data.fd = monitoring_fd;
+	ev.data.ptr = &monitoring_connection;
 	res = epoll_ctl(epfd, EPOLL_CTL_ADD, monitoring_fd, &ev);
 	if (res != 0)
 		PFATAL("can't create wait on eventfd %d", efd);
 
-	// Add monitoring socket
+	// Add cache socket
+	scache_connection accept_conn;
+	accept_conn.client_sock = efd;
 	memset(&ev, 0, sizeof(ev));
 	ev.events = EPOLLIN;
-	ev.data.fd = efd;
+	ev.data.ptr = &accept_conn;
 	res = epoll_ctl(epfd, EPOLL_CTL_ADD, efd, &ev);
 	if (res != 0)
 		PFATAL("can't create wait on eventfd %d", efd);
@@ -603,13 +546,22 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 			}
 		} while(nfds == 0 && !stop_soon);
 
-
-
 		// handle evfds first
 		for (int n = 0; n < nfds; n++) {
-			int fd = events[n].data.fd;
-			if (fd == efd)
-			{		
+			assert(events[n].data.ptr);
+			scache_connection* lc = (scache_connection*)events[n].data.ptr;
+			assert(lc != nullptr);
+			if (lc != &accept_conn && lc != &monitoring_connection)
+			{
+				assert(lc->ltype == cache_connection || lc->ltype == mon_connection);
+				continue;
+			}
+			events[n].data.ptr = nullptr;
+			
+			int fd = lc->client_sock;
+			assert(fd >= 0);
+			if (lc == &accept_conn)
+			{
 				// accept connections		
 				while (!stop_soon)
 				{
@@ -635,33 +587,35 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 					// Handle dequeued socket
 					assert(temp != NULL);
 					int client_sock = temp->client_sock;
-					listener_type client_type = temp->client_type;
+					connection_ctype client_type = temp->client_type;
 					free(temp);
 					assert(client_sock >= 0);
 					
-					//Add socket to epoll
-					ev.events = EPOLLIN | EPOLLHUP | EPOLLRDHUP;
-					ev.data.fd = client_sock;
-					res = epoll_ctl(epfd, EPOLL_CTL_ADD, client_sock, &ev);
-					if (res != 0) {
-						PWARN("[#%d] epoll_ctl() failed to add %d.", client_sock, errno);
-						close(client_sock);
-						continue;
-					}
-					
-					//Handle connection
-					DEBUG("[#%d] A new %s socket was accepted %d\n", fd, listener_type_string(client_type), client_sock);
+					// Create connection
+					DEBUG("[#%d] A new %s socket was accepted %d\n", fd, connection_type_string(client_type), client_sock);
 					scache_connection* connection = connection_add(client_sock, client_type);
 					if(connection == NULL){
 						PWARN("[#%d] epoll_ctl() failed to add %d.", client_sock, errno);
 						close(client_sock);
 						continue;
 					}
+
+					//Add socket to epoll
+					ev.events = EPOLLIN | EPOLLHUP | EPOLLRDHUP;
+					ev.data.ptr = connection;
+					res = epoll_ctl(epfd, EPOLL_CTL_ADD, client_sock, &ev);
+					if (res != 0) {
+						PWARN("[#%d] epoll_ctl() failed to add %d.", client_sock, errno);
+						close(client_sock);
+						continue;
+					}
+
+					// Handle connection
 					assert(connection->client_sock == client_sock);
 					connection->epollin = true;
 					connection_handler(connection);
 				}
-			} else if(monitoring_fd == fd){
+			} else if (lc == &monitoring_connection) {
 				// send out monitoring messages
 				res = read(fd, &u, sizeof(u));
 				monitoring_check();
@@ -670,12 +624,16 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 
 		// Then process existing connections
 		for (int n = 0; n < nfds; n++) {
-			int fd = events[n].data.fd;
-			if (fd != efd && fd != monitoring_fd)
+			scache_connection* connection = (scache_connection*)events[n].data.ptr;
+			if(connection == nullptr){
+				continue;
+			}
+			int fd = connection->client_sock;
+			if (connection->ltype == cache_connection || connection->ltype == mon_connection)
 			{
 				DEBUG("[#%d] Got socket event %d (in=%d, out=%d, hup=%d, rdhup=%d)\n", fd, events[n].events, events[n].events & EPOLLIN ? 1 : 0, events[n].events & EPOLLOUT ? 1 : 0, events[n].events & EPOLLHUP ? 1 : 0, events[n].events & EPOLLRDHUP ? 1 : 0);
 				bool do_close = events[n].events & (EPOLLERR | EPOLLHUP);
-				scache_connection* connection = connection_get(fd);
+				scache_connection* connection = (scache_connection*)events[n].data.ptr;
 				if (connection != NULL) {
 					assert(connection->client_sock == fd);
 
@@ -700,17 +658,15 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 					}
 
 					if (do_close) {
-						DEBUG("[#%d] Closing connection %d due to err:%d hup:%d rdhup:%d\n", fd, !! (events[n].events&EPOLLERR), !! (events[n].events&EPOLLHUP), !! (events[n].events&EPOLLRDHUP));
+						DEBUG("[#%d] Closing connection due to err:%d hup:%d rdhup:%d\n", fd, !! (events[n].events&EPOLLERR), !! (events[n].events&EPOLLHUP), !! (events[n].events&EPOLLRDHUP));
 						http_cleanup(connection);
 						assert(fd != 0 || (settings.daemon_mode && fd >= 0));
-						if(connection_remove(fd)){
-							assert(connection_get(fd) == NULL);
+						if(connection_remove(connection)){
 #ifdef DEBUG_BUILD
 							if (!connection_any()) {
 								db_check_table_refs();
 							}
 #endif
-							close_fd(fd, "socket");
 						} else {
 #ifdef DEBUG_BUILD
 							FATAL("[#%d] Unable to remove connection (not found in table)", fd);
@@ -735,7 +691,6 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 		}
 	}
 
-end:
 	close_fd(epfd, "epoll socket");
 	
 	errno = pthread_join(tid[0], NULL);
@@ -753,29 +708,22 @@ end:
 /*
 On close connection cleanup routine
 */
-void connection_cleanup_http(scache_connection_node* connection, bool toFree = false) {
+void connection_cleanup_http(scache_connection* connection) {
 	assert(connection != NULL);
 	int fd;
 
 	//Close socket to client
-	if (connection->connection.client_sock != -1) {
-		http_cleanup(&connection->connection);
-		fd = connection->connection.client_sock;
-		connection->connection.client_sock = -1;
+	if (connection->client_sock != -1) {
+		http_cleanup(connection);
+		fd = connection->client_sock;
+		connection->client_sock = -1;
 		close_fd(fd, "socket");
 	}
 
-	connection->connection.epollout = connection->connection.epollin = false;
-
-	//Handle chained connections
-	if (connection->next != NULL) {
-		connection_cleanup_http(connection->next, true);
-	}
+	connection->epollout = connection->epollin = false;
 
 	//Free up the connection if dynamically allocated
-	if (toFree) {
-		free(connection);
-	}
+	free(connection);
 }
 
 void connection_cleanup() {
@@ -787,8 +735,8 @@ void connection_cleanup() {
 	}
 
 	// free active connections
-	for (int i = 0; i < CONNECTION_HASH_ENTRIES; i++) {
-		connection_cleanup_http(&ctable[i]);
+	for (auto it = connections.begin(); it != connections.end(); ++it) {
+		connection_cleanup_http(*it);
 	}
 
 	// free queued connections

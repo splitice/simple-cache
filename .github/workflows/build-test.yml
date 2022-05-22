@@ -4,11 +4,13 @@ on:
   push:
   schedule:
     - cron:  '*/30 * * * *'
+  workflow_dispatch:
 
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -252,9 +254,16 @@ jobs:
         }
 
         function run_tests {
-          sleep 2
-          curl 127.0.0.1:8081
-          sleep 1
+          set -x
+          set +e
+          for i in {1..30}; do
+            curl 127.0.0.1:8081 --max-time 1 --connect-timeout 1
+            if [[ $? == 0 ]]; then
+              echo "ready to start php test"
+              break
+            fi
+            sleep 1
+          done
 
           set -e
           set -x 

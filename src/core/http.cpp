@@ -144,10 +144,10 @@ Cleanup & Reset state for a HTTP connection
 */
 void http_cleanup(scache_connection* connection) {
 	assert(connection != NULL);
-	DEBUG("[#%d] Cleaning up connection of type %s\n", connection->client_sock, listener_type_string(connection->ltype));
-	if(connection->ltype == cache_listener){
+	DEBUG("[#%d] Cleaning up connection of type %s\n", connection->client_sock, connection_type_string(connection->ltype));
+	if(connection->ltype == cache_connection){
 		cache_destroy(connection);
-	} else if(connection->ltype == mon_listener){
+	} else if(connection->ltype == mon_connection){
 		monitoring_destroy(connection);
 	}
 }
@@ -164,7 +164,7 @@ void http_templates_init() {
 
 /* Where new connections land */
 void http_connection_handler(scache_connection* connection) {
-	if(connection->ltype == cache_listener){
+	if(connection->ltype == cache_connection){
 		CONNECTION_HANDLER(connection,  http_cache_handle_method);
 	} else {//else: mon
 		CONNECTION_HANDLER(connection,  http_mon_handle_start);

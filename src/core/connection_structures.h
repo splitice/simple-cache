@@ -31,8 +31,8 @@ static const char *state_action_string[] = {
 };
 
 typedef enum {
-	cache_listener, mon_listener
-} listener_type;
+	cache_listener, mon_listener, cache_connection, mon_connection
+} connection_ctype;
 
 struct scache_connection {
 	//Writing to socket buffers
@@ -51,7 +51,7 @@ struct scache_connection {
 		 epollout,
 		 epollrdhup;
 
-	listener_type ltype;
+	connection_ctype ltype;
 
 	union {	
 		struct {
@@ -66,15 +66,10 @@ struct scache_connection {
 	};
 };
 
-struct scache_connection_node {
-	struct scache_connection connection;
-	struct scache_connection_node* next;
-};
-
 struct listener_entry
 {
 	int fd;
-	listener_type type;
+	connection_ctype type;
 };
 
 
@@ -84,12 +79,16 @@ struct listener_collection
 	uint32_t listener_count;
 };
 
-static inline const char* listener_type_string(listener_type l){
+static inline const char* connection_type_string(connection_ctype l){
 	switch(l){
 		case cache_listener:
-			return "cache";
+			return "cache listener";
 		case mon_listener:
-			return "monitoring";
+			return "monitoring listener";
+		case cache_connection:
+			return "cache connection";
+		case mon_connection:
+			return "monitoring connection";
 		default:
 			return "unknown";
 	}

@@ -299,7 +299,7 @@ void monitoring_add(scache_connection* conn){
 }
 
 void monitoring_destroy(scache_connection* connection){
-	assert(connection->ltype == mon_listener);
+	assert(connection->ltype == mon_connection);
 	scache_connection* t;
 
 	if(mon_head == connection){
@@ -393,7 +393,7 @@ void monitoring_check(){
 			fd = conn->client_sock;
 			DEBUG("Failed to output buffer to monitoring connection, will close fd %d\n", fd);
 			http_cleanup(conn);
-			connection_remove(fd);
+			connection_remove(conn);
 			close_fd(fd, "monitoring socket");
 			continue;
 		}

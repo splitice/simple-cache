@@ -168,12 +168,11 @@ state_action http_respond_writeonly(scache_connection* connection) {
 	DEBUG("[#%d] Sending static response then closing\n", connection->client_sock);
 	//Static response, after witing, read next request
 	http_cleanup(connection);
-	if(connection->ltype == cache_listener){
+	assert(connection->ltype == cache_connection || connection->ltype == mon_connection);
+	if(connection->ltype == cache_connection){
 		CONNECTION_HANDLER(connection,  http_cache_handle_method);
-	} else if(connection->ltype == mon_listener) {
+	} else if(connection->ltype == mon_connection) {
 		CONNECTION_HANDLER(connection,  http_mon_handle_method);
-	} else{
-		assert(connection->ltype == cache_listener || connection->ltype == mon_listener);
 	}
 	bool res = http_register_read(connection);
 	return res ? continue_processing : close_connection;
