@@ -1393,11 +1393,17 @@ static pid_t db_index_flush(bool copyOnWrite){
 	db_table* table;
 	cache_entry* ce;
 	int temp;
-
-	//Create hardlink to blockfile
-	fdatasync(db.fd_blockfile);
+	
+	// buffer contains the target temp file (${blockfile}.temp)
 	snprintf(buffer, sizeof(buffer), "%s.temp", db.path_blockfile);
+
+	// remove any other ${blockfile}.temp files (i.e an interrupted operation)
 	unlink(buffer);
+
+	// ensure all data is on disk
+	fdatasync(db.fd_blockfile);
+
+	// create a hard link from the currentl block file to ${blockfile}.temp
 	force_link(db.path_blockfile, buffer);
 
 	//If we are forking we can do so now
@@ -1407,15 +1413,15 @@ static pid_t db_index_flush(bool copyOnWrite){
 		signal_handler_remove();
 	}
 
-	//Open temporary index file
-	snprintf(buffer, sizeof(buffer), "%s/db.temp", db.path_root);
+	// Open temporary index file
+	snprintf(buffer, sizeof(buffer), "%s/index.temp", db.path_root);
 	int fd = open(buffer, O_RDWR | O_CREAT | O_TRUNC | O_LARGEFILE, S_IRUSR | S_IWUSR);
 	if(fd == -1){
 		PWARN("Unable to flush index, unable to open file");
-		return false;
+		goto close;
 	}
 
-	//Write free blocks
+	// Write free blocks
 	block_free_node *free_node = db.free_blocks;
 	while(free_node != NULL){
 		temp = snprintf(buffer, sizeof(buffer), "f:%u\n", free_node->block_number);
@@ -1455,16 +1461,19 @@ static pid_t db_index_flush(bool copyOnWrite){
 	close_fd(fd, "file descriptor (index)");
 	fd = -1;
 
-	// db.temp -> db.index & blockfile.temp -> blockfile.save
-	temp = snprintf(buffer, sizeof(buffer), "%s/db.temp", db.path_root);
+	// index.temp -> db.index
+	temp = snprintf(buffer, sizeof(buffer), "%s/index.temp", db.path_root);
 	assert(temp > 0);
 	temp = snprintf(buffer2, sizeof(buffer2), "%s/index.save", db.path_root);
 	unlink(buffer2);
+
+	// blockfile.temp -> blockfile.save
 	temp = snprintf(buffer3, sizeof(buffer3), "%s.temp", db.path_blockfile);
 	assert(temp > 0);
 	temp = snprintf(buffer4, sizeof(buffer4), "%s.save", db.path_blockfile);
 	assert(temp > 0);
 
+	// execute the renames of tmp files to actual
 	rename(buffer, buffer2);
 	rename(buffer3, buffer4);
 	unlink(buffer3);
@@ -1477,6 +1486,7 @@ static pid_t db_index_flush(bool copyOnWrite){
 		close_fd(fd, "file descriptor (index)");
 	}
 
+	close:
 	if(copyOnWrite){
 		if(pid){
 			PWARN("Unable to write index due to error");
