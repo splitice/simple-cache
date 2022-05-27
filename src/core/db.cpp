@@ -431,6 +431,12 @@ static bool currently_flushing(int flags){
 	return true;
 }
 
+void db_handle_sigchld(pid_t pid){
+	if(pid == current_flush){
+		current_flush = 0;
+	}
+}
+
 void db_lru_gc() {
 	bool do_lru = settings.max_size > 0 && settings.max_size < db.db_size_bytes;
 

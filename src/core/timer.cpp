@@ -1,11 +1,14 @@
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <sys/time.h>
 #include <stdint.h>
 #include <unistd.h>
 #include "http_parse.h"
 #include "timer.h"
+#include "db.h"
 #include "debug.h"
 
 volatile struct timeval current_time;
@@ -36,20 +39,43 @@ static void timer_handler(int signum)
 	}	
 }
 
+static void child_handler(int signum)
+{
+	int wstat;
+	pid_t	pid;
+
+	while (true) {
+		pid = waitpid (-1, &wstat, WNOHANG );
+		if (pid <= 0)
+			return;
+			
+		db_handle_sigchld(pid);
+	}
+}
+
+static void flush_handler(int signum)
+{
+	db_lru_gc();
+}
+
 void timer_setup(int evfd)
 {
-	struct sigaction sa;
 	struct itimerval timer;
+	struct sigaction sa[3] = {};
 
 	mon_fd = evfd;
 
 	/* Store current time */
 	timer_store_current_time();
 
-	/* Install timer_handler as the signal handler for SIGALRM. */
-	memset(&sa, 0, sizeof (sa));
-	sa.sa_handler = &timer_handler;
-	sigaction(SIGALRM, &sa, NULL);
+	/* Install signal handlers */
+	sa[0].sa_handler = &timer_handler;
+	sa[1].sa_handler = &flush_handler;
+	sa[2].sa_handler = &child_handler;
+	sigaction(SIGALRM, &sa[0], NULL);
+	sigaction(SIGUSR1, &sa[1], NULL);
+	sigaction(SIGCHLD, &sa[2], NULL);
+	
 
 	/* Configure the timer signal */
 	timer.it_value.tv_sec = 0;
