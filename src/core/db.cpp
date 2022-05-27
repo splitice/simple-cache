@@ -1392,6 +1392,7 @@ static pid_t db_index_flush(bool copyOnWrite){
 	char buffer[2048], buffer2[2048], buffer3[2048], buffer4[2048];
 	db_table* table;
 	cache_entry* ce;
+	block_free_node *free_node;
 	int temp;
 	
 	// buffer contains the target temp file (${blockfile}.temp)
@@ -1422,7 +1423,7 @@ static pid_t db_index_flush(bool copyOnWrite){
 	}
 
 	// Write free blocks
-	block_free_node *free_node = db.free_blocks;
+	free_node = db.free_blocks;
 	while(free_node != NULL){
 		temp = snprintf(buffer, sizeof(buffer), "f:%u\n", free_node->block_number);
 		assert(temp > 0);
