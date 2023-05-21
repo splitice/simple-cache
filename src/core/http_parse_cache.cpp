@@ -127,7 +127,7 @@ static inline state_action http_read_requeststartmethod(scache_connection* conne
 
 	//A space signifies the end of the method
 	if (*buffer == ' ') {
-		DEBUG("[#%d] Found first space seperator, len: %d\n", connection->client_sock, n);
+		DEBUG("[#%d] Found space seperator, len: %d\n", connection->client_sock, n);
 
 		//As long as the method is valid the next step
 		//is to parse the url
@@ -350,10 +350,9 @@ static state_action http_read_headers(scache_connection* connection, char* buffe
 		}
 	}
 	else if (*buffer == '\n') {
-		temporary++;
-		if (temporary == 2) {
-			DEBUG("[#%d] Completed header read with type %x\n", connection->client_sock, connection->method);
-			RBUF_READMOVE(connection->input, n + 1);
+		RBUF_READMOVE(connection->input, n + 1);
+		if (++temporary == 2) {
+			DEBUG("[#%d] Completed request read with type %x for %d bytes\n", connection->client_sock, connection->method, n);
 
 			// Router: Entry / Key level
 			if (REQUEST_IS(connection->method, REQUEST_CACHE_LEVELKEY)) {
@@ -390,6 +389,8 @@ static state_action http_read_headers(scache_connection* connection, char* buffe
 			
 			//Router: Table level
 			if (REQUEST_IS(connection->method, REQUEST_HTTPGET)) {
+				assert(connection->input.read_position == connection->input.write_position);
+
 				if (!connection->cache.target.table.table) {
 					return http_write_response(connection, HTTPTEMPLATE_FULL404);
 				}
@@ -417,8 +418,7 @@ static state_action http_read_headers(scache_connection* connection, char* buffe
 			return http_write_response(connection, HTTPTEMPLATE_FULLUNKNOWNREQUEST);
 		}
 
-		//Move pointers to next record
-		RBUF_READMOVE(connection->input, n + 1);
+		// Needs more data
 		return needs_more_read;
 	}
 	else if (*buffer != '\r') {
@@ -562,9 +562,7 @@ static state_action http_read_header_extraction(scache_connection* connection, c
 		RBUF_READMOVE(connection->input, length + temporary);
 		return needs_more_read;
 	}
-	else{
-		temporary = 1;
-	}
+	
 	return continue_processing;
 }
 
