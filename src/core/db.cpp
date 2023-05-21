@@ -194,8 +194,8 @@ void db_block_free(int32_t block) {
 #endif
 	assert(block >= 0);
 	block_free_node* old;
-	assert(block + 1 <= db.blocks_exist);
-	if (block + 1 == db.blocks_exist && db.blocks_free > 256) {
+	assert((uint32_t)block + 1 <= db.blocks_exist);
+	if ((uint32_t)block + 1 == db.blocks_exist && db.blocks_free > 256) {
 		db.blocks_exist--;
 		db_block_size();
 	}else{
@@ -1016,7 +1016,6 @@ struct db_table* db_table_get_write(char* name, int length) {
 	free(name);
 	db_table_incref(table);
 	
-end:
 	return table;
 }
 

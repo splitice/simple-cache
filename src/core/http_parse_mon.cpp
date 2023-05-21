@@ -460,14 +460,13 @@ void monitoring_init(){
 void monitoring_close(){
 	scache_connection* conn;
 	int flag = 1; 
+	static scache_connection* close_head = mon_head;
 
-	// Every 5ms we will work down any nodes in mon_head that need to be notified
-	while(mon_head != NULL){
-		conn = mon_head;
-		assert(conn->monitoring.prev == NULL);
+	while(close_head != NULL){
+		conn = close_head;
 		
 		// move on
-		mon_head = conn->monitoring.next;
+		close_head = conn->monitoring.next;
 
 		// hard write before close
 		write(conn->client_sock, "q\n", 2);
