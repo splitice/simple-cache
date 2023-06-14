@@ -331,7 +331,7 @@ static state_action http_read_headers(scache_connection* connection, char* buffe
 				CONNECTION_HANDLER(connection,  http_cache_handle_headers_extract);
 				return needs_more_read;
 			}
-			if (bytes == 7 && (rbuf_cmpn(&connection->input, "X-Limit", 7) == 0 || rbuf_cmpn(&connection->input, "x-limit", 7)) {
+			if (bytes == 7 && (rbuf_cmpn(&connection->input, "X-Limit", 7) == 0 || rbuf_cmpn(&connection->input, "x-limit", 7) == 0)) {
 				DEBUG("[#%d] Found X-Limit header\n", connection->client_sock);
 				RBUF_READMOVE(connection->input, bytes + 1);
 				connection->state = HEADER_XLIMIT;
