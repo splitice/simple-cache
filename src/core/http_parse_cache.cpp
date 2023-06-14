@@ -315,7 +315,7 @@ static state_action http_read_headers(scache_connection* connection, char* buffe
 				CONNECTION_HANDLER(connection,  http_cache_handle_headers_extract);
 				return needs_more_read;
 			}
-			if (bytes == 5 && rbuf_cmpn(&connection->input, "X-Ttl", 5) == 0) {
+			if (bytes == 5 && (rbuf_cmpn(&connection->input, "X-Ttl", 5) == 0 || rbuf_cmpn(&connection->input, "x-ttl", 5) == 0)) {
 				DEBUG("[#%d] Found X-Ttl header\n", connection->client_sock);
 				RBUF_READMOVE(connection->input, bytes + 1);
 				connection->state = HEADER_XTTL;
@@ -324,14 +324,14 @@ static state_action http_read_headers(scache_connection* connection, char* buffe
 			}
 		}
 		else if (REQUEST_IS(connection->method, REQUEST_HTTPGET | REQUEST_CACHE_LEVELTABLE)) {
-			if (bytes == 7 && rbuf_cmpn(&connection->input, "X-Start", 7) == 0) {
+			if (bytes == 7 && (rbuf_cmpn(&connection->input, "X-Start", 7) == 0 || rbuf_cmpn(&connection->input, "x-start", 7) == 0)) {
 				DEBUG("[#%d] Found X-Start header\n", connection->client_sock);
 				RBUF_READMOVE(connection->input, bytes + 1);
 				connection->state = HEADER_XSTART;
 				CONNECTION_HANDLER(connection,  http_cache_handle_headers_extract);
 				return needs_more_read;
 			}
-			if (bytes == 7 && rbuf_cmpn(&connection->input, "X-Limit", 7) == 0) {
+			if (bytes == 7 && (rbuf_cmpn(&connection->input, "X-Limit", 7) == 0 || rbuf_cmpn(&connection->input, "x-limit", 7)) {
 				DEBUG("[#%d] Found X-Limit header\n", connection->client_sock);
 				RBUF_READMOVE(connection->input, bytes + 1);
 				connection->state = HEADER_XLIMIT;
@@ -340,7 +340,7 @@ static state_action http_read_headers(scache_connection* connection, char* buffe
 			}
 		}
 		else if (REQUEST_IS(connection->method, REQUEST_HTTPPURGE | REQUEST_CACHE_LEVELTABLE)) {
-			if (bytes == 8 && rbuf_cmpn(&connection->input, "X-Delete", 8) == 0) {
+			if (bytes == 8 && (rbuf_cmpn(&connection->input, "X-Delete", 8) == 0 || rbuf_cmpn(&connection->input, "x-delete", 8) == 0)) {
 				DEBUG("[#%d] Found X-Delete header\n", connection->client_sock);
 				RBUF_READMOVE(connection->input, bytes + 1);
 				connection->state = HEADER_XDELETE;
