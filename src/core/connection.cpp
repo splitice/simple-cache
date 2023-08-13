@@ -1,3 +1,5 @@
+#define _GNU_SOURCE    
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -373,8 +375,8 @@ static void* connection_handle_accept(void *arg)
 			}
 			else if (events[n].events & EPOLLIN)
 			{
-				//DEBUG("[#] Accepting connection from fd %d of type %s\n", fd, connection_type_string(our_type));
-				int client_sock = accept(fd, NULL, NULL);
+				//DEBUG("[#] Accepting from fd %d of type %s\n", fd, connection_type_string(our_type));
+				int client_sock = accept4(fd, NULL, NULL, SOCK_CLOEXEC | SOCK_NONBLOCK);
 
 				if (client_sock < 0) {
 					if (errno != EAGAIN && errno != EWOULDBLOCK)
@@ -391,15 +393,6 @@ static void* connection_handle_accept(void *arg)
 				else {
 					DEBUG("[#] Accepted connection %d on fd %d of type %s\n", client_sock, fd, connection_type_string(client_type));
 
-					
-					if(fcntl (client_sock, F_SETFD, FD_CLOEXEC) != 0){
-						PFATAL("[#%d] Setting socket cloexec failed for type %s.", client_sock, connection_type_string(client_type));
-					}
-
-					// Connection will be non-blocking
-					if (connection_non_blocking(client_sock) < 0)
-						PFATAL("[#%d] Setting connection to non blocking failed for type %s.", client_sock, connection_type_string(client_type));
-					
 					// Set TCP options
 					if(-1 == setsockopt(client_sock, IPPROTO_TCP, TCP_NODELAY, (const char*)&enable, sizeof(enable))){
 						DEBUG("[#%d] Unable to set tcp nodelay\n", client_sock);
