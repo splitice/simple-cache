@@ -395,6 +395,11 @@ static void* connection_handle_accept(void *arg)
 						DEBUG("[#%d] Unable to set tcp nodelay\n", client_sock);
 					}
 					//setsockopt(client_sock, IPPROTO_TCP, TCP_CORK, &state, sizeof(state));
+
+					// set FD_CLOEXEC
+					if(fcntl (client_sock, F_SETFD, FD_CLOEXEC) != 0){
+						PFATAL("Unable to set FD_CLOEXEC on client socket");
+					}
 					
 					connections_queued* q = (connections_queued*)malloc(sizeof(connections_queued));
 					if(q == NULL){
@@ -668,13 +673,13 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 				}
 				else
 				{
-					DEBUG("[#%d] Unknown connection (in=%d, out=%d, hup=%d)\n", fd, events[n].events & EPOLLIN ? 1 : 0, events[n].events & EPOLLOUT ? 1 : 0, events[n].events & EPOLLHUP ? 1 : 0);
+					ERRORF("[#%d] Unknown connection (in=%d, out=%d, hup=%d)\n", fd, events[n].events & EPOLLIN ? 1 : 0, events[n].events & EPOLLOUT ? 1 : 0, events[n].events & EPOLLHUP ? 1 : 0);
 
 					// always an error!
 					assert(fd != 0 || (settings.daemon_mode && fd >= 0));
 					
 					//Close connection socket
-					res = epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
+					close(fd);
 				}
 					
 			}
