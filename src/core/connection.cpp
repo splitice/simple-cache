@@ -622,7 +622,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 			if (connection->ltype == cache_connection || connection->ltype == mon_connection)
 			{
 				DEBUG("[#%d] Got socket event %d (in=%d, out=%d, hup=%d, rdhup=%d)\n", fd, events[n].events, events[n].events & EPOLLIN ? 1 : 0, events[n].events & EPOLLOUT ? 1 : 0, events[n].events & EPOLLHUP ? 1 : 0, events[n].events & EPOLLRDHUP ? 1 : 0);
-				bool do_close = events[n].events & (EPOLLERR | EPOLLHUP);
+				bool do_close = (events[n].events & (EPOLLERR | EPOLLHUP)) != 0;
 				scache_connection* connection = (scache_connection*)events[n].data.ptr;
 				if (connection != NULL) {
 					assert(connection->client_sock == fd);
