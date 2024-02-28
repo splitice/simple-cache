@@ -11,7 +11,7 @@ for($i=0;$i<100;$i++){
 
         $i = -1;
 
-        $ch = $ac->ch();
+        $ch = $ac->getCurlHandle();
         curl_setopt($ch, CURLOPT_PROGRESSFUNCTION, function() use ($i){
             if(rand(0,10) == 3) exit (0);
         });
