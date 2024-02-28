@@ -296,9 +296,6 @@ static scache_connection* connection_add(int fd, connection_ctype client_type) {
 bool connection_remove(scache_connection* conn) {
 	int fd = conn->client_sock;
 	assert(conn->client_sock >= 0);
-	if(epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL) < 0){
-		return false;
-	}
 	conn->client_sock = -1;
 
 	auto it = connections.find(conn);
