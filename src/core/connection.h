@@ -15,6 +15,7 @@ bool connection_remove(scache_connection* conn);
 bool connection_stop_soon();
 
 
+void close_socket(int fd);
 void close_fd(int fd, const char* descriptor_type);
 
 #define CONNECTION_HANDLER_ACTUAL(con, value) (con)->handler = (value) 

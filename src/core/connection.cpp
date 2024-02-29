@@ -306,7 +306,7 @@ bool connection_remove(scache_connection* conn) {
 	}
 
 	free(conn);
-	close_fd(fd, "socket");
+	close_socket(fd);
 
 	return true;
 }
@@ -318,7 +318,7 @@ static unsigned int connection_any() {\
 static void* connection_handle_accept(void *arg)
 {
 	struct epoll_event ev = {};
-	int epacceptfd = epoll_create1(0);
+	int epacceptfd = epoll_create1(EPOLL_CLOEXEC);
 	memset(&ev, 0, sizeof(ev));
 	struct epoll_event events[NUM_EVENTS_ACCEPT];
 	int res;
@@ -451,6 +451,11 @@ end:
 	return NULL;
 }
 
+void close_socket(int fd){
+	epoll_ctl(epfd, EPOLL_CTL_DEL, fd, NULL);
+	close_fd(fd, "socket");
+}
+
 void close_fd(int fd, const char* descriptor_type){
 	int ret;
 #ifdef DEBUG_BUILD
@@ -469,7 +474,7 @@ void close_fd(int fd, const char* descriptor_type){
 void monitoring_check();
 
 void connection_event_loop(void (*connection_handler)(scache_connection* connection), int monitoring_fd) {
-	epfd = epoll_create1(0);
+	epfd = epoll_create1(EPOLL_CLOEXEC);
 	struct epoll_event events[NUM_EVENTS];
 	int max_listener = 0;
 	int res;
@@ -712,7 +717,7 @@ void connection_cleanup_http(scache_connection* connection) {
 		http_cleanup(connection);
 		fd = connection->client_sock;
 		connection->client_sock = -1;
-		close_fd(fd, "socket");
+		close_socket(fd);
 	}
 
 	connection->epollout = connection->epollin = false;
