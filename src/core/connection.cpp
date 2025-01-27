@@ -67,10 +67,9 @@ static pthread_mutex_t cq_lock;
 /* Methods */
 static bool connection_event_update(scache_connection* conn, uint32_t events) {
 	struct epoll_event ev = {};
-	assert(conn->client_sock > 0);
-	memset(&ev, 0, sizeof(ev));
 	ev.events = events;
 	ev.data.ptr = conn;
+	assert(conn->client_sock > 0);
 	int res = epoll_ctl(epfd, EPOLL_CTL_MOD, conn->client_sock, &ev);
 	if (res != 0) {
 		DEBUG("[#] epoll_ctl() update failed on fd: %d.\n", conn->client_sock);
