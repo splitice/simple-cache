@@ -30,12 +30,12 @@ jobs:
         RELEASE_VERSION=$(echo ${GITHUB_REF:11})
         make all CONFIG=${{ matrix.target.build }} CFLAGS="${{ matrix.target.flags }} -DSCACHE_VERSION=\\\"$RELEASE_VERSION\\\" -DSCACHE_REVISION=\\\"${{ github.sha }}\\\""
     - name: Upload artifacts
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v3
       with:
         name: ${{ matrix.target.asset }}-scache
         path: src/server/scache
     - name: Upload artifacts
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v3
       with:
         name: ${{ matrix.target.asset }}-tests
         path: tests/tests
@@ -56,12 +56,12 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
     - name: Download artifacts
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v3
       with:
         name: ${{ matrix.target.asset }}-scache
         path: src/server
     - name: Download artifacts
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v3
       with:
         name: ${{ matrix.target.asset }}-tests
         path: tests
@@ -89,12 +89,12 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
     - name: Download artifacts
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v3
       with:
         name: ${{ matrix.target.asset }}-scache
         path: src/server
     - name: Download artifacts
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v3
       with:
         name: ${{ matrix.target.asset }}-tests
         path: tests
@@ -122,12 +122,12 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
     - name: Download artifacts
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v3
       with:
         name: ${{ matrix.target.asset }}-scache
         path: src/server
     - name: Download artifacts
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v3
       with:
         name: ${{ matrix.target.asset }}-tests
         path: tests/tests
@@ -158,12 +158,12 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
     - name: Download artifacts
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v3
       with:
         name: ${{ matrix.target.asset }}-scache
         path: src/server
     - name: Download artifacts
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v3
       with:
         name: ${{ matrix.target.asset }}-tests
         path: tests
@@ -214,7 +214,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
     - name: Download artifacts
-      uses: actions/download-artifact@v1
+      uses: actions/download-artifact@v3
       with:
         name: ${{ matrix.target.asset }}-scache
         path: src/server
