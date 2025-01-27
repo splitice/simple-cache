@@ -311,7 +311,7 @@ void monitoring_destroy(scache_connection* connection){
 		assert(connection->monitoring.next == NULL);
 		mon_tail = connection->monitoring.prev;
 		if(mon_head == NULL){
-			assert(connection->monitoring.prev == NULL);
+			assert(mon_tail == NULL);
 			// early exit we remvoed from both ends
 			return;
 		}
@@ -374,6 +374,7 @@ bool monitoing_needs_to_run(){
 void monitoring_check(){
 	scache_connection* conn;
 	int fd;
+	timeval current_time_copy = *(timeval*)&current_time;
 
 	// Every 5ms we will work down any nodes in mon_head that need to be notified
 	while(mon_head != NULL){
@@ -381,7 +382,7 @@ void monitoring_check(){
 		assert(conn->monitoring.prev == NULL);
 
 		// Not yet time
-		if(timercmp(&conn->monitoring.scheduled, &current_time, >)) break;
+		if(timercmp(&conn->monitoring.scheduled, &current_time_copy, >)) break;
 		
 		// move on
 		mon_head = conn->monitoring.next;
@@ -415,8 +416,10 @@ void monitoring_check(){
 		conn->output_buffer = monitoring_strings[conn->monitoring.current];
 		conn->output_length = monitoring_lens[conn->monitoring.current];
 		conn->monitoring.current ++;
-		memcpy(&conn->monitoring.scheduled, (void*)&current_time, sizeof(current_time));
-		conn->monitoring.scheduled.tv_sec += MONITORING_DEFAULT_INTERVAL;
+	
+		conn->monitoring.scheduled.tv_usec = current_time_copy.tv_usec;
+		conn->monitoring.scheduled.tv_sec = current_time_copy.tv_sec + MONITORING_DEFAULT_INTERVAL;
+
 
 		// signal for write registration
 		connection_register_write(conn);
