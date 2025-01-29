@@ -396,11 +396,6 @@ static void* connection_handle_accept(void *arg)
 						DEBUG("[#%d] Unable to set tcp nodelay\n", client_sock);
 					}
 					//setsockopt(client_sock, IPPROTO_TCP, TCP_CORK, &state, sizeof(state));
-
-					// set FD_CLOEXEC
-					if(fcntl (client_sock, F_SETFD, FD_CLOEXEC) != 0){
-						PFATAL("Unable to set FD_CLOEXEC on client socket");
-					}
 					
 					connections_queued* q = (connections_queued*)malloc(sizeof(connections_queued));
 					if(q == NULL){
