@@ -379,7 +379,9 @@ static void* connection_handle_accept(void *arg)
 					{
 						if(errno == ENOTSOCK){
 							PFATAL("[#] accept() failed on fd %d of type %s", fd, connection_type_string(our_type));
-						}else{
+						} else if(errno == EMFILE){
+							PFATAL("[#] accept() too many open files on fd %d of type %s", fd, connection_type_string(our_type));
+						} else {
 							WARN("[#] accept() failed on fd %d of type %s. Error: %s", fd, connection_type_string(our_type), strerror(errno));
 						}
 					}
