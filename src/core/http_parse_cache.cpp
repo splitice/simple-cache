@@ -77,7 +77,7 @@ static bool http_key_lookup(scache_connection* connection, int n) {
 		//It is the responsibility of db_entry_get_write to free key if necessary
 		entry = db_entry_get_write(connection->cache.target.table.table, key, n);
 		if (entry) {
-			connection->cache_writing = true;
+			connection->is_writing = true;
 		}
 	}
 	else if (REQUEST_IS(connection->method, REQUEST_HTTPDELETE)) {
@@ -683,7 +683,7 @@ state_action http_cache_handle_request_body(scache_connection* connection) {
 	}
 
 	if (to_write != 0) {
-		if (connection->cache_writing) {
+		if (connection->is_writing) {
 			// Write data
 			if(lseek64(connection->cache.target.key.fd, connection->cache.target.key.position, SEEK_SET) == -1) {
 				PWARN("[#%d] Failed to seek for PUT", connection->client_sock);
@@ -711,10 +711,10 @@ state_action http_cache_handle_request_body(scache_connection* connection) {
 	assert((connection->cache.target.key.end_position - connection->cache.target.key.position) >= 0);
 	if (connection->cache.target.key.end_position == connection->cache.target.key.position) {
 		//Decrease refs, done with writing
-		if (connection->cache_writing) {
+		if (connection->is_writing) {
 			DEBUG("[#%d] Completed writing after a total of %d bytes to fd %d\n", connection->client_sock, connection->cache.target.key.position, connection->cache.target.key.fd);
 			db_complete_writing(connection->cache.target.key.entry);
-			connection->cache_writing = false;
+			connection->is_writing = false;
 		}
 
 		return http_write_response(connection, HTTPTEMPLATE_FULL200OK);
@@ -726,14 +726,14 @@ state_action http_cache_handle_request_body(scache_connection* connection) {
 void cache_destroy(scache_connection* connection){
 	assert(connection->ltype == cache_connection);
 	if (REQUEST_IS(connection->method, REQUEST_CACHE_LEVELKEY)) {
-		if (connection->cache_writing) {
+		if (connection->is_writing) {
 			cache_entry* entry = connection->cache.target.key.entry;
 			assert(entry != NULL);
 			if (!entry->deleted) {
 				db_entry_handle_delete(entry);
 			}
 			entry->writing = false;
-			connection->cache_writing = false;
+			connection->is_writing = false;
 		}
 		if (connection->cache.target.key.entry != NULL) {
 			db_target_entry_close(&connection->cache.target.key);

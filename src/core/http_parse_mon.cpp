@@ -36,6 +36,14 @@ static uint16_t hostname_len;
 static char* monitoring_rsp = NULL;
 static int monitoring_rsp_len = 0;
 
+
+
+static scache_connection* mon_head = NULL; // next -> tail, prev = null
+static scache_connection* mon_tail = NULL; // prev -> head, next = null
+
+static scache_connection* mon_pending_head = NULL; // next -> tail, prev = null (most recently added)
+static scache_connection* mon_pending_tail = NULL; // prev -> head, next = null (most likely to be stale)
+
 static void enable_keepalive(int sock) {
     int yes = 1;
 	setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(int));
@@ -88,6 +96,7 @@ static state_action http_respond_start_to_count(scache_connection* connection) {
 	DEBUG("[#%d] Ready to start to count \n", connection->client_sock);
 	monitoring_add(connection);
 	enable_keepalive(connection->client_sock);
+	connection->is_writing = true;
 	CONNECTION_HANDLER(connection,  http_respond_cleanupafterwrite);
 	return continue_processing;
 }
@@ -270,15 +279,19 @@ state_action http_mon_handle_method(scache_connection* connection) {
 
 
 state_action http_mon_handle_start(scache_connection* connection) {
+	timeval current_time_copy = *(timeval*)&current_time;
+
 	DEBUG("[#%d] Handling new HTTP connection\n", connection->client_sock);
 	CONNECTION_HANDLER(connection,  http_mon_handle_method);
+	
+	// You have 5s to send a request
+	connection->monitoring.scheduled.tv_usec = current_time_copy.tv_usec;
+	connection->monitoring.scheduled.tv_sec = current_time_copy.tv_sec + 5;
+
 	return needs_more_read;
 }
 
-static scache_connection* mon_head = NULL; // next -> tail, prev = null
-static scache_connection* mon_tail = NULL; // prev -> head, next = null
-
-void monitoring_add(scache_connection* conn){
+void monitoring_pending_add(scache_connection* conn){
 	memset(&conn->monitoring, 0, sizeof(conn->monitoring));
 	assert(conn->monitoring.next == NULL);
 	assert(conn->monitoring.prev == NULL);
@@ -286,11 +299,64 @@ void monitoring_add(scache_connection* conn){
 	memcpy(&conn->monitoring.scheduled, (void*)&current_time, sizeof(current_time));
 
 	// Add connection to the monitoring linked list
+	if(mon_pending_tail == NULL){
+		assert(mon_pending_head == NULL);
+		mon_pending_tail = mon_pending_head = conn;
+	}else{
+		// insert at head
+		assert(mon_pending_head->monitoring.prev == NULL);
+		mon_pending_head->monitoring.prev = conn;
+		conn->monitoring.next = mon_pending_head;
+		mon_pending_head = conn;
+	}
+}
+
+void monitoring_add(scache_connection* conn){
+	scache_connection* t;
+
+	memset(&conn->monitoring, 0, sizeof(conn->monitoring));
+
+	memcpy(&conn->monitoring.scheduled, (void*)&current_time, sizeof(current_time));
+
+	// Clear from pending list
+	if(mon_pending_head == conn){
+		assert(conn->monitoring.prev == NULL);
+		mon_pending_head = conn->monitoring.next;
+	}
+
+	if(mon_pending_tail == conn){
+		assert(conn->monitoring.next == NULL);
+		mon_pending_tail = conn->monitoring.prev;
+		if(mon_pending_head == NULL){
+			assert(mon_pending_tail == NULL);
+			// early exit we remvoed from both ends
+		}
+	} else if(mon_pending_tail != NULL) {
+		/*
+		head ... | connection | t | ... tail
+		*/
+		t = conn->monitoring.next;
+		if(t != NULL){
+			assert(t->monitoring.prev == conn);
+			t->monitoring.prev = conn->monitoring.prev;
+		}
+
+		/*
+		head ... | t | connection | ... tail
+		*/
+		t = conn->monitoring.prev;
+		if(t != NULL){
+			assert(t->monitoring.next == conn);
+			t->monitoring.next = conn->monitoring.next;
+		}
+	}
+
+	// Add connection to the monitoring linked list
 	if(mon_tail == NULL){
 		assert(mon_head == NULL);
 		mon_tail = mon_head = conn;
 	}else{
-		// insert at tail
+		// insert at head (next to send)
 		assert(mon_head->monitoring.prev == NULL);
 		mon_head->monitoring.prev = conn;
 		conn->monitoring.next = mon_head;
@@ -302,18 +368,35 @@ void monitoring_destroy(scache_connection* connection){
 	assert(connection->ltype == mon_connection);
 	scache_connection* t;
 
-	if(mon_head == connection){
-		assert(connection->monitoring.prev == NULL);
-		mon_head = connection->monitoring.next;
-	}
+	if(!connection->is_writing) {
+		if(mon_pending_head == connection){
+			assert(connection->monitoring.prev == NULL);
+			mon_pending_head = connection->monitoring.next;
+		}
 
-	if(mon_tail == connection){
-		assert(connection->monitoring.next == NULL);
-		mon_tail = connection->monitoring.prev;
-		if(mon_head == NULL){
-			assert(mon_tail == NULL);
-			// early exit we remvoed from both ends
-			return;
+		if(mon_pending_tail == connection){
+			assert(connection->monitoring.next == NULL);
+			mon_tail = connection->monitoring.prev;
+			if(mon_pending_head == NULL){
+				assert(mon_pending_tail == NULL);
+				// early exit we remvoed from both ends
+				return;
+			}
+		}
+	} else {
+		if(mon_head == connection){
+			assert(connection->monitoring.prev == NULL);
+			mon_head = connection->monitoring.next;
+		}
+
+		if(mon_tail == connection){
+			assert(connection->monitoring.next == NULL);
+			mon_tail = connection->monitoring.prev;
+			if(mon_head == NULL){
+				assert(mon_tail == NULL);
+				// early exit we remvoed from both ends
+				return;
+			}
 		}
 	}
 
@@ -423,6 +506,19 @@ void monitoring_check(){
 
 		// signal for write registration
 		connection_register_write(conn);
+	}
+
+	// check for any pending connections that have not made requests
+	while(mon_pending_tail != NULL) {
+		conn = mon_pending_tail;
+		if(timercmp(&conn->monitoring.scheduled, &current_time_copy, >)) break;
+
+		fd = conn->client_sock;		
+		http_cleanup(conn);
+		connection_remove(conn);
+		close_socket(fd);
+
+		assert(conn != mon_pending_tail);
 	}
 
 	#ifdef DEBUG_MONITORING

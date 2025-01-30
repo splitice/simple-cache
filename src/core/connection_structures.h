@@ -37,16 +37,16 @@ typedef enum {
 struct scache_connection {
 	//Writing to socket buffers
 	const char* output_buffer;
-	int output_length;
 	char* output_buffer_free;
-	state_action(*handler)(scache_connection* connection);
 	const char* handler_name;
-	uint32_t state;
+	state_action(*handler)(scache_connection* connection);
+	int output_length;
 	int client_sock;
 	struct read_buffer input;
 	
+	uint32_t state;
 	uint16_t method;
-	bool cache_writing,
+	bool is_writing, // cache = cache for write, mon = is writing count values
 	     epollin,
 		 epollout,
 		 epollrdhup;
