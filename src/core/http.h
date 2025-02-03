@@ -84,7 +84,7 @@ static const char http_templates[][HTTP_TEMPLATE_STRLEN] = {
 	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 19\r\n\r\nRequest too large\r\n",
 	"HTTP/1.1 400 Bad Request\r\nConnection: Close\r\nContent-Length: 17\r\n\r\nUnknown Request\r\n",
 	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\n\r\n",
-	"HTTP/1.1 200 OK\r\nConnection: Keep-Alive\r\nContent-Type: text/x-streaming\r\nX-Hostname: %s\r\n\r\n",
+	"HTTP/1.1 200 OK\r\nConnection: Close\r\nContent-Type: text/x-streaming\r\nX-Hostname: %s\r\n\r\n",
 	"HTTP/1.1 404 Not Found\r\nConnection: Keep-Alive\r\nContent-Length: 16\r\n\r\nPath Not Found\r\n",
 };
 
