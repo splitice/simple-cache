@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include "config.h"
 #include "debug.h"
 #include "settings.h"
 
@@ -41,11 +42,23 @@ static void print_usage() {
 "\n"
 "General settings:\n"
 "\n"
-"  -m file  --make-pid file                 - output a PID file (default: no)\n"
-"  -d                                       - daemonize (default: no)\n"
-"  -o                                       - redirect output to /dev/null if daemonized (default: yes)\n"
-"\n"
-"Problems? You can reach the author at <admin@x4b.net>.\n");
+	"  -m file  --make-pid file                 - output a PID file (default: no)\n"
+	"  -d                                       - daemonize (default: no)\n"
+	"  -o                                       - redirect output to /dev/null if daemonized (default: yes)\n"
+	"  --version                                - print version info and exit\n"
+	"\n"
+	"Problems? You can reach the author at <admin@x4b.net>.\n");
+}
+
+static void print_version_and_exit() {
+	const char* build_type =
+#ifdef DEBUG_BUILD
+		"debug";
+#else
+		"release";
+#endif
+	printf("scache %s (%s) built %s [%s]\n", SCACHE_VERSION, SCACHE_REVISION, SCACHE_BUILD_DATE, build_type);
+	exit(0);
 }
 
 char* string_allocate(const char* s)
@@ -155,28 +168,29 @@ static void parse_binds(const char* optarg_const, scache_binds* target)
 	free(optarg);
 }
 
-void settings_parse_arguments(int argc, char** argv) {
-	static struct option long_options[] =
-	{
-		/* These options set a flag. */
-		/* These options set a value */
-		{ "make-pid", required_argument, 0, 'm' },
-		{ "leave-pid", no_argument, 0, 'M' },
-		{ "database-max-size", required_argument, 0, 's' },
-		{ "database-file-path", required_argument, 0, 'r' },
-		{ "database-lru-clear", required_argument, 0, 'l' },
-		{ "bind", required_argument, 0, 'b' },
-		{ "monitor", required_argument, 0, 'B' },
-		{ 0, 0, 0, 0 }
-	};
+	void settings_parse_arguments(int argc, char** argv) {
+		static struct option long_options[] =
+		{
+			/* These options set a flag. */
+			/* These options set a value */
+			{ "make-pid", required_argument, 0, 'm' },
+			{ "leave-pid", no_argument, 0, 'M' },
+			{ "database-max-size", required_argument, 0, 's' },
+			{ "database-file-path", required_argument, 0, 'r' },
+			{ "database-lru-clear", required_argument, 0, 'l' },
+			{ "bind", required_argument, 0, 'b' },
+			{ "monitor", required_argument, 0, 'B' },
+			{ "version", no_argument, 0, 'v' },
+			{ 0, 0, 0, 0 }
+		};
 
-	int r = 0, option_index = 0;
-	while ((r = getopt_long(argc, argv, "dom:s:r:l:b:B:", long_options, &option_index)) != -1) {
-		switch (r) {
-		case 0:
-			if (long_options[option_index].flag != 0)
-				break;
-			printf("option %s", long_options[option_index].name);
+		int r = 0, option_index = 0;
+		while ((r = getopt_long(argc, argv, "dom:s:r:l:b:B:v", long_options, &option_index)) != -1) {
+			switch (r) {
+			case 0:
+				if (long_options[option_index].flag != 0)
+					break;
+				printf("option %s", long_options[option_index].name);
 			if (optarg)
 				printf(" with arg %s", optarg);
 			printf("\n");
@@ -205,15 +219,18 @@ void settings_parse_arguments(int argc, char** argv) {
 		case 'B':
 			parse_binds(optarg, &settings.bind_monitor);
 			break;
-		case 'l':
-			settings.db_lru_clear = atof(optarg)/100;
-			break;
-		default:
-		case '?':
-			print_usage();
-			exit(EXIT_FAILURE);
-		}
-    }
+			case 'l':
+				settings.db_lru_clear = atof(optarg)/100;
+				break;
+			case 'v':
+				print_version_and_exit();
+				break;
+			default:
+			case '?':
+				print_usage();
+				exit(EXIT_FAILURE);
+			}
+	    }
 
 	if (settings.db_file_path == NULL) {
 		settings.db_file_path = strdup("/var/lib/scache/");

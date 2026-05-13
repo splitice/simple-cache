@@ -1393,7 +1393,17 @@ static pid_t db_index_flush(bool copyOnWrite){
 	cache_entry* ce;
 	block_free_node *free_node;
 	int temp;
-	
+
+	//If we are forking we can do so now
+	if(copyOnWrite){
+		pid = fork();
+		if(pid != 0) return pid; // includes -1
+		signal_handler_remove();
+	}
+
+	// NOTE: This work is intentionally after the fork so the parent process does not
+	// run the potentially expensive blockfile copy when copy-on-write flush is enabled.
+
 	// buffer contains the target temp file (${blockfile}.temp)
 	snprintf(buffer, sizeof(buffer), "%s.temp", db.path_blockfile);
 
@@ -1403,15 +1413,8 @@ static pid_t db_index_flush(bool copyOnWrite){
 	// ensure all data is on disk
 	fdatasync(db.fd_blockfile);
 
-	// create a hard link from the currentl block file to ${blockfile}.temp
+	// create a hard link / copy from the current block file to ${blockfile}.temp
 	force_link(db.path_blockfile, buffer);
-
-	//If we are forking we can do so now
-	if(copyOnWrite){
-		pid = fork();
-		if(pid != 0) return pid; // includes -1
-		signal_handler_remove();
-	}
 
 	// Open temporary index file
 	snprintf(buffer, sizeof(buffer), "%s/index.temp", db.path_root);
