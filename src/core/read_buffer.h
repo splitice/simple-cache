@@ -1,3 +1,6 @@
+#ifndef READ_BUFFER_H
+#define READ_BUFFER_H
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -148,3 +151,5 @@ Helper to Iterate over circular buffer
 		ret = needs_more_read; \
 	} \
 } while (0);
+
+#endif /* READ_BUFFER_H */

@@ -737,25 +737,6 @@ static bool db_load_from_save(){
 
 	ret = true;
 
-	// Reconstruct free_blocks: any block not marked in-use is free
-	if (block_in_use != NULL) {
-		for (uint32_t i = 0; i < db.blocks_exist; i++) {
-			if ((block_in_use[i / 8] & (1 << (i % 8))) == 0) {
-				db_block_free(i);
-			}
-		}
-		free(block_in_use);
-	}
-
-	if(bp != NULL){
-		free(bp);
-	}
-
-	if(table != NULL){
-		db_table_deref(table, true);
-		table = NULL;
-	}
-
 	if (fp != NULL) {
 		fclose(fp);
 	}
@@ -782,6 +763,18 @@ bool db_open(const char* path) {
 	// Initialize the tables hash
 	db.tables = kh_init(table);
 	db.table_gc = kh_begin(db.tables);
+
+	// Reset block tracking state (in case db_open is called multiple times)
+	db.free_blocks = NULL;
+	db.blocks_free = 0;
+	db.lru_head = NULL;
+	db.lru_tail = NULL;
+	db.db_size_bytes = 0;
+	db.db_keys = 0;
+	db.db_stats_inserts = 0;
+	db.db_stats_gets = 0;
+	db.db_stats_deletes = 0;
+	db.db_stats_operations = 0;
 
 	// Set blockfile path and open it BEFORE loading from save.
 	// db_load_from_save() expects db.fd_blockfile and db.blocks_exist to be valid.

@@ -30,6 +30,5 @@ tests_rbuffer.o: tests_rbuffer.cpp
 tests_system_simple.o: tests_system_simple.cpp
 	$(CC) $(_CFLAGS) tests_system_simple.cpp -std=c++11
 
-
 clean:
-	rm -f $(OBJS) $(OUT)
+	rm -f $(OBJS) $(OUT) tests_db_load

@@ -2,6 +2,7 @@
 #include "minunit.h"
 #include "tests_rbuffer.cpp"
 #include "tests_system_simple.cpp"
+#include "tests_db_load.cpp"
 #include <stdlib.h>     /* atoi */
 
 int tests_run = 0;
@@ -34,5 +35,6 @@ int main(int argc, char *argv[])
 		port = atoi(argv[3]);
 	}
 	TESTSET("system_simple", test_simple(argv[1], argv[2], port));
+	TESTSET("db_load", test_db_load_all());
 	return final_result != 0;
 }
