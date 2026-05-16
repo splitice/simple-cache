@@ -174,3 +174,5 @@ gcc_Release.h
 *.a
 src/server/scache
 tests/tests
+core.*
+tests/tests_db_load
