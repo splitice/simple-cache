@@ -348,19 +348,8 @@ void db_lru_cleanup_percent(int* bytes_to_remove) {
 	DEBUG("[#] LRU attempted to remove %d bytes, %d bytes remaining\n", debug_bytes, *bytes_to_remove);
 }
 
-static void force_link(const char* fileThatExists, const char* fileThatDoesNotExist){
-	char buffer[8096];
-	//TODO: reflink
-	/*int ret = link(fileThatExists, fileThatDoesNotExist);
-	char buffer[8096];
-	if(ret != 0){
-		PWARN("Unable to hard link");*/
-		//Really bad! Temporary.
-		snprintf(buffer, sizeof(buffer), "cp %s %s", fileThatExists, fileThatDoesNotExist);
-		printf("Executing %s\n", buffer);
-		system(buffer);
-	//}
-}
+// force_link() has been removed; blockfile.db is now the durable canonical store
+// and no blockfile copy is performed during flush.
 
 static int db_expire_cursor_table(db_table* table) {
 	int ret = 0;
@@ -625,11 +614,12 @@ static bool db_load_from_save(){
 	char *bp = NULL;
 	bool ret = false;
 	size_t len = 0;
-	uint32_t u1, u2, u3, u4;
+	uint32_t u2, u3, u4;  // u1 no longer used (old 'f:' format ignored)
 	db_table* table = NULL;
 	cache_entry* entry;
 	int d1;
 	ssize_t read;
+	uint8_t* block_in_use = NULL;
 
 	snprintf(buffer, sizeof(buffer), "%s/index.save", db.path_root);
 	int fd = open(buffer, O_RDONLY | O_LARGEFILE, S_IRUSR | S_IWUSR);
@@ -637,15 +627,13 @@ static bool db_load_from_save(){
 		return false; //it's ok
 	}
 
-	snprintf(buffer, sizeof(buffer), "%s/blockfile.db.save", db.path_root);
-	db.fd_blockfile = open(buffer, O_RDWR | O_LARGEFILE , S_IRUSR | S_IWUSR);
-	if(db.fd_blockfile == -1){
-		PWARN("Unable to open saved block file");
+	// db.fd_blockfile and db.blocks_exist must already be set by db_open()
+	// before calling this function. We verify the blockfile is open.
+	if(db.fd_blockfile < 0){
+		PWARN("Blockfile not open; cannot load from save");
 		close_fd(fd, "file descriptor");
 		return ret;
 	}
-	off64_t size = lseek64(db.fd_blockfile, 0L, SEEK_END);
-	db.blocks_exist = (uint32_t)(size / BLOCK_LENGTH);
 
 	FILE* fp = fdopen(fd, "r");
 	if(fp == NULL){
@@ -653,16 +641,23 @@ static bool db_load_from_save(){
 		goto close_fd2;
 	}
 
+	// Bitset to track which blocks are in-use by loaded entries.
+	// Allocated based on current db.blocks_exist.
+	if (db.blocks_exist > 0) {
+		block_in_use = (uint8_t*)calloc((db.blocks_exist + 7) / 8, 1);
+		if (block_in_use == NULL) {
+			PWARN("Failed to allocate block_in_use bitset");
+			goto close_fd2;  // fp not open yet, use close_fd2 to close fd
+		}
+	}
+
 	while ((read = getline(&bp, &len, fp)) != -1) {
         if(read <= 2 || bp[1] != ':') continue;
 		switch(bp[0]){
 			case 'f':
-				if(sscanf(bp, "f:%u", &u1) != 1){
-					WARN("Free block parsing error\n");
-					continue;
-				}
-				db_block_free(u1);
-			break;
+				// Old format: free block list. Ignore; we reconstruct free_blocks below.
+				// Optionally parse and discard to avoid warning.
+				break;
 			case 't':
 				if(sscanf(bp, "t:%s", buffer2) != 1){
 					WARN("Table parsing error\n");
@@ -705,6 +700,10 @@ static bool db_load_from_save(){
 						free(entry);
 						continue;
 					}
+					// Mark this block as in-use
+					if (block_in_use != NULL) {
+						block_in_use[d1 / 8] |= (1 << (d1 % 8));
+					}
 				}
 
 				db_load_from_save_insert(table, entry);
@@ -717,6 +716,16 @@ static bool db_load_from_save(){
 
     }
 
+	// Reconstruct free_blocks: any block not marked in-use is free
+	if (block_in_use != NULL) {
+		for (uint32_t i = 0; i < db.blocks_exist; i++) {
+			if ((block_in_use[i / 8] & (1 << (i % 8))) == 0) {
+				db_block_free(i);
+			}
+		}
+		free(block_in_use);
+	}
+
 	if(bp != NULL){
 		free(bp);
 	}
@@ -726,21 +735,36 @@ static bool db_load_from_save(){
 		table = NULL;
 	}
 
-	// move over block file (via link to preserve save)
-	snprintf(buffer, sizeof(buffer), "%s/blockfile.db.save", db.path_root);
-	unlink(db.path_blockfile);
-	force_link(buffer, db.path_blockfile);
-
 	ret = true;
-close_fd:
-	fclose(fp);
+
+	// Reconstruct free_blocks: any block not marked in-use is free
+	if (block_in_use != NULL) {
+		for (uint32_t i = 0; i < db.blocks_exist; i++) {
+			if ((block_in_use[i / 8] & (1 << (i % 8))) == 0) {
+				db_block_free(i);
+			}
+		}
+		free(block_in_use);
+	}
+
+	if(bp != NULL){
+		free(bp);
+	}
+
+	if(table != NULL){
+		db_table_deref(table, true);
+		table = NULL;
+	}
+
+	if (fp != NULL) {
+		fclose(fp);
+	}
 close_fd2:
-	if(fp == NULL) close_fd(fd, "file desriptor (cache file)");
+	if(fp == NULL && fd >= 0) {
+		close_fd(fd, "file descriptor (index)");
+	}
 
-	fd = db.fd_blockfile;
-	db.fd_blockfile = -1;
-	close_fd(fd, "file descriptor (blockfile)");
-
+	// Note: db.fd_blockfile is NOT closed here; it remains open as the live blockfile.
 	
 	return ret;
 }
@@ -759,15 +783,16 @@ bool db_open(const char* path) {
 	db.tables = kh_init(table);
 	db.table_gc = kh_begin(db.tables);
 
-	//Load from index if available
+	// Set blockfile path and open it BEFORE loading from save.
+	// db_load_from_save() expects db.fd_blockfile and db.blocks_exist to be valid.
 	snprintf(db.path_blockfile, SHORT_PATH, "%s/blockfile.db", path);
-	
-	if(!db_load_from_save()){
-		PWARN("Unable to load index from disk, will blank database");
-		will_black = true;
-	}
 
-	//Block file
+	// Delete any stale blockfile.db.save from the old format
+	// (best-effort; ignore errors if it doesn't exist)
+	char save_path[MAX_PATH];
+	snprintf(save_path, sizeof(save_path), "%s/blockfile.db.save", path);
+	unlink(save_path);
+
 	db.fd_blockfile = open(db.path_blockfile, O_CREAT | O_RDWR | O_LARGEFILE , S_IRUSR | S_IWUSR);
 	if (db.fd_blockfile < 0) {
 		PFATAL("Failed to open blockfile: %s", db.path_blockfile);
@@ -785,6 +810,12 @@ bool db_open(const char* path) {
 	db.blocks_exist = (uint32_t)(size / BLOCK_LENGTH);
 	lseek64(db.fd_blockfile, 0L, SEEK_SET);
 
+	//Load from index if available (expects db.fd_blockfile and db.blocks_exist to be set)
+	if(!db_load_from_save()){
+		PWARN("Unable to load index from disk, will blank database");
+		will_black = true;
+	}
+
 	// Mark all blocks that already exist in the block file as non-allocated
 	if(will_black){
 		if(size > (BLOCK_MAX_LOAD * BLOCK_LENGTH)) {
@@ -795,11 +826,13 @@ bool db_open(const char* path) {
 			db.blocks_exist = (uint32_t)(size / BLOCK_LENGTH);
 		}
 		if((size % BLOCK_LENGTH) != 0){
-			WARN("Block file was strange size of %d", size);
-			
-			if(ftruncate(db.fd_blockfile, (size / BLOCK_LENGTH) * BLOCK_LENGTH) == -1){
+			WARN("Block file was strange size of %d", (int)size);
+
+			off64_t truncated_size = (size / BLOCK_LENGTH) * BLOCK_LENGTH;
+			if(ftruncate(db.fd_blockfile, truncated_size) == -1){
 				PFATAL("Failed to truncate blockfile %s", db.path_blockfile);
 			}
+			size = truncated_size;
 		}
 		for (off64_t i = 0; i < size; i += BLOCK_LENGTH) {
 			db_block_free((uint32_t)(i / BLOCK_LENGTH));
@@ -1416,10 +1449,9 @@ static bool full_write(int fd, const char* buffer, int buffer_length){
 
 static pid_t db_index_flush(bool copyOnWrite){
 	pid_t pid = 0;
-	char buffer[2048], buffer2[2048], buffer3[2048], buffer4[2048];
+	char buffer[2048], buffer2[2048];
 	db_table* table;
 	cache_entry* ce;
-	block_free_node *free_node;
 	int temp;
 
 	//If we are forking we can do so now
@@ -1429,20 +1461,11 @@ static pid_t db_index_flush(bool copyOnWrite){
 		signal_handler_remove();
 	}
 
-	// NOTE: This work is intentionally after the fork so the parent process does not
-	// run the potentially expensive blockfile copy when copy-on-write flush is enabled.
-
-	// buffer contains the target temp file (${blockfile}.temp)
-	snprintf(buffer, sizeof(buffer), "%s.temp", db.path_blockfile);
-
-	// remove any other ${blockfile}.temp files (i.e an interrupted operation)
-	unlink(buffer);
+	// NOTE: The blockfile is now the durable canonical store.
+	// We only write index.save here; no blockfile copy is performed.
 
 	// ensure all data is on disk
 	fdatasync(db.fd_blockfile);
-
-	// create a hard link / copy from the current block file to ${blockfile}.temp
-	force_link(db.path_blockfile, buffer);
 
 	// Open temporary index file
 	snprintf(buffer, sizeof(buffer), "%s/index.temp", db.path_root);
@@ -1450,15 +1473,6 @@ static pid_t db_index_flush(bool copyOnWrite){
 	if(fd == -1){
 		PWARN("Unable to flush index, unable to open file");
 		goto close;
-	}
-
-	// Write free blocks
-	free_node = db.free_blocks;
-	while(free_node != NULL){
-		temp = snprintf(buffer, sizeof(buffer), "f:%u\n", free_node->block_number);
-		assert(temp > 0);
-		if(!full_write(fd, buffer, temp)) goto close_fd;
-		free_node = free_node->next;
 	}
 
 	//Write tables and cache entries
@@ -1492,22 +1506,14 @@ static pid_t db_index_flush(bool copyOnWrite){
 	close_fd(fd, "file descriptor (index)");
 	fd = -1;
 
-	// index.temp -> db.index
+	// index.temp -> index.save
 	temp = snprintf(buffer, sizeof(buffer), "%s/index.temp", db.path_root);
 	assert(temp > 0);
 	temp = snprintf(buffer2, sizeof(buffer2), "%s/index.save", db.path_root);
 	unlink(buffer2);
 
-	// blockfile.temp -> blockfile.save
-	temp = snprintf(buffer3, sizeof(buffer3), "%s.temp", db.path_blockfile);
-	assert(temp > 0);
-	temp = snprintf(buffer4, sizeof(buffer4), "%s.save", db.path_blockfile);
-	assert(temp > 0);
-
-	// execute the renames of tmp files to actual
+	// execute the rename of tmp file to actual
 	rename(buffer, buffer2);
-	rename(buffer3, buffer4);
-	unlink(buffer3);
 	unlink(buffer);
 
 	pid = 0;
