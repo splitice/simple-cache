@@ -31,6 +31,7 @@ LRU
 #include <sys/wait.h>
 #include <unistd.h>
 #include <assert.h>
+#include <stdint.h>
 #include "db.h"
 #include "debug.h"
 #include "hash.h"
@@ -66,8 +67,15 @@ struct db_details db {
 };
 
 pid_t current_flush = 0;
+static uint64_t last_flush_ms = 0;
+static bool flush_pending = false;
 
 static pid_t db_index_flush(bool copyOnWrite = true);
+
+static inline uint64_t db_now_ms() {
+	// current_time is maintained by the timer subsystem (updated frequently).
+	return ((uint64_t)current_time.tv_sec * 1000ULL) + ((uint64_t)current_time.tv_usec / 1000ULL);
+}
 
 //Buffers
 static char filename_buffer[MAX_PATH];
@@ -315,7 +323,13 @@ void db_lru_cleanup_percent(int* bytes_to_remove) {
 		cache_entry* l = db.lru_head;
 
 		//Skip if currently deleting
-		if(l->writing || l->deleted) continue;
+		if(l->writing || l->deleted) {
+			// Hardening: this should not happen (writing entries should not be in LRU;
+			// deleted entries should have been removed). If it does, ensure forward
+			// progress and avoid a tight infinite loop.
+			db_lru_remove_node(l);
+			continue;
+		}
 
 		*bytes_to_remove -= l->data_length;
 
@@ -470,6 +484,19 @@ void db_lru_gc() {
 	// Check for running flush
 	if(currently_flushing(WNOHANG)) return;
 
+	// Debounce/rate-limit flushes to avoid flush storms under heavy churn.
+	// If rate limited, mark as pending so the next db_lru_gc call after the interval can flush.
+	uint64_t now_ms = db_now_ms();
+	if (flush_pending) {
+		// fall through; we want to flush if interval has elapsed
+	}
+	if (DB_FLUSH_MIN_INTERVAL_MS > 0 && last_flush_ms != 0 &&
+		(now_ms - last_flush_ms) < (uint64_t)DB_FLUSH_MIN_INTERVAL_MS) {
+		flush_pending = true;
+		return;
+	}
+	flush_pending = false;
+
 	// Flush index
 	pid_t pid = db_index_flush(DB_ENABLE_COPY_ON_WRITE);
 	if(pid == -1){
@@ -477,6 +504,7 @@ void db_lru_gc() {
 		return;
 	}
 	current_flush = pid;
+	last_flush_ms = now_ms;
 }
 
 static void db_clear_directory(const char* directory) {
