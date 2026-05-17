@@ -2,19 +2,6 @@
 
 This repo currently does a full index flush (and a blockfile snapshot) from the write path via `db_lru_gc()`. Under high churn this can devolve into near-continuous flush attempts. The changes implemented in this PR address flush storms and a potential infinite loop in LRU cleanup. The remaining items below are larger design changes.
 
-## 1. Remove Full Blockfile Copy During Flush
-
-Problem:
-Each flush currently writes `index.save` and also updates `blockfile.db.save`. Today the "snapshot" of the blockfile is performed via `force_link()` which shells out to `cp`, which is O(size of blockfile) I/O every flush. This scales poorly and will dominate performance as the cache grows.
-
-Direction:
-Make `blockfile.db` the durable canonical store and make `index.save` the only atomic metadata file. On startup:
-1. Load `index.save`.
-2. Reconstruct `free_blocks` by scanning all loaded entries and marking blocks in-use, then pushing the remaining blocks into the free list.
-
-Notes:
-This eliminates `blockfile.db.save` and avoids copying the blockfile during steady-state operation.
-
 ## 3. Move Expiration Work Off the Write Path
 
 Problem:
