@@ -318,7 +318,9 @@ void db_entry_incref(cache_entry* entry, bool table = true) {
 }
 
 void db_lru_cleanup_percent(int* bytes_to_remove) {
+#ifdef DEBUG_BUILD
 	int debug_bytes = *bytes_to_remove;
+#endif
 	while (db.lru_head != NULL && *bytes_to_remove > 0) {
 		cache_entry* l = db.lru_head;
 
@@ -345,7 +347,9 @@ void db_lru_cleanup_percent(int* bytes_to_remove) {
 		}
 	}
 	
+#ifdef DEBUG_BUILD
 	DEBUG("[#] LRU attempted to remove %d bytes, %d bytes remaining\n", debug_bytes, *bytes_to_remove);
+#endif
 }
 
 // force_link() has been removed; blockfile.db is now the durable canonical store
@@ -496,11 +500,12 @@ void db_lru_gc() {
 	last_flush_ms = now_ms;
 }
 
+#if 0
 static void db_clear_directory(const char* directory) {
 	char file_buffer[MAX_PATH];
 	struct dirent *next_file;
 	DIR *theFolder = opendir(directory);
-	while (next_file = readdir(theFolder))
+	while ((next_file = readdir(theFolder)))
 	{
 		if (next_file->d_name[0] == '.')
 			continue;
@@ -513,6 +518,7 @@ static void db_clear_directory(const char* directory) {
 		PFATAL("Unable to close directory.");
 	}
 }
+#endif
 
 void db_init_folders() {
 	mkdir(db.path_single, 0777);
@@ -695,7 +701,7 @@ static bool db_load_from_save(){
 					}
 				}else{
 					// Test size of blockfile
-					if(d1 >= db.blocks_exist){
+					if((uint32_t)d1 >= db.blocks_exist){
 						DEBUG("skipping as block %d does not exist\n", d1);
 						free(entry);
 						continue;
@@ -1388,6 +1394,7 @@ void db_target_write_allocate(struct cache_target* target, uint32_t data_length)
 	}
 }
 
+#if 0
 static void db_close_table_key_space() {
 	db_table* table;
 
@@ -1412,7 +1419,9 @@ static void db_close_table_key_space() {
 	}
 	kh_destroy(table, db.tables);
 }
+#endif
 
+#if 0
 static void db_close_blockfile() {
 	block_free_node* bf = db.free_blocks;
 	block_free_node* bf2;
@@ -1423,6 +1432,7 @@ static void db_close_blockfile() {
 	}
 	db.free_blocks = NULL;
 }
+#endif
 
 static bool full_write(int fd, const char* buffer, int buffer_length){
 	assert(buffer != NULL);

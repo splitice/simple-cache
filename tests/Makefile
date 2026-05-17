@@ -1,4 +1,4 @@
-OBJS	= scenario.o tests.o tests_rbuffer.o tests_system_simple.o
+OBJS	= scenario.o tests.o
 SOURCE	= scenario.cpp tests.cpp tests_rbuffer.cpp tests_system_simple.cpp
 HEADER	= 
 OUT	= tests
@@ -23,12 +23,6 @@ test_rbuffer_standalone.o: test_rbuffer_standalone.cpp
 
 tests.o: tests.cpp
 	$(CC) $(_CFLAGS) tests.cpp -std=c++11
-
-tests_rbuffer.o: tests_rbuffer.cpp
-	$(CC) $(_CFLAGS) tests_rbuffer.cpp -std=c++11
-
-tests_system_simple.o: tests_system_simple.cpp
-	$(CC) $(_CFLAGS) tests_system_simple.cpp -std=c++11
 
 clean:
 	rm -f $(OBJS) $(OUT) tests_db_load

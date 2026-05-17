@@ -12,9 +12,9 @@
 #include "../src/core/db_structures.h"
 #include "../src/core/config.h"
 
-static char test_dir[MAX_PATH];
-static char index_save_path[MAX_PATH];
-static char blockfile_path[MAX_PATH];
+static char test_dir[MAX_PATH + 32];
+static char index_save_path[MAX_PATH * 2];
+static char blockfile_path[MAX_PATH * 2];
 
 static void setup_test_dir() {
     static int counter = 0;
@@ -30,7 +30,7 @@ static void cleanup_test_dir() {
     unlink(blockfile_path);
     
     // Remove any temp files that might have been created
-    char temp_path[MAX_PATH];
+    char temp_path[MAX_PATH * 2];
     snprintf(temp_path, sizeof(temp_path), "%s/index.temp", test_dir);
     unlink(temp_path);
     
@@ -54,7 +54,7 @@ static bool create_blockfile(int num_blocks) {
 }
 
 static bool run_db_open() {
-    char path_no_slash[MAX_PATH];
+    char path_no_slash[MAX_PATH * 2];
     snprintf(path_no_slash, sizeof(path_no_slash), "%s", test_dir);
     int len = (int)strlen(path_no_slash);
     if (len > 0 && path_no_slash[len-1] == '/') {

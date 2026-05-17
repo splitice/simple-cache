@@ -93,7 +93,9 @@ static bool http_key_lookup(scache_connection* connection, int n) {
 		return http_write_response_after_eol(connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 	}
 
+#ifndef NDEBUG
 	int type = connection->method;
+#endif
 	connection->method |= REQUEST_CACHE_LEVELKEY;
 	assert(REQUEST_IS(connection->method, REQUEST_CACHE_LEVELKEY));
 	assert(REQUEST_IS(connection->method, connection->method));
@@ -208,7 +210,9 @@ static inline state_action http_read_requeststarturl1(scache_connection* connect
 		char* key = (char*)malloc(sizeof(char) * (n + 1));
 		rbuf_copyn(&connection->input, key, n - 1);
 		key[n - 1] = 0;//Null terminate the key
+#ifndef NDEBUG
 		int type = connection->method;
+#endif
 		connection->method |= REQUEST_CACHE_LEVELTABLE;
 		assert(REQUEST_IS(connection->method, REQUEST_CACHE_LEVELTABLE));
 		assert(REQUEST_IS(connection->method, connection->method));

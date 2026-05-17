@@ -67,6 +67,7 @@ static state_action http_write_response_after_eol(scache_connection* connection,
 	return needs_more_read;
 }
 
+#if 0
 static state_action http_write_response(scache_connection* connection, int http_template) {
 	CONNECTION_HANDLER(connection,  http_respond_writeonly);
 	connection->output_buffer = http_templates[http_template];
@@ -75,6 +76,7 @@ static state_action http_write_response(scache_connection* connection, int http_
 	bool res = connection_register_write(connection);
 	return res?registered_write:close_connection;
 }
+#endif
 
 
 static state_action http_headers_response_after_eol(scache_connection* connection, int http_template) {
@@ -156,6 +158,7 @@ state_action http_handle_mon_eolwrite_initial(scache_connection* connection) {
 
 
 
+#if 0
 static state_action http_headers_response_count(scache_connection* connection, int http_template) {
 	connection->state = 2;
 	CONNECTION_HANDLER(connection,  http_handle_mon_eolwrite_initial);
@@ -163,6 +166,7 @@ static state_action http_headers_response_count(scache_connection* connection, i
 	connection->output_length = http_templates_length[http_template];
 	return needs_more_read;
 }
+#endif
 
 static inline state_action http_read_requeststartmethod_mon(scache_connection* connection, char* buffer, int n) {
 	//Check if this is never going to be valid, too long
@@ -558,7 +562,6 @@ void monitoring_init(){
 
 void monitoring_close(){
 	scache_connection* conn;
-	int flag = 1; 
 	static scache_connection* close_head = mon_head;
 
 	while(close_head != NULL){
