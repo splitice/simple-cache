@@ -23,10 +23,10 @@ testHeader('A6×B1: Content expired (small/blockdb)');
 
 $content = generateKnownContent(SMALL_SIZE);
 
-// PUT with 1-second TTL
+// PUT with 2-second TTL
 $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 assertOrDie($sock !== false, "Could not connect: $errstr");
-$request = "PUT /t10_small/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nX-Ttl: 1\r\nContent-Length: " . strlen($content) . "\r\n\r\n$content";
+$request = "PUT /t10_small/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: close\r\nX-Ttl: 2\r\nContent-Length: " . strlen($content) . "\r\n\r\n$content";
 fwrite($sock, $request);
 $response = '';
 stream_set_timeout($sock, 3);
@@ -58,9 +58,9 @@ $passed = verifyContent($body, $content, 'GET before expiry');
 testResult('GET before expiry returns correct content', $passed);
 $allPassed = $allPassed && $passed;
 
-// Wait for expiry (2 seconds to be safe)
+// Wait for expiry (3 seconds to be safe)
 echo "  Waiting for TTL expiry...\n";
-sleep(2);
+sleep(3);
 
 // GET after expiry - should return 404
 $sock = @fsockopen($host, $port, $errno, $errstr, 5);
@@ -85,9 +85,9 @@ testHeader('A6×B2: Content expired (large/file)');
 
 $content = generateKnownContent(LARGE_SIZE);
 
-// PUT with 1-second TTL
+// PUT with 2-second TTL
 $sock = @fsockopen($host, $port, $errno, $errstr, 5);
-$request = "PUT /t10_large/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nX-Ttl: 1\r\nContent-Length: " . strlen($content) . "\r\n\r\n$content";
+$request = "PUT /t10_large/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nX-Ttl: 2\r\nContent-Length: " . strlen($content) . "\r\n\r\n$content";
 fwrite($sock, $request);
 $response = '';
 stream_set_timeout($sock, 5);
@@ -121,7 +121,7 @@ $allPassed = $allPassed && $passed;
 
 // Wait for expiry
 echo "  Waiting for TTL expiry...\n";
-sleep(2);
+sleep(3);
 
 // GET after expiry
 $sock = @fsockopen($host, $port, $errno, $errstr, 5);
@@ -148,9 +148,9 @@ $content1 = generateKnownContent(50);
 $content2 = generateKnownContent(60);
 $content3 = generateKnownContent(70);
 
-// PUT three keys with different TTLs: 1s, 3s, 5s
+// PUT three keys with different TTLs: 2s, 5s, 8s
 $sock = @fsockopen($host, $port, $errno, $errstr, 5);
-$request = "PUT /t10_stagger/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nX-Ttl: 1\r\nContent-Length: 50\r\n\r\n$content1";
+$request = "PUT /t10_stagger/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nX-Ttl: 2\r\nContent-Length: 50\r\n\r\n$content1";
 fwrite($sock, $request);
 $response = '';
 stream_set_timeout($sock, 3);
@@ -162,7 +162,7 @@ while (!feof($sock)) {
 fclose($sock);
 
 $sock = @fsockopen($host, $port, $errno, $errstr, 5);
-$request = "PUT /t10_stagger/k2 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nX-Ttl: 3\r\nContent-Length: 60\r\n\r\n$content2";
+$request = "PUT /t10_stagger/k2 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nX-Ttl: 5\r\nContent-Length: 60\r\n\r\n$content2";
 fwrite($sock, $request);
 $response = '';
 stream_set_timeout($sock, 3);
@@ -174,7 +174,7 @@ while (!feof($sock)) {
 fclose($sock);
 
 $sock = @fsockopen($host, $port, $errno, $errstr, 5);
-$request = "PUT /t10_stagger/k3 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nX-Ttl: 5\r\nContent-Length: 70\r\n\r\n$content3";
+$request = "PUT /t10_stagger/k3 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nX-Ttl: 8\r\nContent-Length: 70\r\n\r\n$content3";
 fwrite($sock, $request);
 $response = '';
 stream_set_timeout($sock, 3);
@@ -201,9 +201,9 @@ $passed = strpos($response, '200 OK') !== false;
 testResult('k1 exists before expiry', $passed);
 $allPassed = $allPassed && $passed;
 
-// Wait 2 seconds - k1 should expire, k2 and k3 should still exist
-echo "  Waiting 2 seconds...\n";
-sleep(2);
+// Wait 3 seconds - k1 should expire, k2 and k3 should still exist
+echo "  Waiting 3 seconds...\n";
+sleep(3);
 
 $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "GET /t10_stagger/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
@@ -217,7 +217,7 @@ while (!feof($sock)) {
 }
 fclose($sock);
 $passed = strpos($response, '404') !== false || strpos($response, 'Not Found') !== false;
-testResult('k1 expired after 2s', $passed);
+testResult('k1 expired after 3s', $passed);
 $allPassed = $allPassed && $passed;
 
 $sock = @fsockopen($host, $port, $errno, $errstr, 5);
@@ -232,7 +232,7 @@ while (!feof($sock)) {
 }
 fclose($sock);
 $passed = strpos($response, '200 OK') !== false;
-testResult('k2 still exists after 2s', $passed);
+testResult('k2 still exists after 3s', $passed);
 $allPassed = $allPassed && $passed;
 
 $sock = @fsockopen($host, $port, $errno, $errstr, 5);
@@ -247,12 +247,12 @@ while (!feof($sock)) {
 }
 fclose($sock);
 $passed = strpos($response, '200 OK') !== false;
-testResult('k3 still exists after 2s', $passed);
+testResult('k3 still exists after 3s', $passed);
 $allPassed = $allPassed && $passed;
 
-// Wait 2 more seconds - k2 should expire, k3 should still exist
-echo "  Waiting 2 more seconds...\n";
-sleep(2);
+// Wait 3 more seconds - k2 should expire, k3 should still exist
+echo "  Waiting 3 more seconds...\n";
+sleep(3);
 
 $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "GET /t10_stagger/k2 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
@@ -266,7 +266,7 @@ while (!feof($sock)) {
 }
 fclose($sock);
 $passed = strpos($response, '404') !== false || strpos($response, 'Not Found') !== false;
-testResult('k2 expired after 4s', $passed);
+testResult('k2 expired after 6s', $passed);
 $allPassed = $allPassed && $passed;
 
 $sock = @fsockopen($host, $port, $errno, $errstr, 5);
@@ -281,7 +281,7 @@ while (!feof($sock)) {
 }
 fclose($sock);
 $passed = strpos($response, '200 OK') !== false;
-testResult('k3 still exists after 4s', $passed);
+testResult('k3 still exists after 6s', $passed);
 $allPassed = $allPassed && $passed;
 
 echo "\n";
