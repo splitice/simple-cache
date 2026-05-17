@@ -29,6 +29,8 @@
 #include "signal_handle.h"
 #include "http_parse.h"
 
+static int pidfd = 0;
+
 int write_pid(char* pidFile, __pid_t pid) {
 	int fd, size;
 	char buf[16];
@@ -112,6 +114,13 @@ static __pid_t fork_off() {
 			isatty(2) ? "not kept" : "kept as-is");
 
 		SAYF("\nGood luck, you're on your own now!\n");
+
+
+
+		if (settings.pidfile) {
+			pidfd = write_pid(settings.pidfile, npid);
+		}
+
 		sleep(1);
 		exit(0);
 
@@ -122,7 +131,6 @@ static __pid_t fork_off() {
 /* Time to go down the rabbit hole */
 int main(int argc, char** argv)
 {
-	int pidfd = 0;
 	int monitoring_fd;
 
 	//Settings
@@ -147,10 +155,10 @@ int main(int argc, char** argv)
 	}
 	else{
 		pid = getpid();
-	}
 
-	if (settings.pidfile) {
-		pidfd = write_pid(settings.pidfile, pid);
+		if (settings.pidfile) {
+			pidfd = write_pid(settings.pidfile, pid);
+		}
 	}
 
 	// Prepare
@@ -180,7 +188,9 @@ int main(int argc, char** argv)
 
 	//PID file cleanup
 	if (settings.pidfile) {
-		close(pidfd);
+		if (pidfd > 0) {
+			close(pidfd);
+		}
 		if(!settings.leavepidfile){
 			unlink(settings.pidfile);
 		}
