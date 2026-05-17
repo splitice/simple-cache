@@ -15,6 +15,11 @@ $port = (int)($argv[2] ?? 8081);
 
 $allPassed = true;
 
+function isExpectedVersion($actual, $expected)
+{
+    return is_string($actual) && $actual === $expected;
+}
+
 // ============================================================
 // 10 concurrent GETs on same key
 // ============================================================
@@ -209,9 +214,10 @@ foreach ($children as $child) {
     // Each GET should return either original or new content (never partial/corrupt)
     foreach (['get1', 'get2'] as $getKey) {
         if (isset($results[$getKey]) && $results[$getKey] !== null) {
-            $isOriginal = verifyContent($results[$getKey], $originalContent);
-            $isNew = verifyContent($results[$getKey], $newContent);
+            $isOriginal = isExpectedVersion($results[$getKey], $originalContent);
+            $isNew = isExpectedVersion($results[$getKey], $newContent);
             if (!$isOriginal && !$isNew) {
+                verifyContent($results[$getKey], $originalContent, $getKey);
                 echo "  FAILED: GET returned neither original nor new content\n";
                 $allConsistent = false;
             }

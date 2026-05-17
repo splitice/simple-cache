@@ -19,6 +19,26 @@ $port = (int)($argv[2] ?? 8081);
 
 $allPassed = true;
 
+function triggerLruGc($host, $port) {
+    $sock = @fsockopen($host, $port, $errno, $errstr, 5);
+    assertOrDie($sock !== false, "Could not connect for LRU GC: $errstr");
+
+    $request = "ADMIN /gc HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
+    fwrite($sock, $request);
+
+    $response = '';
+    stream_set_timeout($sock, 1);
+    while (!feof($sock)) {
+        $data = @fread($sock, 4096);
+        if ($data === false || $data === '') break;
+        $response .= $data;
+        if (isRequestEnd($response)) break;
+    }
+    fclose($sock);
+
+    return strpos($response, '200 OK') !== false;
+}
+
 // ============================================================
 // Fill cache beyond limit, verify oldest entries evicted
 // ============================================================
@@ -49,6 +69,7 @@ for ($i = 0; $i < $numEntries; $i++) {
         $data = @fread($sock, 4096);
         if ($data === false || $data === '') break;
         $response .= $data;
+        if(isRequestEnd($response)) break; // Stop reading after headers + content
     }
     fclose($sock);
     
@@ -56,6 +77,10 @@ for ($i = 0; $i < $numEntries; $i++) {
         echo "  PUT failed at entry $i\n";
     }
 }
+
+$passed = triggerLruGc($host, $port);
+testResult('Manual LRU GC succeeds after cache fill', $passed);
+$allPassed = $allPassed && $passed;
 
 // Check which keys survived - the oldest (lowest index) should be evicted
 $survived = 0;
@@ -71,6 +96,7 @@ for ($i = 0; $i < $numEntries; $i++) {
         $data = @fread($sock, 4096);
         if ($data === false || $data === '') break;
         $response .= $data;
+        if(isRequestEnd($response)) break; // Stop reading after headers + content
     }
     fclose($sock);
     
@@ -103,6 +129,7 @@ while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
     $response .= $data;
+        if(isRequestEnd($response)) break; // Stop reading after headers + content
 }
 fclose($sock);
 $passed = strpos($response, '200 OK') !== false;
@@ -126,9 +153,14 @@ for ($i = 0; $i < 30; $i++) {
         $data = @fread($sock, 4096);
         if ($data === false || $data === '') break;
         $response .= $data;
+        if(isRequestEnd($response)) break; // Stop reading after headers + content
     }
     fclose($sock);
 }
+
+$passed = triggerLruGc($host, $port);
+testResult('Manual LRU GC succeeds during active read', $passed);
+$allPassed = $allPassed && $passed;
 
 // Wait for GET to complete - should get full content despite LRU pressure
 $getResult = waitAsyncGet($getInfo);
@@ -152,6 +184,7 @@ if ($sock) {
         $data = @fread($sock, 4096);
         if ($data === false || $data === '') break;
         $response .= $data;
+        if(isRequestEnd($response)) break; // Stop reading after headers + content
     }
     fclose($sock);
     

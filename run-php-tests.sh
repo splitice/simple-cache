@@ -1,17 +1,21 @@
 #!/bin/bash
-# run-consistency-tests.sh - Run PHP data consistency tests for simple-cache
-# Usage: ./run-consistency-tests.sh [port]
+# Run PHP data consistency tests for simple-cache
+# Usage: ./run-php-tests.sh [test-glob|test-file] [port]
+# Default test selector: test_*.php
 # Default port: 8081
 
 set -e
 
+killall scache 2>/dev/null || true
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
-PORT="${1:-8081}"
+TEST_SELECTOR="${1:-test_*.php}"
+RANDOM_PORT=$(shuf -i 8000-10000 -n 1)
+PORT="${2:-$RANDOM_PORT}"
 HOST="127.0.0.1"
 PIDFILE="/tmp/scache-consistency-test.pid"
 DBDIR="/tmp/scache-consistency-test-db"
-SCACHE_BIN="$PROJECT_DIR/src/server/scache"
+SCACHE_BIN="$SCRIPT_DIR/src/server/scache"
 
 # Colors
 RED='\033[0;31m'
@@ -27,12 +31,13 @@ echo "simple-cache Data Consistency Tests"
 echo "=========================================="
 echo "Host: $HOST:$PORT"
 echo "DB:   $DBDIR"
+echo "Tests: $TEST_SELECTOR"
 echo ""
 
 # Build scache if needed
 if [ ! -x "$SCACHE_BIN" ]; then
     echo -e "${YELLOW}Building simple-cache...${NC}"
-    cd "$PROJECT_DIR"
+    cd "$SCRIPT_DIR"
     make clean && make
     if [ ! -x "$SCACHE_BIN" ]; then
         echo -e "${RED}Failed to build simple-cache${NC}"
@@ -107,20 +112,41 @@ run_test() {
     fi
 }
 
-# Start server with default config
-start_server "" || exit 1
+server_args_for_test() {
+    local test_name="$1"
+
+    case "$test_name" in
+        test_15_*)
+            # LRU eviction coverage requires a finite cache size.
+            printf '%s' "--database-max-size 50000 --database-lru-clear 10"
+            ;;
+        *)
+            printf '%s' ""
+            ;;
+    esac
+}
 
 echo ""
 echo "Running tests..."
 echo ""
 
 # Run all consistency test files
-cd "$SCRIPT_DIR"
-for test_file in test_5_*.php test_6_*.php test_7_*.php test_9_*.php test_10_*.php test_11_*.php test_12_*.php test_13_*.php test_14_*.php test_15_*.php test_16_*.php test_17_*.php; do
+cd "$SCRIPT_DIR/tests/php"
+matched_any=0
+for test_file in $TEST_SELECTOR; do
     if [ -f "$test_file" ]; then
+        matched_any=1
+        cleanup
+        start_server "$(server_args_for_test "$test_file")" || exit 1
         run_test "$test_file"
     fi
 done
+
+if [ "$matched_any" -eq 0 ]; then
+    echo -e "${RED}No tests matched selector: $TEST_SELECTOR${NC}"
+    cleanup
+    exit 1
+fi
 
 echo ""
 echo "=========================================="
