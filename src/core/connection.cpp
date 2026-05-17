@@ -1,4 +1,6 @@
-#define _GNU_SOURCE    
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif    
 
 #include <string.h>
 #include <stdio.h>
@@ -34,6 +36,10 @@
 /* For reference counting checks */
 #include "db.h"
 #endif
+
+const char *state_action_string[] = {
+    "close_connection", "registered_write", "needs_more_read", "continue_processing"
+};
 
 /* Globals */
 listener_collection scache_listeners = { .listeners = NULL, .listener_count = 0 };
@@ -310,9 +316,11 @@ bool connection_remove(scache_connection* conn) {
 	return true;
 }
 
-static unsigned int connection_any() {\
+#ifdef DEBUG_BUILD
+static unsigned int connection_any() {
 	return connections.size();
 }
+#endif
 
 static void* connection_handle_accept(void *arg)
 {
@@ -453,17 +461,19 @@ void close_socket(int fd){
 }
 
 void close_fd(int fd, const char* descriptor_type){
-	int ret;
 #ifdef DEBUG_BUILD
+	int ret;
 	if(scache_listeners.listeners != NULL){
 		for (uint32_t i = 0; i < scache_listeners.listener_count; i++)
 		{
 			assert(scache_listeners.listeners[i].fd != fd);
 		}
 	}
-#endif
 	ret = close(fd);
 	assert(ret == 0);
+#else
+	close(fd);
+#endif
 	DEBUG("[#%d] Closed %s\n", fd, descriptor_type);
 }
 
@@ -472,7 +482,6 @@ void monitoring_check();
 void connection_event_loop(void (*connection_handler)(scache_connection* connection), int monitoring_fd) {
 	epfd = epoll_create1(EPOLL_CLOEXEC);
 	struct epoll_event events[NUM_EVENTS];
-	int max_listener = 0;
 	int res;
 	int efd;
 	pthread_t tid[2];

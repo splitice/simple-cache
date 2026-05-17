@@ -19,6 +19,16 @@
 #define DB_ENABLE_COPY_ON_WRITE true
 #endif
 
+#ifndef DB_FLUSH_MIN_INTERVAL_MS
+// Minimum interval between index flushes. This reduces flush storms under cache churn.
+// A value of 0 disables rate limiting.
+#define DB_FLUSH_MIN_INTERVAL_MS 1000
+#endif
+
+#ifndef SCACHE_BUILD_DATE
+#define SCACHE_BUILD_DATE __DATE__ " " __TIME__
+#endif
+
 #define DEFAULT_LISTING_LIMIT 10000
 #define HASH_SEED 13
 

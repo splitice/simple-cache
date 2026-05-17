@@ -156,7 +156,7 @@ Initialize the http_templates_length structure with the length of the
 static http_templates.
 */
 void http_templates_init() {
-	for (int i = 0; i < NUMBER_OF_HTTPTEMPLATE; i++) {
+	for (size_t i = 0; i < NUMBER_OF_HTTPTEMPLATE; i++) {
 		http_templates_length[i] = strlen(http_templates[i]);
 	}
 }

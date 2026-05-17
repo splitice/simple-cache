@@ -6,6 +6,11 @@ CC	 = g++
 _CFLAGS	 = -g -c -Wall -I../core -fPIC $(CFLAGS)
 LFLAGS	 += -lpthread
 
+GIT_DESCRIBE := $(shell git describe --tags --always --dirty 2>/dev/null || echo 0.0.0)
+GIT_REV := $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
+
+_CFLAGS += -DSCACHE_VERSION=\"$(GIT_DESCRIBE)\" -DSCACHE_REVISION=\"$(GIT_REV)\"
+
 ifeq ($(CONFIG),Debug)
 	_CFLAGS += -DDEBUG_BUILD -O0
 else

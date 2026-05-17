@@ -217,7 +217,7 @@ int remove_cr(char* buffer, int n){
 
 int unit_connect(int port){
 	int sockfd;
-	struct sockaddr_in servaddr, cliaddr;
+	struct sockaddr_in servaddr;
 
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -229,7 +229,7 @@ int unit_connect(int port){
 	int res;
 
 	struct timeval start_time;
-	int err = gettimeofday(&start_time, NULL);
+	gettimeofday(&start_time, NULL);
 
 	struct timeval current_time;
 	do {
@@ -309,7 +309,7 @@ bool run_unit(std::string& request, std::string& expect, int sockfd){
 		if (strncmp(recv_buffer, buffer, n) != 0){
 			int read_length = buffer - expect.c_str();
 			*(recv_buffer + n) = 0;//Incase we arent comparing it all
-			if (expect.length() < (n + read_length)){
+			if (expect.length() < (size_t)(n + read_length)){
 				printf("Expected (insufficient bytes): %s\n", expect.c_str());
 			}
 			else{
@@ -331,7 +331,11 @@ pid_t start_server(const char* binary_path, int port, const char* db, const char
 	char execcmd[512];
 	int res;
 
-	char* pidfile = tempnam(NULL, NULL);
+	char pidfile_template[] = "/tmp/scache-pid-XXXXXX";
+	int pidfd = mkstemp(pidfile_template);
+	close(pidfd);
+	unlink(pidfile_template);
+	char* pidfile = strdup(pidfile_template);
 
 	if (access(binary_path, X_OK)){
 		WARN("%s not executable or does not exist", binary_path);
@@ -524,13 +528,13 @@ bool run_scenario(const char* binary, const char* testcases, const char* filenam
 	printf("Running scenarios \"%s\"\n", testcases);
 	char testcase_path[1024];
 	sprintf(testcase_path,"%s/%s", testcases, filename);
-	char* db = tempnam(NULL, NULL);
-	int res = mkdir(db, 0777);
-	bool result;
-	if (res < 0){
-		free(db);
-		PFATAL("Failed to create temporary directory: %s", db);
+	char db_template[] = "/tmp/scache-db-XXXXXX";
+	char* db = mkdtemp(db_template);
+	if (db == NULL){
+		PFATAL("Failed to create temporary directory");
 	}
+	int res = 0;
+	bool result;
 	pid_t pid;
 	if (run_server){
 		// start the scache executable
@@ -556,12 +560,10 @@ bool run_scenario(const char* binary, const char* testcases, const char* filenam
 	sprintf(testcase_path, "rm -Rf \"%s\"", db);
 	res = system(testcase_path);
 	if (res < 0){
-		free(db);
 		PFATAL("Failed to clean up temporary directory: %s", db);
 	}
 
 end:
-	free(db);
 	return result;
 }
 
@@ -574,7 +576,7 @@ bool run_scenarios(const char* binary, const char* testcases, const char* direct
 	if (theFolder == NULL){
 		FATAL("%s does not exist", directory_buffer);
 	}
-	while (next_file = readdir(theFolder))
+	while ((next_file = readdir(theFolder)))
 	{
 		if (*(next_file->d_name) == '.')
 			continue;
