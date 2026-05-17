@@ -1287,6 +1287,9 @@ void db_table_handle_delete(db_table* table, khiter_t k) {
 			}
 		}
 	}
+
+	// Release the reference taken when the first entry was inserted.
+	db_table_deref(table);
 	
 	db_delete_table_entry(table, k);
 }
@@ -1325,6 +1328,10 @@ bool db_entry_handle_delete(cache_entry* entry, khiter_t k) {
 
 	//If table entry, cleanup table
 	if (kh_size(entry->table->cache_hash_set) == 0) {
+		// Release the reference taken when the table transitioned from empty
+		// to non-empty. db_delete_table_entry() will release the remaining
+		// table ownership reference.
+		db_table_deref(entry->table);
 		assert(!entry->table->deleted);
 		entry->table->deleted = true;
 		k = kh_get(table, db.tables, entry->table->hash);
