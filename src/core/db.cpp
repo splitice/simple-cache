@@ -1394,7 +1394,6 @@ void db_target_write_allocate(struct cache_target* target, uint32_t data_length)
 	}
 }
 
-#if 0
 static void db_close_table_key_space() {
 	db_table* table;
 
@@ -1412,16 +1411,27 @@ static void db_close_table_key_space() {
 				//Check reference count (should be 1)
 				assert(table->refs == 1);
 
-				//Actually delete
-				db_table_handle_delete(table);
+				// Free all entries: soft-delete + deref to actually free
+				for (khiter_t kee = kh_begin(table->cache_hash_set); kee != kh_end(table->cache_hash_set); ++kee) {
+					if (kh_exist(table->cache_hash_set, kee)) {
+						cache_entry* ce = kh_val(table->cache_hash_set, kee);
+						if (!ce->deleted) {
+							db_entry_handle_softdelete(ce, kee);
+							db_entry_cleanup(ce);
+						}
+						// Deref to actually free (refs was 1 from hash table insertion)
+						db_entry_deref(ce, false);
+					}
+				}
+
+				// Destroy hash and deref table
+				db_delete_table_entry(table, ke);
 			}
 		}
 	}
 	kh_destroy(table, db.tables);
 }
-#endif
 
-#if 0
 static void db_close_blockfile() {
 	block_free_node* bf = db.free_blocks;
 	block_free_node* bf2;
@@ -1432,7 +1442,6 @@ static void db_close_blockfile() {
 	}
 	db.free_blocks = NULL;
 }
-#endif
 
 static bool full_write(int fd, const char* buffer, int buffer_length){
 	assert(buffer != NULL);
@@ -1546,4 +1555,16 @@ Close the database engine
 void db_close() {
 	currently_flushing(0);
 	db_index_flush(false);
+
+	// Free all tables, entries, and keys
+	db_close_table_key_space();
+
+	// Free the free_blocks linked list
+	db_close_blockfile();
+
+	// Close the blockfile
+	if (db.fd_blockfile >= 0) {
+		close(db.fd_blockfile);
+		db.fd_blockfile = -1;
+	}
 }
