@@ -4,7 +4,11 @@ use Splitice\SimpleCache\ApiClient;
 
 require ("vendor/autoload.php");
 
-$ac = new ApiClient("http://127.0.0.1:8081");
+
+
+$host = $argv[1] ?? '127.0.0.1';
+$port = (int)($argv[2] ?? 8081);
+$ac = new ApiClient("http://$host:$port");
 
 $ret = $ac->key_put("t1", "k1", "v1"); 
 
