@@ -574,4 +574,10 @@ void monitoring_close(){
 		write(conn->client_sock, "q\n", 2);
 		shutdown(conn->client_sock, SHUT_WR);
 	}
+
+	// Free the monitoring response buffer allocated in monitoring_init()
+	if (monitoring_rsp != NULL) {
+		free(monitoring_rsp);
+		monitoring_rsp = NULL;
+	}
 }
