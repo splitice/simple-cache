@@ -15,6 +15,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <sys/eventfd.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include <errno.h>
 #include "config.h"
@@ -69,6 +70,7 @@ static __pid_t fork_off() {
 	__pid_t npid;
 
 	fflush(0);
+
 
 	npid = fork();
 
@@ -125,6 +127,16 @@ int main(int argc, char** argv)
 
 	//Settings
 	settings_parse_arguments(argc, argv);
+	
+
+	// Initialize current_time in the daemon child so that
+	// X-Ttl values are computed against a real timestamp.
+	{
+		struct timeval tv;
+		gettimeofday(&tv, NULL);
+		current_time.tv_sec = tv.tv_sec;
+		current_time.tv_usec = tv.tv_usec;
+	}
 
 	//PID file
 	__pid_t pid;
