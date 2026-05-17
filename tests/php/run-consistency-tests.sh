@@ -45,6 +45,14 @@ cleanup() {
     if [ -f "$PIDFILE" ]; then
         PID=$(cat "$PIDFILE" 2>/dev/null)
         if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
+            # Graceful shutdown: SIGTERM triggers db_close + connection_cleanup
+            kill "$PID" 2>/dev/null || true
+            # Wait up to 5s for graceful exit
+            for i in $(seq 1 50); do
+                if ! kill -0 "$PID" 2>/dev/null; then break; fi
+                sleep 0.1
+            done
+            # Force kill if still alive
             kill -9 "$PID" 2>/dev/null || true
         fi
         rm -f "$PIDFILE"
