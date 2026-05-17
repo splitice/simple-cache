@@ -1395,41 +1395,34 @@ void db_target_write_allocate(struct cache_target* target, uint32_t data_length)
 }
 
 static void db_close_table_key_space() {
-	db_table* table;
-
-	//make 128 attempts to clear the tablespace
-	//table deletions can cause resizing and tables to be skipped in the iteration (todo: really?)
-	for (int i = 0; i < 128 && kh_size(db.tables); i++) {
-		for (khiter_t ke = kh_begin(db.tables); ke < kh_end(db.tables); ++ke) {
-			if (kh_exist(db.tables, ke)) {
-				table = kh_val(db.tables, ke);
-
-				//All other refernces should have been de-refed before db_close is called
-				//and hence anything pending deletion will have been cleaned up already
-				assert(!table->deleted);
-
-				//Check reference count (should be 1)
-				assert(table->refs == 1);
-
-				// Free all entries: soft-delete + deref to actually free
-				for (khiter_t kee = kh_begin(table->cache_hash_set); kee != kh_end(table->cache_hash_set); ++kee) {
-					if (kh_exist(table->cache_hash_set, kee)) {
-						cache_entry* ce = kh_val(table->cache_hash_set, kee);
-						if (!ce->deleted) {
-							db_entry_handle_softdelete(ce, kee);
-							db_entry_cleanup(ce);
-						}
-						// Deref to actually free (refs was 1 from hash table insertion)
-						db_entry_deref(ce, false);
-					}
-				}
-
-				// Destroy hash and deref table
-				db_delete_table_entry(table, ke);
-			}
+	for (khiter_t ke = kh_begin(db.tables); ke < kh_end(db.tables); ++ke) {
+		if (!kh_exist(db.tables, ke)) {
+			continue;
 		}
+
+		db_table* table = kh_val(db.tables, ke);
+
+		// Shutdown should free memory only. Persisted data was already flushed by db_close().
+		assert(table->refs == 1);
+
+		for (khiter_t kee = kh_begin(table->cache_hash_set); kee != kh_end(table->cache_hash_set); ++kee) {
+			if (!kh_exist(table->cache_hash_set, kee)) {
+				continue;
+			}
+
+			cache_entry* ce = kh_val(table->cache_hash_set, kee);
+			assert(ce->refs == 1);
+			free(ce->key);
+			free(ce);
+		}
+
+		kh_destroy(entry, table->cache_hash_set);
+		free(table->key);
+		free(table);
 	}
+
 	kh_destroy(table, db.tables);
+	db.tables = NULL;
 }
 
 static void db_close_blockfile() {
