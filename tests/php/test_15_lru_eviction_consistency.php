@@ -44,7 +44,7 @@ for ($i = 0; $i < $numEntries; $i++) {
     $request = "PUT /t15_fill/k$i HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: $entrySize\r\n\r\n$content";
     fwrite($sock, $request);
     $response = '';
-    stream_set_timeout($sock, 5);
+    stream_set_timeout($sock, 1);
     while (!feof($sock)) {
         $data = @fread($sock, 4096);
         if ($data === false || $data === '') break;
@@ -66,7 +66,7 @@ for ($i = 0; $i < $numEntries; $i++) {
     $request = "GET /t15_fill/k$i HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
     fwrite($sock, $request);
     $response = '';
-    stream_set_timeout($sock, 3);
+    stream_set_timeout($sock, 1);
     while (!feof($sock)) {
         $data = @fread($sock, 4096);
         if ($data === false || $data === '') break;
@@ -98,7 +98,7 @@ assertOrDie($sock !== false, "Could not connect: $errstr");
 $request = "PUT /t15_protect/protected HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: 2000\r\n\r\n$protectedContent";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -121,7 +121,7 @@ for ($i = 0; $i < 30; $i++) {
     $request = "PUT /t15_protect/filler$i HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: 2000\r\n\r\n$content";
     fwrite($sock, $request);
     $response = '';
-    stream_set_timeout($sock, 3);
+    stream_set_timeout($sock, 1);
     while (!feof($sock)) {
         $data = @fread($sock, 4096);
         if ($data === false || $data === '') break;
@@ -147,7 +147,7 @@ if ($sock) {
     $request = "GET /t15_fill/k0 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
     fwrite($sock, $request);
     $response = '';
-    stream_set_timeout($sock, 3);
+    stream_set_timeout($sock, 1);
     while (!feof($sock)) {
         $data = @fread($sock, 4096);
         if ($data === false || $data === '') break;

@@ -30,7 +30,7 @@ assertOrDie($sock !== false, "Could not connect: $errstr");
 $request = "PUT /t11_s2l/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: " . strlen($smallContent) . "\r\n\r\n$smallContent";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -46,7 +46,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "GET /t11_s2l/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -64,7 +64,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "PUT /t11_s2l/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: " . strlen($largeContent) . "\r\n\r\n$largeContent";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 5);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -80,7 +80,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "GET /t11_s2l/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 5);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -106,7 +106,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "PUT /t11_l2s/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: " . strlen($largeContent2) . "\r\n\r\n$largeContent2";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 5);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -122,7 +122,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "PUT /t11_l2s/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: " . strlen($smallContent2) . "\r\n\r\n$smallContent2";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -138,7 +138,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "GET /t11_l2s/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -162,7 +162,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "PUT /t11_boundary/k4096 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: " . BLOCK_SIZE . "\r\n\r\n$content4096";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 5);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -177,7 +177,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "GET /t11_boundary/k4096 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 5);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -201,7 +201,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "PUT /t11_boundary/k4097 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: " . (BLOCK_SIZE + 1) . "\r\n\r\n$content4097";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 5);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -216,7 +216,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "GET /t11_boundary/k4097 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 5);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -243,7 +243,7 @@ foreach ($sizes as $idx => $size) {
     $request = "PUT /t11_multi/$key HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: $size\r\n\r\n$content";
     fwrite($sock, $request);
     $response = '';
-    stream_set_timeout($sock, 5);
+    stream_set_timeout($sock, 1);
     while (!feof($sock)) {
         $data = @fread($sock, 4096);
         if ($data === false || $data === '') break;
@@ -263,7 +263,7 @@ foreach ($sizes as $idx => $size) {
     $request = "GET /t11_multi/$key HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
     fwrite($sock, $request);
     $response = '';
-    stream_set_timeout($sock, 5);
+    stream_set_timeout($sock, 1);
     while (!feof($sock)) {
         $data = @fread($sock, 4096);
         if ($data === false || $data === '') break;

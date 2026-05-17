@@ -33,7 +33,7 @@ assertOrDie($sock !== false, "Could not connect: $errstr");
 $request = "GET /t5_small/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -57,7 +57,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "GET /t5_small/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -87,7 +87,7 @@ assertOrDie($sock !== false, "Could not connect: $errstr");
 $request = "GET /t5_large/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -111,7 +111,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "GET /t5_large/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 5);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -136,7 +136,7 @@ $otherContent = generateKnownContent(50);
 $request = "PUT /t5_small/k2 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: 50\r\n\r\n$otherContent";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -153,7 +153,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "GET /t5_small/k2 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;

@@ -335,3 +335,12 @@ function testResult($name, $passed)
     echo ($passed ? "PASS" : "FAIL") . ": $name\n";
     return $passed;
 }
+function isRequestEnd($response){
+    if(strpos($response, "\r\n\r\n") !== false) {
+        if (preg_match('/Content-Length: (\d+)/i', $response, $m)) {
+            $he = strpos($response, "\r\n\r\n") + 4;
+            if (strlen($response) - $he >= (int)$m[1]) return true;
+        }
+    }
+    return false;
+}

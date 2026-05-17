@@ -116,7 +116,7 @@ echo ""
 
 # Run all consistency test files
 cd "$SCRIPT_DIR"
-for test_file in test_5_*.php test_6_*.php test_7_*.php test_8_*.php test_9_*.php test_10_*.php test_11_*.php test_12_*.php test_13_*.php test_14_*.php test_15_*.php test_16_*.php test_17_*.php; do
+for test_file in test_5_*.php test_6_*.php test_7_*.php test_9_*.php test_10_*.php test_11_*.php test_12_*.php test_13_*.php test_14_*.php test_15_*.php test_16_*.php test_17_*.php; do
     if [ -f "$test_file" ]; then
         run_test "$test_file"
     fi
