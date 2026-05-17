@@ -30,6 +30,65 @@
 #include "http_parse.h"
 
 static int pidfd = 0;
+static int null_fd = -1;                /* File descriptor of /dev/null       */
+static int monitoring_fd = -1;
+static bool settings_initialized = false;
+static bool timer_initialized = false;
+static bool monitoring_initialized = false;
+static bool connection_initialized = false;
+static bool db_initialized = false;
+static bool cleanup_complete = false;
+
+static void scache_cleanup() {
+	if (cleanup_complete) {
+		return;
+	}
+	cleanup_complete = true;
+
+	if (monitoring_initialized) {
+		monitoring_close();
+		monitoring_initialized = false;
+	}
+
+	if (timer_initialized) {
+		timer_cleanup();
+		timer_initialized = false;
+	}
+
+	if (connection_initialized) {
+		connection_cleanup();
+		connection_initialized = false;
+	}
+
+	if (db_initialized) {
+		db_close();
+		db_initialized = false;
+	}
+
+	if (monitoring_fd >= 0) {
+		close(monitoring_fd);
+		monitoring_fd = -1;
+	}
+
+	if (settings_initialized) {
+		settings_cleanup();
+		settings_initialized = false;
+	}
+
+	if (pidfd > 0) {
+		close(pidfd);
+		pidfd = 0;
+	}
+
+	if (null_fd >= 0) {
+		close(null_fd);
+		null_fd = -1;
+	}
+
+	if (settings.pidfile && !settings.leavepidfile) {
+		unlink(settings.pidfile);
+	}
+}
 
 int write_pid(char* pidFile, __pid_t pid) {
 	int fd, size;
@@ -64,8 +123,6 @@ int write_pid(char* pidFile, __pid_t pid) {
 
 	return fd;
 }
-
-static int null_fd = -1;                /* File descriptor of /dev/null       */
 
 static __pid_t fork_off() {
 
@@ -122,6 +179,16 @@ static __pid_t fork_off() {
 		}
 
 		sleep(1);
+		settings_cleanup();
+		if (null_fd >= 0) {
+			close(null_fd);
+			null_fd = -1;
+		}
+		if (pidfd > 0) {
+			close(pidfd);
+			pidfd = 0;
+		}
+		cleanup_complete = true;
 		exit(0);
 
 	}
@@ -131,10 +198,10 @@ static __pid_t fork_off() {
 /* Time to go down the rabbit hole */
 int main(int argc, char** argv)
 {
-	int monitoring_fd;
-
 	//Settings
 	settings_parse_arguments(argc, argv);
+	settings_initialized = true;
+	atexit(scache_cleanup);
 	
 
 	// Initialize current_time in the daemon child so that
@@ -167,10 +234,14 @@ int main(int argc, char** argv)
 	//Timer (Getting time)
 	monitoring_fd = eventfd(0, EFD_NONBLOCK);
 	timer_setup(monitoring_fd);
+	timer_initialized = true;
 	monitoring_init();
+	monitoring_initialized = true;
 
 	//Setup
 	db_open(settings.db_file_path);
+	db_initialized = true;
+	connection_initialized = true;
 	connection_setup(settings.bind_cache, settings.bind_monitor);
 	signal_handler_install();
 
@@ -179,20 +250,5 @@ int main(int argc, char** argv)
 
 	//Cleanup
 	WARN("Starting Cleanup");
-	monitoring_close();
-	timer_cleanup();
-	settings_cleanup();
-	connection_cleanup();
-	db_close();
-	close(monitoring_fd);
-
-	//PID file cleanup
-	if (settings.pidfile) {
-		if (pidfd > 0) {
-			close(pidfd);
-		}
-		if(!settings.leavepidfile){
-			unlink(settings.pidfile);
-		}
-	}
+	scache_cleanup();
 }

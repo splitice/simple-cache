@@ -1,0 +1,146 @@
+{
+   scache_cow_child_db_table_write_table_alloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:db_table_get_write*
+}
+
+{
+   scache_cow_child_db_entry_write_alloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:db_entry_get_write*
+}
+
+{
+   scache_cow_child_db_entry_hash_alloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   ...
+   fun:kh_init_entry*
+   fun:db_table_get_write*
+}
+
+{
+   scache_cow_child_db_entry_hash_resize_malloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:kh_resize_entry*
+   fun:kh_put_entry*
+   fun:db_entry_get_write*
+}
+
+{
+   scache_cow_child_db_entry_hash_resize_realloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   ...
+   fun:kh_resize_entry*
+   fun:kh_put_entry*
+   fun:db_entry_get_write*
+}
+
+{
+   scache_cow_child_http_key_lookup_key_alloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:http_key_lookup*
+}
+
+{
+   scache_cow_child_http_url_table_key_alloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:http_read_requeststarturl1*
+}
+
+{
+   scache_cow_child_db_tables_hash_alloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   ...
+   fun:kh_init_table*
+   fun:db_open*
+}
+
+{
+   scache_cow_child_db_tables_hash_resize_malloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:kh_resize_table*
+   fun:kh_put_table*
+   fun:db_table_get_write*
+}
+
+{
+   scache_cow_child_db_tables_hash_resize_realloc
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:realloc
+   ...
+   fun:kh_resize_table*
+   fun:kh_put_table*
+   fun:db_table_get_write*
+}
+
+{
+   scache_cow_child_connection_listener_array
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:connection_setup*
+}
+
+{
+   scache_cow_child_monitoring_response
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:monitoring_init*
+}
+
+{
+   scache_cow_child_settings_db_path
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:strdup
+   ...
+   fun:settings_parse_arguments*
+}
+
+{
+   scache_cow_child_settings_binds
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:parse_binds*
+   fun:settings_parse_arguments*
+}
+
+{
+   scache_cow_child_db_free_block_node
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:db_block_free*
+}

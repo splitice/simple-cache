@@ -39,6 +39,7 @@ LRU
 #include "timer.h"
 #include "signal_handle.h"
 #include "connection.h"
+#include "http_parse.h"
 
 #ifdef DEBUG_BUILD
 #include <set>
@@ -83,6 +84,15 @@ static uint16_t nextit = 0;
 
 db_details* db_get_details() {
 	return &db;
+}
+
+static khiter_t db_table_find_slot(const db_table* target) {
+	for (khiter_t k = kh_begin(db.tables); k != kh_end(db.tables); ++k) {
+		if (kh_exist(db.tables, k) && kh_val(db.tables, k) == target) {
+			return k;
+		}
+	}
+	return kh_end(db.tables);
 }
 
 #ifdef DEBUG_BUILD
@@ -268,9 +278,14 @@ void db_table_actually_delete(db_table* entry) {
 	DEBUG("[#] Cleaning up table due to refcount == 0\n");
 
 	//Remove table from database
-	khiter_t k = kh_get(table, db.tables, entry->hash);
+	khiter_t k = db_table_find_slot(entry);
 	if (k != kh_end(db.tables)) {
 		kh_del(table, db.tables, k);
+	}
+
+	if (entry->cache_hash_set != NULL) {
+		kh_destroy(entry, entry->cache_hash_set);
+		entry->cache_hash_set = NULL;
 	}
 
 	//Free key
@@ -321,6 +336,8 @@ void db_lru_cleanup_percent(int* bytes_to_remove) {
 #ifdef DEBUG_BUILD
 	int debug_bytes = *bytes_to_remove;
 #endif
+	uint64_t skipped_entries = 0;
+
 	while (db.lru_head != NULL && *bytes_to_remove > 0) {
 		cache_entry* l = db.lru_head;
 
@@ -333,18 +350,24 @@ void db_lru_cleanup_percent(int* bytes_to_remove) {
 			continue;
 		}
 
-		*bytes_to_remove -= l->data_length;
+		if (l->refs > 0) {
+			// Active readers/writers outside the LRU walk still hold this entry.
+			// Treat it as recently used and move on so eviction can consider the
+			// next candidate without breaking in-flight reads.
+			db_lru_hit(l);
+			skipped_entries++;
+			if (skipped_entries >= db.db_keys) {
+				break;
+			}
+			continue;
+		}
 
-		if (l->refs == 0)
-		{
-			db_entry_incref(l);
-			db_entry_handle_delete(l);
-			db_entry_deref(l);
-		}
-		else
-		{
-			db_entry_handle_delete(l);
-		}
+		*bytes_to_remove -= l->data_length;
+		skipped_entries = 0;
+
+		db_entry_incref(l);
+		db_entry_handle_delete(l);
+		db_entry_deref(l);
 	}
 	
 #ifdef DEBUG_BUILD
@@ -694,18 +717,20 @@ static bool db_load_from_save(){
 					// Test file existance
 					get_key_path(entry, buffer);
 					
-					if( access( buffer, F_OK ) == -1 ) {
-						DEBUG("skipping as file %s does not exist\n", buffer);
-						free(entry);
-						continue;
-					}
-				}else{
+						if( access( buffer, F_OK ) == -1 ) {
+							DEBUG("skipping as file %s does not exist\n", buffer);
+							free(entry->key);
+							free(entry);
+							continue;
+						}
+					}else{
 					// Test size of blockfile
-					if((uint32_t)d1 >= db.blocks_exist){
-						DEBUG("skipping as block %d does not exist\n", d1);
-						free(entry);
-						continue;
-					}
+						if((uint32_t)d1 >= db.blocks_exist){
+							DEBUG("skipping as block %d does not exist\n", d1);
+							free(entry->key);
+							free(entry);
+							continue;
+						}
 					// Mark this block as in-use
 					if (block_in_use != NULL) {
 						block_in_use[d1 / 8] |= (1 << (d1 % 8));
@@ -945,9 +970,13 @@ cache_entry* db_entry_get_read(struct db_table* table, char* key, size_t length)
 	if (entry->expires != 0 && entry->expires < current_time.tv_sec) {
 		DEBUG("[#] Key expired\n");
 		free(key);
+		db_table_incref(table);
 		db_entry_incref(entry, false);
-		db_entry_handle_delete(entry);
+		bool table_deleted = db_entry_handle_delete(entry);
 		db_entry_deref(entry, false);
+		if (!table_deleted) {
+			db_table_deref(table);
+		}
 		return NULL;
 	}
 
@@ -1101,11 +1130,8 @@ void db_entry_handle_softdelete(cache_entry* entry, khiter_t k) {
 		db_lru_remove_node(entry);
 	}
 
-	//Assertion check
-	if (entry->refs == 0) {
-		DEBUG("[#] Entry can be immediately cleaned up\n");
-		db_entry_actually_delete(entry);
-	}
+	// Removing the entry from the table releases the table-owned reference.
+	db_entry_deref(entry, false);
 }
 
 /*
@@ -1119,7 +1145,7 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	cache_entry* entry = k == kh_end(table->cache_hash_set) ? NULL : kh_value(table->cache_hash_set, k);
 
 	//Stats
-	db.db_stats_inserts++;
+	db.db_stats_inserts++;	
 	db.db_stats_operations++;
 
 	//Must be checked before softdelete removes an entry being replaced
@@ -1131,6 +1157,7 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 		assert(entry->hash == hash);
 		//If we are currently writing, then it will be mocked
 		if (entry->writing == true) {
+			free(key);
 			return NULL;
 		}
 
@@ -1162,7 +1189,10 @@ cache_entry* db_entry_get_write(struct db_table* table, char* key, size_t length
 	k = kh_put(entry, table->cache_hash_set, entry->hash, &ret);
 	kh_value(table->cache_hash_set, k) = entry;
 
-	//Refs
+	// Keep one reference while the entry is stored in the table and one while the
+	// active writer owns target->entry. The writer reference is released when the
+	// connection closes; the table reference is released when the entry is removed.
+	db_entry_incref(entry, false);
 	db_entry_incref(entry, false);
 	entry->writing = true;
 
@@ -1260,6 +1290,7 @@ bool db_entry_handle_delete(cache_entry* entry) {
 void db_delete_table_entry(db_table* table, khiter_t k, bool actually_delete = true) {
 	// Clear key hash table
 	kh_destroy(entry, table->cache_hash_set);
+	table->cache_hash_set = NULL;
 
 	// If not fully de-refed remove now, not later
 	if (table->refs != 0) {
@@ -1283,7 +1314,6 @@ void db_table_handle_delete(db_table* table, khiter_t k) {
 			cache_entry* ce = kh_val(table->cache_hash_set, ke);
 			if (!ce->deleted) {
 				db_entry_handle_softdelete(ce, ke);
-				db_entry_cleanup(ce);
 			}
 		}
 	}
@@ -1296,7 +1326,7 @@ void db_table_handle_delete(db_table* table, khiter_t k) {
 
 
 void db_table_handle_delete(db_table* table) {
-	khiter_t k = kh_get(table, db.tables, table->hash);
+	khiter_t k = db_table_find_slot(table);
 
 	return db_table_handle_delete(table, k);
 }
@@ -1323,23 +1353,24 @@ bool db_entry_handle_delete(cache_entry* entry, khiter_t k) {
 		db_lru_remove_node(entry);
 	}
 
-	//Assertion check
-	assert(entry->refs != 0);
-
 	//If table entry, cleanup table
 	if (kh_size(entry->table->cache_hash_set) == 0) {
 		// Release the reference taken when the table transitioned from empty
-		// to non-empty. db_delete_table_entry() will release the remaining
-		// table ownership reference.
-		db_table_deref(entry->table);
-		assert(!entry->table->deleted);
-		entry->table->deleted = true;
-		k = kh_get(table, db.tables, entry->table->hash);
-		assert (k != kh_end(db.tables));
-		db_delete_table_entry(entry->table, k, true);
-		entry->table = NULL;
+			// to non-empty. db_delete_table_entry() will release the remaining
+			// table ownership reference.
+			db_table_deref(entry->table);
+			assert(!entry->table->deleted);
+			entry->table->deleted = true;
+			k = db_table_find_slot(entry->table);
+			assert (k != kh_end(db.tables));
+			db_delete_table_entry(entry->table, k, true);
+			entry->table = NULL;
+		db_entry_deref(entry, false);
 		return true;
 	}
+
+	// Removing the entry from the table releases the table-owned reference.
+	db_entry_deref(entry, false);
 	return false;
 }
 
@@ -1471,6 +1502,7 @@ static pid_t db_index_flush(bool copyOnWrite){
 		pid = fork();
 		if(pid != 0) return pid; // includes -1
 		signal_handler_remove();
+		connection_release_inherited_fds_after_fork();
 	}
 
 	// NOTE: The blockfile is now the durable canonical store.
@@ -1542,6 +1574,19 @@ static pid_t db_index_flush(bool copyOnWrite){
 			
 			snprintf(buffer2, 1024, "%s/db.temp", db.path_root);
 			unlink(buffer2);
+		}
+
+		// Valgrind runs the forked flush child independently. Release inherited
+		// heap state here so copy-on-write flushes do not report parent-owned
+		// allocations as still reachable.
+		monitoring_cleanup_memory_only();
+		connection_cleanup_after_fork();
+		settings_cleanup();
+		db_close_table_key_space();
+		db_close_blockfile();
+		if (db.fd_blockfile >= 0) {
+			close(db.fd_blockfile);
+			db.fd_blockfile = -1;
 		}
 		_exit(0);
 	}

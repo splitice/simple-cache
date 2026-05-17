@@ -15,7 +15,9 @@ PORT="${2:-$RANDOM_PORT}"
 HOST="127.0.0.1"
 PIDFILE="/tmp/scache-consistency-test.pid"
 DBDIR="/tmp/scache-consistency-test-db"
-SCACHE_BIN="$SCRIPT_DIR/src/server/scache"
+SCACHE_BIN_REAL="$SCRIPT_DIR/src/server/scache"
+SCACHE_BIN="$SCACHE_BIN_REAL"
+VALGRIND_WRAPPER="/tmp/scache-consistency-valgrind.sh"
 
 # Colors
 RED='\033[0;31m'
@@ -35,28 +37,51 @@ echo "Tests: $TEST_SELECTOR"
 echo ""
 
 # Build scache if needed
-if [ ! -x "$SCACHE_BIN" ]; then
+if [ ! -x "$SCACHE_BIN_REAL" ]; then
     echo -e "${YELLOW}Building simple-cache...${NC}"
     cd "$SCRIPT_DIR"
     make clean && make
-    if [ ! -x "$SCACHE_BIN" ]; then
+    if [ ! -x "$SCACHE_BIN_REAL" ]; then
         echo -e "${RED}Failed to build simple-cache${NC}"
         exit 1
     fi
 fi
+
+if [ "${SCACHE_VALGRIND:-0}" = "1" ]; then
+    cat > "$VALGRIND_WRAPPER" <<EOF
+#!/bin/bash
+exec valgrind ${SCACHE_VALGRIND_ARGS:---leak-check=full --show-leak-kinds=all} "$SCACHE_BIN_REAL" "\$@"
+EOF
+    chmod +x "$VALGRIND_WRAPPER"
+    SCACHE_BIN="$VALGRIND_WRAPPER"
+fi
+
+export SCACHE_PIDFILE="$PIDFILE"
+export SCACHE_DBDIR="$DBDIR"
+export SCACHE_BIN
 
 # Clean up any previous run
 cleanup() {
     if [ -f "$PIDFILE" ]; then
         PID=$(cat "$PIDFILE" 2>/dev/null)
         if [ -n "$PID" ] && [ "$PID" != "0" ] && [ "$PID" != "" ] && kill -0 "$PID" 2>/dev/null; then
-            kill -9 "$PID" 2>/dev/null || true
+            kill -TERM "$PID" 2>/dev/null || true
+            for _ in $(seq 1 50); do
+                if ! kill -0 "$PID" 2>/dev/null; then
+                    break
+                fi
+                sleep 0.1
+            done
+            if kill -0 "$PID" 2>/dev/null; then
+                kill -KILL "$PID" 2>/dev/null || true
+            fi
         fi
         rm -f "$PIDFILE"
     fi
     rm -rf "$DBDIR"
 }
 cleanup
+trap 'rm -f "$VALGRIND_WRAPPER"' EXIT
 
 # Start server
 start_server() {

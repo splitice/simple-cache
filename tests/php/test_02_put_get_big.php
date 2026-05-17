@@ -30,7 +30,7 @@ for($i = 0; $i < 20; $i++) {
     $ret = $ac->key_get("t1", $i);
     if($ret != $content) {
         echo "FAILED";
-        echo var_dump($ret);
+        var_dump($ret);
         exit(1);
     }
 }

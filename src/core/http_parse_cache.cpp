@@ -90,6 +90,7 @@ static bool http_key_lookup(scache_connection* connection, int n) {
 	else
 	{
 		DEBUG("[#%d] Has request key but is not GET, HEAD, PUT or DELETE (binary: %x)\n", connection->client_sock, connection->method);
+		free(key);
 		return http_write_response_after_eol(connection, HTTPTEMPLATE_FULLINVALIDMETHOD);
 	}
 
@@ -410,6 +411,7 @@ static state_action http_read_headers(scache_connection* connection, char* buffe
 					return http_write_response(connection, HTTPTEMPLATE_FULL404);
 				}
 				db_table_handle_delete(connection->cache.target.table.table);
+				connection->cache.target.table.table = NULL;
 				return http_write_response(connection, HTTPTEMPLATE_FULLHTTP200DELETED);
 			}
 			if (REQUEST_IS(connection->method, REQUEST_HTTPPURGE)) {
@@ -747,7 +749,9 @@ void cache_destroy(scache_connection* connection){
 	else if(REQUEST_IS(connection->method, REQUEST_CACHE_LEVELTABLE)) {
 		db_table* table = connection->cache.target.table.table;
 		if (table != NULL) {
-			db_table_close(table);
+			if (!REQUEST_IS(connection->method, REQUEST_HTTPDELETE)) {
+				db_table_close(table);
+			}
 			connection->cache.target.table.table = NULL;
 		}
 	}
