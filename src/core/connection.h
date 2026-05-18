@@ -11,6 +11,8 @@ void connection_close_listeners();
 void connection_event_loop(void(*connection_handler)(scache_connection* connection), int monitoring_fd);
 void connection_setup(struct scache_binds cache_binds, struct scache_binds cache_monitor);
 void connection_cleanup();
+void connection_release_inherited_fds_after_fork();
+void connection_cleanup_after_fork();
 bool connection_remove(scache_connection* conn);
 bool connection_stop_soon();
 

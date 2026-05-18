@@ -69,6 +69,7 @@ struct connections_queued
 static volatile connections_queued* cq_head = NULL;
 static volatile connections_queued* cq_tail = NULL;
 static pthread_mutex_t cq_lock;
+static bool cq_lock_initialized = false;
 
 /* Methods */
 static bool connection_event_update(scache_connection* conn, uint32_t events) {
@@ -103,6 +104,10 @@ void connection_setup(struct scache_binds cache_binds, struct scache_binds monit
 	scache_listeners.listeners = (struct listener_entry*)malloc(sizeof(struct listener_entry) * scache_listeners.listener_count);
 	if(scache_listeners.listeners == NULL){
 		FATAL("Unable to allocate memory for listeners");
+	}
+	memset(scache_listeners.listeners, 0, sizeof(struct listener_entry) * scache_listeners.listener_count);
+	for (uint32_t j = 0; j < scache_listeners.listener_count; j++) {
+		scache_listeners.listeners[j].fd = -1;
 	}
 	
 	// Caching
@@ -156,12 +161,15 @@ void connection_close_listeners() {
 	for (uint32_t i = 0; i < scache_listeners.listener_count; i++)
 	{
 		fd = scache_listeners.listeners[i].fd;
-		scache_listeners.listeners[i].fd = -1;	
-		close(fd);
+		scache_listeners.listeners[i].fd = -1;
+		if (fd >= 0) {
+			close(fd);
+		}
 	}
 
 	free(scache_listeners.listeners);
 	scache_listeners.listeners = NULL;
+	scache_listeners.listener_count = 0;
 }
 
 static int connection_open_bind(struct scache_bind ibind, int listenfd)
@@ -494,6 +502,7 @@ void connection_event_loop(void (*connection_handler)(scache_connection* connect
 	{
 		PFATAL("mutex init failed");
 	}
+	cq_lock_initialized = true;
 	
 	// Prepare a non blocking eventfd for thread communication
 	efd = eventfd(0, EFD_NONBLOCK);
@@ -739,9 +748,13 @@ void connection_cleanup() {
 		connection_close_listeners();
 	}
 
-	// free active connections
-	for (auto it = connections.begin(); it != connections.end(); ++it) {
-		connection_cleanup_http(*it);
+	// Free active connections while erasing set nodes as we go so the set
+	// itself releases all allocator-owned memory during shutdown.
+	while (!connections.empty()) {
+		auto it = connections.begin();
+		scache_connection* connection = *it;
+		connections.erase(it);
+		connection_cleanup_http(connection);
 	}
 
 	// free queued connections
@@ -749,5 +762,92 @@ void connection_cleanup() {
 		temp = (connections_queued*)cq_head;
 		cq_head = cq_head->next;
 		free(temp);
+	}
+	cq_tail = NULL;
+	if (cq_lock_initialized) {
+		pthread_mutex_destroy(&cq_lock);
+		cq_lock_initialized = false;
+	}
+}
+
+void connection_release_inherited_fds_after_fork() {
+	if (scache_listeners.listeners != NULL) {
+		for (uint32_t i = 0; i < scache_listeners.listener_count; i++) {
+			int fd = scache_listeners.listeners[i].fd;
+			scache_listeners.listeners[i].fd = -1;
+			if (fd >= 0) {
+				close(fd);
+			}
+		}
+	}
+
+	for (auto connection : connections) {
+		if (connection->client_sock >= 0) {
+			close(connection->client_sock);
+			connection->client_sock = -1;
+		}
+	}
+
+	for (connections_queued* queued = (connections_queued*)cq_head; queued != NULL; queued = queued->next) {
+		if (queued->client_sock >= 0) {
+			close(queued->client_sock);
+			queued->client_sock = -1;
+		}
+	}
+
+	if (epfd > 0) {
+		close(epfd);
+		epfd = -1;
+	}
+}
+
+void connection_cleanup_after_fork() {
+	DEBUG("Performing post-fork cleanup\n");
+
+	connections_queued* temp;
+	if (scache_listeners.listeners != NULL) {
+		for (uint32_t i = 0; i < scache_listeners.listener_count; i++) {
+			int fd = scache_listeners.listeners[i].fd;
+			scache_listeners.listeners[i].fd = -1;
+			if (fd >= 0) {
+				close(fd);
+			}
+		}
+		free(scache_listeners.listeners);
+		scache_listeners.listeners = NULL;
+		scache_listeners.listener_count = 0;
+	}
+
+	while (!connections.empty()) {
+		auto it = connections.begin();
+		scache_connection* connection = *it;
+		connections.erase(it);
+
+		http_cleanup(connection);
+		if (connection->client_sock >= 0) {
+			close(connection->client_sock);
+			connection->client_sock = -1;
+		}
+		free(connection);
+	}
+
+	while (cq_head != NULL) {
+		temp = (connections_queued*)cq_head;
+		cq_head = cq_head->next;
+		if (temp->client_sock >= 0) {
+			close(temp->client_sock);
+		}
+		free(temp);
+	}
+	cq_tail = NULL;
+
+	if (epfd > 0) {
+		close(epfd);
+		epfd = -1;
+	}
+
+	if (cq_lock_initialized) {
+		pthread_mutex_destroy(&cq_lock);
+		cq_lock_initialized = false;
 	}
 }

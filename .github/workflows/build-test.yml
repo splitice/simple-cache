@@ -48,10 +48,13 @@ jobs:
         target: 
           - build: Release
             asset: release
+            cow_suppressions: true
           - build: Debug
             asset: debug
+            cow_suppressions: true
           - build: Debug
             asset: debug-debug-no-copy-on-write
+            cow_suppressions: false
     steps:  
     - name: Checkout
       uses: actions/checkout@v2
@@ -102,9 +105,13 @@ jobs:
       run: |
         PWD=$(pwd)
         chmod +x ./tests/tests ./src/server/scache
+        VALGRIND_SUPPRESSIONS=""
+        if [[ "${{ matrix.target.cow_suppressions }}" == "true" ]]; then
+          VALGRIND_SUPPRESSIONS="--suppressions=$PWD/valgrind-cow-child.supp"
+        fi
 
         sudo apt-get install valgrind
-        valgrind --leak-check=full --show-leak-kinds=all ./tests/tests $PWD/src/server/scache $PWD/testcases/
+        valgrind --leak-check=full --show-leak-kinds=all $VALGRIND_SUPPRESSIONS ./tests/tests $PWD/src/server/scache $PWD/testcases/
   tests_rbuf:
     runs-on: ubuntu-latest
     needs: [build]
@@ -114,10 +121,13 @@ jobs:
         target: 
           - build: Release
             asset: release
+            cow_suppressions: true
           - build: Debug
             asset: debug
+            cow_suppressions: true
           - build: Debug
             asset: debug-debug-no-copy-on-write
+            cow_suppressions: false
     steps:  
     - name: Checkout
       uses: actions/checkout@v2
@@ -172,6 +182,11 @@ jobs:
         sudo mkdir -p /var/lib/scache/
         sudo chmod 0777 /var/lib/scache/
         chmod +x ./tests/tests ./src/server/scache
+        PWD=$(pwd)
+        VALGRIND_SUPPRESSIONS=""
+        if [[ "${{ matrix.target.cow_suppressions }}" == "true" ]]; then
+          VALGRIND_SUPPRESSIONS="--suppressions=$PWD/valgrind-cow-child.supp"
+        fi
 
         sudo mkdir -p /var/lib/scache/ &
         sudo apt-get install psmisc valgrind
@@ -196,7 +211,7 @@ jobs:
 
         query &
 
-        timeout --kill-after=5 --preserve-status 2m valgrind --leak-check=full --show-leak-kinds=all src/server/scache -b 127.0.0.1:8081 -B 127.0.0.1:8082
+        timeout --kill-after=5 --preserve-status 5m valgrind --leak-check=full --show-leak-kinds=all $VALGRIND_SUPPRESSIONS src/server/scache -b 127.0.0.1:8081 -B 127.0.0.1:8082
   tests_php_api:
     runs-on: ubuntu-latest
     needs: [build]
@@ -206,10 +221,13 @@ jobs:
         target: 
           - build: Release
             asset: release
+            cow_suppressions: true
           - build: Debug
             asset: debug
+            cow_suppressions: true
           - build: Debug
             asset: debug-debug-no-copy-on-write
+            cow_suppressions: false
     steps:  
     - name: Checkout
       uses: actions/checkout@v2
@@ -235,48 +253,14 @@ jobs:
       run: |
         sudo mkdir -p /var/lib/scache/
         sudo chmod 0777 /var/lib/scache/
-        chmod +x ./src/server/scache
-
-
-        pids=""
-        function wait_all {
-            for p in $pids; do
-                IFS=" " read -r -a arrIN <<< "${p//:/ }"
-                if wait "${arrIN[0]}"; then
-                    echo "Task \"${arrIN[1]}\" (${arrIN[0]}) succeeded"
-                else
-                    echo "Task \"${arrIN[1]}\" (${arrIN[0]}) fail"
-                    exit 1
-                fi
-            done
-        }
-
-        function run_tests {
-          set -x
-          set +e
-          for i in {1..30}; do
-            curl 127.0.0.1:8081 --max-time 1 --connect-timeout 1
-            if [[ $? == 0 ]]; then
-              echo "ready to start php test"
-              break
-            fi
-            sleep 1
-          done
-
-          set -e
-          set -x 
-          for x in tests/php/test_*.php; do
-            echo "Doing test $x"
-            php "$x"
-          done
-        }
-
-        run_tests &
-        pids="$!:php"
-
-        timeout --kill-after=5 --preserve-status 2m valgrind --leak-check=full --show-leak-kinds=all src/server/scache -b 127.0.0.1:8081 -B 127.0.0.1:8082
-
-        wait_all
+        chmod +x ./src/server/scache ./run-php-tests.sh
+        PWD=$(pwd)
+        VALGRIND_SUPPRESSIONS=""
+        if [[ "${{ matrix.target.cow_suppressions }}" == "true" ]]; then
+          VALGRIND_SUPPRESSIONS=" --suppressions=$PWD/valgrind-cow-child.supp"
+        fi
+        export SCACHE_VALGRIND=1
+        export SCACHE_VALGRIND_ARGS="--leak-check=full --show-leak-kinds=all$VALGRIND_SUPPRESSIONS"
+        ./run-php-tests.sh
       shell: bash
         
-

@@ -18,7 +18,9 @@ $pids = [];
 for($i=0;$i<3;$i++){
     $pid = pcntl_fork();
     if(!$pid){
-        $ac = new ApiClient("http://127.0.0.1:8081");
+        $host = $argv[1] ?? '127.0.0.1';
+        $port = (int)($argv[2] ?? 8081);
+        $ac = new ApiClient("http://$host:$port");
 
 
         for($f=0;$f<20;$f++){

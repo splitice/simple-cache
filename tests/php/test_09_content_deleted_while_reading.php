@@ -30,7 +30,7 @@ assertOrDie($sock !== false, "Could not connect: $errstr");
 $request = "PUT /t9_small/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: " . strlen($content) . "\r\n\r\n$content";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -46,10 +46,11 @@ $getInfo = startAsyncGet($host, $port, 't9_small', 'k1');
 
 // While GET is in progress, DELETE the key
 $sock = @fsockopen($host, $port, $errno, $errstr, 5);
+assertOrDie($sock !== false, "Could not connect for DELETE during GET: $errstr");
 $request = "DELETE /t9_small/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -68,10 +69,11 @@ $allPassed = $allPassed && $passed;
 
 // Subsequent GET should return 404
 $sock = @fsockopen($host, $port, $errno, $errstr, 5);
+assertOrDie($sock !== false, "Could not connect for subsequent GET: $errstr");
 $request = "GET /t9_small/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -91,10 +93,11 @@ $content = generateKnownContent(LARGE_SIZE);
 
 // PUT large content
 $sock = @fsockopen($host, $port, $errno, $errstr, 5);
+assertOrDie($sock !== false, "Could not connect for large PUT: $errstr");
 $request = "PUT /t9_large/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: " . strlen($content) . "\r\n\r\n$content";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 5);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -110,10 +113,11 @@ $getInfo = startAsyncGet($host, $port, 't9_large', 'k1');
 
 // DELETE while GET in progress
 $sock = @fsockopen($host, $port, $errno, $errstr, 5);
+assertOrDie($sock !== false, "Could not connect for large DELETE during GET: $errstr");
 $request = "DELETE /t9_large/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -136,10 +140,11 @@ $content = generateKnownContent(SMALL_SIZE);
 
 // PUT key in table
 $sock = @fsockopen($host, $port, $errno, $errstr, 5);
+assertOrDie($sock !== false, "Could not connect for table PUT: $errstr");
 $request = "PUT /t9_table/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: " . strlen($content) . "\r\n\r\n$content";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -152,10 +157,11 @@ $getInfo = startAsyncGet($host, $port, 't9_table', 'k1');
 
 // DELETE entire table while GET in progress
 $sock = @fsockopen($host, $port, $errno, $errstr, 5);
+assertOrDie($sock !== false, "Could not connect for table DELETE during GET: $errstr");
 $request = "DELETE /t9_table HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;

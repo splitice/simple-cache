@@ -18,17 +18,19 @@ $pids = [];
 for($i=0;$i<20;$i++){
     $pid = pcntl_fork();
     if(!$pid){
-        $ac = new ApiClient("http://127.0.0.1:8081");
+        $host = $argv[1] ?? '127.0.0.1';
+        $port = (int)($argv[2] ?? 8081);
+        $ac = new ApiClient("http://$host:$port");
 
 
         $i = -1;
 
-        $ch = $ac->ch();
+        $ch = $ac->getCurlHandle();
         $aborted = false;
         curl_setopt($ch, CURLOPT_PROGRESSFUNCTION, function() use (&$aborted){
             if(rand(0,10) == 3) {
                 $aborted = true;
-                exit (0);
+                return 2; // Return non-zero to abort the request
             }
         });
         curl_setopt($ch, CURLOPT_NOPROGRESS, false);
@@ -36,7 +38,11 @@ for($i=0;$i<20;$i++){
         try {
             $content = generateRandomString(rand(100, 2000) * 1000);
             for($i=0;$i<100;$i++){
-                $ac->key_put('test_4', rand(0,100), $content);
+                try {
+                    $ac->key_put('test_4', rand(0,100), $content);
+                } catch(\Exception $ex){
+                    if(!$aborted) throw $ex;
+                }
             }
         } catch(\Exception $ex){
             if(!$aborted) throw $ex;
@@ -47,7 +53,8 @@ for($i=0;$i<20;$i++){
     $pids[] = $pid;
 }
 
-while(pcntl_wait($status) <= 0){
+foreach($pids as $pid){
+   pcntl_waitpid($pid, $status);
    if($status){
        echo "Error!";
        exit($status);

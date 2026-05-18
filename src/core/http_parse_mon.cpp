@@ -380,7 +380,7 @@ void monitoring_destroy(scache_connection* connection){
 
 		if(mon_pending_tail == connection){
 			assert(connection->monitoring.next == NULL);
-			mon_tail = connection->monitoring.prev;
+			mon_pending_tail = connection->monitoring.prev;
 			if(mon_pending_head == NULL){
 				assert(mon_pending_tail == NULL);
 				// early exit we remvoed from both ends
@@ -573,5 +573,22 @@ void monitoring_close(){
 		// hard write before close
 		write(conn->client_sock, "q\n", 2);
 		shutdown(conn->client_sock, SHUT_WR);
+	}
+
+	// Free the monitoring response buffer allocated in monitoring_init()
+	if (monitoring_rsp != NULL) {
+		free(monitoring_rsp);
+		monitoring_rsp = NULL;
+	}
+}
+
+void monitoring_cleanup_memory_only(){
+	mon_head = NULL;
+	mon_tail = NULL;
+	mon_pending_head = NULL;
+	mon_pending_tail = NULL;
+	if (monitoring_rsp != NULL) {
+		free(monitoring_rsp);
+		monitoring_rsp = NULL;
 	}
 }

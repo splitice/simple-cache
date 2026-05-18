@@ -242,4 +242,12 @@ void settings_cleanup() {
 		free(settings.db_file_path);
 		settings.db_file_path = NULL;
 	}
+	if(settings.bind_cache.binds != NULL){
+		free(settings.bind_cache.binds);
+		settings.bind_cache.binds = NULL;
+	}
+	if(settings.bind_monitor.binds != NULL){
+		free(settings.bind_monitor.binds);
+		settings.bind_monitor.binds = NULL;
+	}
 }

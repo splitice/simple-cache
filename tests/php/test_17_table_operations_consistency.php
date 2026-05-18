@@ -31,7 +31,7 @@ foreach ($keys as $key) {
     $request = "PUT /t17_listing/$key HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: 50\r\n\r\n" . $contents[$key];
     fwrite($sock, $request);
     $response = '';
-    stream_set_timeout($sock, 3);
+    stream_set_timeout($sock, 1);
     while (!feof($sock)) {
         $data = @fread($sock, 4096);
         if ($data === false || $data === '') break;
@@ -50,7 +50,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "GET /t17_listing HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 5);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -82,7 +82,7 @@ foreach ($keys as $key) {
     $request = "GET /t17_listing/$key HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
     fwrite($sock, $request);
     $response = '';
-    stream_set_timeout($sock, 3);
+    stream_set_timeout($sock, 1);
     while (!feof($sock)) {
         $data = @fread($sock, 4096);
         if ($data === false || $data === '') break;
@@ -110,7 +110,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "PUT /t17_tabledel/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: " . strlen($content) . "\r\n\r\n$content";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -129,7 +129,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "DELETE /t17_tabledel HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -151,7 +151,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "GET /t17_tabledel/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -176,7 +176,7 @@ foreach ($bulkKeys as $key) {
     $request = "PUT /t17_bulk/$key HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: 50\r\n\r\n" . $bulkContents[$key];
     fwrite($sock, $request);
     $response = '';
-    stream_set_timeout($sock, 3);
+    stream_set_timeout($sock, 1);
     while (!feof($sock)) {
         $data = @fread($sock, 4096);
         if ($data === false || $data === '') break;
@@ -190,7 +190,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "BULK /t17_bulk HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nX-Delete: bulk_a\r\nX-Delete: bulk_c\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -207,7 +207,7 @@ foreach (['bulk_a', 'bulk_c'] as $key) {
     $request = "GET /t17_bulk/$key HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
     fwrite($sock, $request);
     $response = '';
-    stream_set_timeout($sock, 3);
+    stream_set_timeout($sock, 1);
     while (!feof($sock)) {
         $data = @fread($sock, 4096);
         if ($data === false || $data === '') break;
@@ -225,7 +225,7 @@ foreach (['bulk_b', 'bulk_d', 'bulk_e'] as $key) {
     $request = "GET /t17_bulk/$key HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
     fwrite($sock, $request);
     $response = '';
-    stream_set_timeout($sock, 3);
+    stream_set_timeout($sock, 1);
     while (!feof($sock)) {
         $data = @fread($sock, 4096);
         if ($data === false || $data === '') break;
@@ -251,7 +251,7 @@ for ($i = 0; $i < 10; $i++) {
     $request = "PUT /t17_paginate/k$i HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: 20\r\n\r\n$content";
     fwrite($sock, $request);
     $response = '';
-    stream_set_timeout($sock, 3);
+    stream_set_timeout($sock, 1);
     while (!feof($sock)) {
         $data = @fread($sock, 4096);
         if ($data === false || $data === '') break;
@@ -265,7 +265,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "GET /t17_paginate HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nX-Limit: 3\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;

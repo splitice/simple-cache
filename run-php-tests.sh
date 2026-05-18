@@ -1,17 +1,23 @@
 #!/bin/bash
-# run-consistency-tests.sh - Run PHP data consistency tests for simple-cache
-# Usage: ./run-consistency-tests.sh [port]
+# Run PHP data consistency tests for simple-cache
+# Usage: ./run-php-tests.sh [test-glob|test-file] [port]
+# Default test selector: test_*.php
 # Default port: 8081
 
 set -e
 
+killall scache 2>/dev/null || true
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
-PORT="${1:-8081}"
+TEST_SELECTOR="${1:-test_*.php}"
+RANDOM_PORT=$(shuf -i 8000-10000 -n 1)
+PORT="${2:-$RANDOM_PORT}"
 HOST="127.0.0.1"
 PIDFILE="/tmp/scache-consistency-test.pid"
 DBDIR="/tmp/scache-consistency-test-db"
-SCACHE_BIN="$PROJECT_DIR/src/server/scache"
+SCACHE_BIN_REAL="$SCRIPT_DIR/src/server/scache"
+SCACHE_BIN="$SCACHE_BIN_REAL"
+VALGRIND_WRAPPER="/tmp/scache-consistency-valgrind.sh"
 
 # Colors
 RED='\033[0;31m'
@@ -27,31 +33,55 @@ echo "simple-cache Data Consistency Tests"
 echo "=========================================="
 echo "Host: $HOST:$PORT"
 echo "DB:   $DBDIR"
+echo "Tests: $TEST_SELECTOR"
 echo ""
 
 # Build scache if needed
-if [ ! -x "$SCACHE_BIN" ]; then
+if [ ! -x "$SCACHE_BIN_REAL" ]; then
     echo -e "${YELLOW}Building simple-cache...${NC}"
-    cd "$PROJECT_DIR"
+    cd "$SCRIPT_DIR"
     make clean && make
-    if [ ! -x "$SCACHE_BIN" ]; then
+    if [ ! -x "$SCACHE_BIN_REAL" ]; then
         echo -e "${RED}Failed to build simple-cache${NC}"
         exit 1
     fi
 fi
 
+if [ "${SCACHE_VALGRIND:-0}" = "1" ]; then
+    cat > "$VALGRIND_WRAPPER" <<EOF
+#!/bin/bash
+exec valgrind ${SCACHE_VALGRIND_ARGS:---leak-check=full --show-leak-kinds=all} "$SCACHE_BIN_REAL" "\$@"
+EOF
+    chmod +x "$VALGRIND_WRAPPER"
+    SCACHE_BIN="$VALGRIND_WRAPPER"
+fi
+
+export SCACHE_PIDFILE="$PIDFILE"
+export SCACHE_DBDIR="$DBDIR"
+export SCACHE_BIN
+
 # Clean up any previous run
 cleanup() {
     if [ -f "$PIDFILE" ]; then
         PID=$(cat "$PIDFILE" 2>/dev/null)
-        if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
-            kill -9 "$PID" 2>/dev/null || true
+        if [ -n "$PID" ] && [ "$PID" != "0" ] && [ "$PID" != "" ] && kill -0 "$PID" 2>/dev/null; then
+            kill -TERM "$PID" 2>/dev/null || true
+            for _ in $(seq 1 50); do
+                if ! kill -0 "$PID" 2>/dev/null; then
+                    break
+                fi
+                sleep 0.1
+            done
+            if kill -0 "$PID" 2>/dev/null; then
+                kill -KILL "$PID" 2>/dev/null || true
+            fi
         fi
         rm -f "$PIDFILE"
     fi
     rm -rf "$DBDIR"
 }
 cleanup
+trap 'rm -f "$VALGRIND_WRAPPER"' EXIT
 
 # Start server
 start_server() {
@@ -107,20 +137,41 @@ run_test() {
     fi
 }
 
-# Start server with default config
-start_server "" || exit 1
+server_args_for_test() {
+    local test_name="$1"
+
+    case "$test_name" in
+        test_15_*)
+            # LRU eviction coverage requires a finite cache size.
+            printf '%s' "--database-max-size 50000 --database-lru-clear 10"
+            ;;
+        *)
+            printf '%s' ""
+            ;;
+    esac
+}
 
 echo ""
 echo "Running tests..."
 echo ""
 
 # Run all consistency test files
-cd "$SCRIPT_DIR"
-for test_file in test_5_*.php test_6_*.php test_7_*.php test_8_*.php test_9_*.php test_10_*.php test_11_*.php test_12_*.php test_13_*.php test_14_*.php test_15_*.php test_16_*.php test_17_*.php; do
+cd "$SCRIPT_DIR/tests/php"
+matched_any=0
+for test_file in $TEST_SELECTOR; do
     if [ -f "$test_file" ]; then
+        matched_any=1
+        cleanup
+        start_server "$(server_args_for_test "$test_file")" || exit 1
         run_test "$test_file"
     fi
 done
+
+if [ "$matched_any" -eq 0 ]; then
+    echo -e "${RED}No tests matched selector: $TEST_SELECTOR${NC}"
+    cleanup
+    exit 1
+fi
 
 echo ""
 echo "=========================================="

@@ -33,7 +33,7 @@ assertOrDie($sock !== false, "Could not connect: $errstr");
 $request = "DELETE /t12_race/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -62,7 +62,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "GET /t12_race/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -92,7 +92,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "PUT /t12_race2/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: " . strlen($originalContent) . "\r\n\r\n$originalContent";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -108,7 +108,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "DELETE /t12_race2/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -125,7 +125,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "PUT /t12_race2/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: " . strlen($newContent) . "\r\n\r\n$newContent";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -141,7 +141,7 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "GET /t12_race2/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
@@ -167,7 +167,7 @@ for ($i = 0; $i < 10; $i++) {
     $request = "PUT /t12_cycle/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: 50\r\n\r\n$content";
     fwrite($sock, $request);
     $response = '';
-    stream_set_timeout($sock, 3);
+    stream_set_timeout($sock, 1);
     while (!feof($sock)) {
         $data = @fread($sock, 4096);
         if ($data === false || $data === '') break;
@@ -186,7 +186,7 @@ for ($i = 0; $i < 10; $i++) {
     $request = "DELETE /t12_cycle/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
     fwrite($sock, $request);
     $response = '';
-    stream_set_timeout($sock, 3);
+    stream_set_timeout($sock, 1);
     while (!feof($sock)) {
         $data = @fread($sock, 4096);
         if ($data === false || $data === '') break;

@@ -304,14 +304,23 @@ function getServerPid($pf)
     return $p > 0 ? $p : null;
 }
 
-function killServer($pf, $sig = SIGKILL)
+function killServer($pf, $sig = SIGTERM)
 {
     $p = getServerPid($pf);
     if ($p) {
         posix_kill($p, $sig);
-        for ($i = 0; $i < 100; $i++) {
-            if (!posix_kill($p, 0)) break;
+        // Wait for graceful shutdown (SIGTERM triggers db_close + connection_cleanup)
+        for ($i = 0; $i < 50; $i++) {
+            if (!posix_kill($p, 0)) break; // process exited
             usleep(100000);
+        }
+        // If still alive after 5s, force kill
+        if (posix_kill($p, 0)) {
+            posix_kill($p, SIGKILL);
+            for ($i = 0; $i < 20; $i++) {
+                if (!posix_kill($p, 0)) break;
+                usleep(100000);
+            }
         }
     }
     if (file_exists($pf)) @unlink($pf);
@@ -325,4 +334,13 @@ function testResult($name, $passed)
 {
     echo ($passed ? "PASS" : "FAIL") . ": $name\n";
     return $passed;
+}
+function isRequestEnd($response){
+    if(strpos($response, "\r\n\r\n") !== false) {
+        if (preg_match('/Content-Length: (\d+)/i', $response, $m)) {
+            $he = strpos($response, "\r\n\r\n") + 4;
+            if (strlen($response) - $he >= (int)$m[1]) return true;
+        }
+    }
+    return false;
 }

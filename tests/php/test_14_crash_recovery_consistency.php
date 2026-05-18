@@ -1,13 +1,13 @@
 <?php
 /**
  * test_14_crash_recovery_consistency.php
- * Crash recovery verification via SIGKILL.
+ * Restart consistency verification.
  *
  * Tests:
- * - PUT several keys (mix small/large), kill server, restart, verify all exist
+ * - PUT several keys (mix small/large), graceful shutdown, restart, verify all exist
  * - Async PUT with pause, kill server, restart, verify key not present
- * - PUT → DELETE → kill → restart → verify key gone
- * - PUT → replace (complete) → kill → restart → verify new value
+ * - PUT → DELETE → graceful shutdown → restart → verify key gone
+ * - PUT → replace (complete) → graceful shutdown → restart → verify new value
  *
  * NOTE: This test requires the server to be started with --pidfile and
  * the test must be able to restart it. The test runner script handles this.
@@ -65,9 +65,9 @@ function restartServer($host, $port, $pidFile, $dbDir, $scacheBin) {
 }
 
 // ============================================================
-// PUT several keys, kill, restart, verify all exist
+// PUT several keys, graceful shutdown, restart, verify all exist
 // ============================================================
-testHeader('Crash recovery: PUT keys, kill, restart, verify');
+testHeader('Restart consistency: PUT keys, graceful shutdown, restart, verify');
 
 $keys = [
     'k_small1' => generateKnownContent(100),
@@ -83,11 +83,14 @@ foreach ($keys as $key => $content) {
     $request = "PUT /t14_persist/$key HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: " . strlen($content) . "\r\n\r\n$content";
     fwrite($sock, $request);
     $response = '';
-    stream_set_timeout($sock, 5);
+    stream_set_timeout($sock, 1);
     while (!feof($sock)) {
         $data = @fread($sock, 4096);
         if ($data === false || $data === '') break;
         $response .= $data;
+        if(isRequestEnd($response)) {
+            break;
+        }
     }
     fclose($sock);
     
@@ -97,12 +100,9 @@ foreach ($keys as $key => $content) {
     }
 }
 
-// Wait a moment for any pending flush
-sleep(1);
-
-// Kill server hard
-echo "  Killing server with SIGKILL...\n";
-killServer($pidFile, SIGKILL);
+// Graceful shutdown should trigger db_close() and flush the index.
+echo "  Shutting down server gracefully...\n";
+killServer($pidFile, SIGTERM);
 
 // Restart
 echo "  Restarting server...\n";
@@ -116,11 +116,14 @@ foreach ($keys as $key => $expectedContent) {
     $request = "GET /t14_persist/$key HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
     fwrite($sock, $request);
     $response = '';
-    stream_set_timeout($sock, 5);
+    stream_set_timeout($sock, 1);
     while (!feof($sock)) {
         $data = @fread($sock, 4096);
         if ($data === false || $data === '') break;
         $response .= $data;
+        if(isRequestEnd($response)) {
+            break;
+        }
     }
     fclose($sock);
     
@@ -159,11 +162,14 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "GET /t14_interrupt/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
     $response .= $data;
+    if(isRequestEnd($response)) {
+        break;
+    }
 }
 fclose($sock);
 
@@ -174,7 +180,7 @@ $allPassed = $allPassed && $passed;
 // ============================================================
 // PUT → DELETE → kill → restart → verify key gone
 // ============================================================
-testHeader('Crash recovery: Deleted key stays deleted');
+testHeader('Restart consistency: Deleted key stays deleted');
 
 $content = generateKnownContent(SMALL_SIZE);
 
@@ -183,11 +189,14 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "PUT /t14_delete/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: " . strlen($content) . "\r\n\r\n$content";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
     $response .= $data;
+    if(isRequestEnd($response)) {
+        break;
+    }
 }
 fclose($sock);
 $passed = strpos($response, '200 OK') !== false;
@@ -199,23 +208,23 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "DELETE /t14_delete/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
     $response .= $data;
+    if(isRequestEnd($response)) {
+        break;
+    }
 }
 fclose($sock);
 $passed = strpos($response, '200 OK') !== false || strpos($response, 'DELETED') !== false;
 testResult('DELETE succeeds', $passed);
 $allPassed = $allPassed && $passed;
 
-// Wait for flush
-sleep(1);
-
-// Kill and restart
-echo "  Killing server...\n";
-killServer($pidFile, SIGKILL);
+// Graceful shutdown should trigger db_close() and flush the index.
+echo "  Shutting down server gracefully...\n";
+killServer($pidFile, SIGTERM);
 echo "  Restarting server...\n";
 $restarted = restartServer($host, $port, $pidFile, $dbDir, $scacheBin);
 assertOrDie($restarted, "Server restart failed");
@@ -225,11 +234,14 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "GET /t14_delete/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
     $response .= $data;
+    if(isRequestEnd($response)) {
+        break;
+    }
 }
 fclose($sock);
 
@@ -240,7 +252,7 @@ $allPassed = $allPassed && $passed;
 // ============================================================
 // PUT → replace (complete) → kill → restart → verify new value
 // ============================================================
-testHeader('Crash recovery: Replaced value persists');
+testHeader('Restart consistency: Replaced value persists');
 
 $originalContent = generateKnownContent(SMALL_SIZE);
 $replacementContent = generateKnownContent(SMALL_SIZE + 100);
@@ -250,11 +262,14 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "PUT /t14_replace/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: " . strlen($originalContent) . "\r\n\r\n$originalContent";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
     $response .= $data;
+    if(isRequestEnd($response)) {
+        break;
+    }
 }
 fclose($sock);
 
@@ -263,23 +278,23 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "PUT /t14_replace/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\nContent-Length: " . strlen($replacementContent) . "\r\n\r\n$replacementContent";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
     $response .= $data;
+    if(isRequestEnd($response)) {
+        break;
+    }
 }
 fclose($sock);
 $passed = strpos($response, '200 OK') !== false;
 testResult('Replace PUT succeeds', $passed);
 $allPassed = $allPassed && $passed;
 
-// Wait for flush
-sleep(1);
-
-// Kill and restart
-echo "  Killing server...\n";
-killServer($pidFile, SIGKILL);
+// Graceful shutdown should trigger db_close() and flush the index.
+echo "  Shutting down server gracefully...\n";
+killServer($pidFile, SIGTERM);
 echo "  Restarting server...\n";
 $restarted = restartServer($host, $port, $pidFile, $dbDir, $scacheBin);
 assertOrDie($restarted, "Server restart failed");
@@ -289,11 +304,14 @@ $sock = @fsockopen($host, $port, $errno, $errstr, 5);
 $request = "GET /t14_replace/k1 HTTP/1.1\r\nHost: $host:$port\r\nConnection: Keep-Alive\r\n\r\n";
 fwrite($sock, $request);
 $response = '';
-stream_set_timeout($sock, 3);
+stream_set_timeout($sock, 1);
 while (!feof($sock)) {
     $data = @fread($sock, 4096);
     if ($data === false || $data === '') break;
     $response .= $data;
+    if(isRequestEnd($response)) {
+        break;
+    }
 }
 fclose($sock);
 

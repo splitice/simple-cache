@@ -4,7 +4,11 @@ use Splitice\SimpleCache\ApiClient;
 
 require ("vendor/autoload.php");
 
-$ac = new ApiClient("http://127.0.0.1:8081");
+
+
+$host = $argv[1] ?? '127.0.0.1';
+$port = (int)($argv[2] ?? 8081);
+$ac = new ApiClient("http://$host:$port");
 
 function generateRandomString($length = 10) {
     $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -26,7 +30,7 @@ for($i = 0; $i < 20; $i++) {
     $ret = $ac->key_get("t1", $i);
     if($ret != $content) {
         echo "FAILED";
-        echo var_dump($ret);
+        var_dump($ret);
         exit(1);
     }
 }

@@ -6,7 +6,9 @@ Core Constraints:
  - Low overhead
  - Trusted clients but crash safe
 
-Testing: run-test.sh`
+Testing: 
+1. C++ tests: run-test.sh
+2. PHP test: run-php-tests.sh
 
 Building: `make`
 
